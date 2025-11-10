@@ -40,7 +40,7 @@ func (c *SettingsController) Post() {
 	_ = settings.Read("Profile")
 	if err := c.ParseForm(&settings); err != nil {
 		logs.Warning(err)
-		flash.Error(err.Error())
+		flash.Error("%s", err.Error())
 		flash.Store(&c.Controller)
 		return
 	}
@@ -48,7 +48,7 @@ func (c *SettingsController) Post() {
 
 	o := orm.NewOrm()
 	if _, err := o.Update(&settings); err != nil {
-		flash.Error(err.Error())
+		flash.Error("%s", err.Error())
 	} else {
 		flash.Success("Settings has been updated")
 		state.GlobalCfg = settings

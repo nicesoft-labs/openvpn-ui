@@ -3,7 +3,7 @@
 #
 
 # All the variables
-GOVERSION="1.22.3"
+GOVERSION="1.24.3"
 
 # Description
 echo "This script will install OpenVPN-UI and all the dependencies on your local environment. No containers will be used."
@@ -28,19 +28,19 @@ then
         arch=$(uname -m)
         if [[ "$arch" == "x86_64" ]]; then
             # Install Go for x86_64
-            wget https://golang.org/dl/go${GOVERSION}.linux-amd64.tar.gz
+            wget https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz
             sudo tar -C /usr/local -xzf go${GOVERSION}.linux-amd64.tar.gz
         elif [[ "$arch" == "aarch64" ]]; then
             # Install Go for arm64
-            wget https://golang.org/dl/go${GOVERSION}.linux-arm64.tar.gz
+            wget https://go.dev/dl/go${GOVERSION}.linux-arm64.tar.gz
             sudo tar -C /usr/local -xzf go${GOVERSION}.linux-arm64.tar.gz
         elif [[ "$arch" == "armv7l" ]]; then
             # Install Go for armv7l
-            wget https://golang.org/dl/go${GOVERSION}.linux-armv7l.tar.gz
+            wget https://go.dev/dl/go${GOVERSION}.linux-armv7l.tar.gz
             sudo tar -C /usr/local -xzf go${GOVERSION}.linux-armv7l.tar.gz
         elif [[ "$arch" == "armv6l" ]]; then
             # Install Go for armv6l
-            wget https://golang.org/dl/go${GOVERSION}.linux-armv6l.tar.gz
+            wget https://go.dev/dl/go${GOVERSION}.linux-armv6l.tar.gz
             sudo tar -C /usr/local -xzf go${GOVERSION}.linux-armv6l.tar.gz
         else
             echo "Unsupported architecture."

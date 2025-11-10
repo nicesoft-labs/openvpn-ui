@@ -236,13 +236,13 @@ sudo apt-get install docker.io -y
 sudo systemctl restart docker
 ```
 
-To install Golang go to [https://go.dev/dl](https://go.dev/dl/) and copy download URL for Go1.20.X version of your arch and follow the instructions below.
+To install Golang go to [https://go.dev/dl](https://go.dev/dl/) and copy download URL for Go1.24.X version of your arch and follow the instructions below.
 
 Example for ARM64:
 
 ```shell
-wget https://golang.org/dl/go1.20.linux-arm64.tar.gz
-sudo tar -C /usr/local -xzf go1.20.linux-arm64.tar.gz
+wget https://go.dev/dl/go1.24.3.linux-arm64.tar.gz
+sudo tar -C /usr/local -xzf go1.24.3.linux-arm64.tar.gz
 echo "export PATH=$PATH:/usr/local/go/bin" >> /etc/profile
 source /etc/profile
 go version 
@@ -274,11 +274,11 @@ Here is installation process example:
 superdude@bookworm64:~/build/openvpn-ui/build$ ./standalone-install.sh
 This script will install OpenVPN-UI and all the dependencies on your local environment. No containers will be used.
 Do you want to continue? (y/n)y
-Golang version 1.21 is not installed.
+Golang version 1.24 is not installed.
 Would you like to install it? (y/n) y
---2024-02-20 16:37:47--  https://golang.org/dl/go1.21.5.linux-amd64.tar.gz
-go1.21.5.linux-amd64.tar.gz      100%[========================================================>]  63.53M  3.01MB/s    in 20s
-2024-02-20 16:38:08 (3.23 MB/s) - 'go1.21.5.linux-amd64.tar.gz' saved [66618285/66618285]
+--2025-03-12 09:14:05--  https://go.dev/dl/go1.24.3.linux-amd64.tar.gz
+go1.24.3.linux-amd64.tar.gz      100%[========================================================>]  77.12M  3.85MB/s    in 20s
+2025-03-12 09:14:25 (3.86 MB/s) - 'go1.24.3.linux-amd64.tar.gz' saved [80838272/80838272]
 Would you like to run apt-get update? (y/n) y
 Updating current environment with apt-get update
 [sudo] password for superdude:
