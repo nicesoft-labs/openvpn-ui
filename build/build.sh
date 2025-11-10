@@ -10,7 +10,8 @@ case $ARCH in
     PLATFORM="linux/arm/v5"
     #UIIMAGE="FROM arm32v5/debian:stable-slim"
     UIIMAGE="FROM arm32v6/alpine" #moving to unstable because it has easy-rsa v3.1.6 which supports cert renewal
-    BEEIMAGE="FROM arm32v5/golang:1.24.3-bookworm"
+    # arm32v5 images are not published for Go 1.24.3; stay on the latest available tag.
+    BEEIMAGE="FROM arm32v5/golang:1.21-bookworm"
     ;;
   armv7*)
     PLATFORM="linux/arm/v7"
