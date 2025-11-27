@@ -1,12 +1,12 @@
 {{ template "layout/base.html" . }}
 {{define "head"}}
-<title>OpenVPN - Logs</title>
+<title>OpenVPN - Логи</title>
 {{end}}
 
 {{define "body"}}
 <div class="card card-default">
   <div class="card-header with-border">
-    <h3 class="card-title">OpenVPN Server log</h3>
+    <h3 class="card-title">Журнал сервера OpenVPN</h3>
       <div class="pull-right card-tools">
         <button type="button" class="btn btn-tool" data-card-widget="collapse">
           <i class="fa fa-minus"></i></button>
@@ -24,7 +24,7 @@
         </textarea>
       </div>
     </form>
-    <span id="helpBlock" class="text-muted">Last 300 lines of openvpn.log</span>
+    <span id="helpBlock" class="text-muted">Последние 300 строк файла openvpn.log</span>
   </div>
   <!-- /.card-body -->
 </div>  
@@ -33,15 +33,13 @@
 </script-->
 
 <script>
-  // Check if "themeEditor" is set in localStorage
+  // Проверка значения "theme" в localStorage
   if (localStorage.getItem("theme") === "dark") {
     createEditor("Logs", "700px", "clouds_midnight", "ovpn", true);
   } else {
     createEditor("Logs", "700px", "clouds", "ovpn", true);
   }
 </script>
-
-
 
 <!-- /.box -->
 {{end}}
