@@ -1,7 +1,7 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>OpenVPN - Settings</title>
+<title>OpenVPN - Настройки</title>
 {{end}}
 
 {{define "body"}}
@@ -10,7 +10,7 @@
   <div class="col-md-12">
     <div class="card card-default">
       <div class="card-header">
-        <h3 class="card-title"> {{ if eq (printf "%d" $.SettingsC.FuncMode) "1" }}2FA Authorisation is <b style="color: #00a65a;">Enabled</b></h3>{{else}}<h3 class="card-title"> Client Certificates</h3>{{end}}
+        <h3 class="card-title"> {{ if eq (printf "%d" $.SettingsC.FuncMode) "1" }}2FA-аутентификация <b style="color: #00a65a;">включена</b></h3>{{else}}<h3 class="card-title"> Клиентские сертификаты</h3>{{end}}
         <div class="card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse">
           <i class="fa fa-minus"></i></button>
@@ -25,14 +25,14 @@
           <table class="table no-margin">
             <thead>
             <tr>
-              <th>Name</th>
-              <th>State</th>
-              <th>Static IP</th>
-              <th>Expiration</th>
-              <th>Revocation</th>
+              <th>Имя</th>
+              <th>Состояние</th>
+              <th>Статический IP</th>
+              <th>Срок действия</th>
+              <th>Отзыв</th>
               <!--th>Serial</th-->
-              <th>Details</th>
-              <th>Actions</th>
+              <th>Сведения</th>
+              <th>Действия</th>
             </tr>
             </thead>
             <tbody>
@@ -104,20 +104,20 @@
                   {{end}}
                     <td class="align-middle">
                   {{ if and (eq .Revocation "") (ne .Details.Name "") }}
-                      <a href="{{urlfor "CertificatesController.Renew" ":key" .Details.Name ":localip" .Details.LocalIP ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-primary btn-xs" title="Renew" style="font-size: 80%;">Renew</a>
+                      <a href="{{urlfor "CertificatesController.Renew" ":key" .Details.Name ":localip" .Details.LocalIP ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-primary btn-xs" title="Продлить" style="font-size: 80%;">Продлить</a>
                   {{else}}
-                      <a class="btn btn-default btn-xs" disabled>Renew</a>
+                      <a class="btn btn-default btn-xs" disabled>Продлить</a>
                   {{end}}
 
                   {{ if and (eq .Revocation "") (ne .Details.Name "") }}
-                      <a href="{{urlfor "CertificatesController.Revoke" ":key" .Details.Name ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-warning btn-xs" title="Revoke" style="font-size: 80%;">Revoke</a>
+                      <a href="{{urlfor "CertificatesController.Revoke" ":key" .Details.Name ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-warning btn-xs" title="Отозвать" style="font-size: 80%;">Отозвать</a>
                   {{else}}
-                      <a class="btn btn-default btn-xs" disabled>Revoke</a>
+                      <a class="btn btn-default btn-xs" disabled>Отозвать</a>
                   {{end}}
                   {{ if eq .Revocation ""}}
-                      <a class="btn btn-default btn-xs" disabled>Delete</a>
+                      <a class="btn btn-default btn-xs" disabled>Удалить</a>
                   {{else}}
-                      <a href="{{urlfor "CertificatesController.Burn" ":key" .Details.CN ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-danger btn-xs" title="Burn" style="font-size: 80%;">Delete</a>
+                      <a href="{{urlfor "CertificatesController.Burn" ":key" .Details.CN ":serial" .Serial ":tfaname" .Details.TFAName}}" class="btn btn-danger btn-xs" title="Безвозвратное удаление" style="font-size: 80%;">Удалить</a>
                   {{end}}
                     </td>
               </tr>
@@ -125,8 +125,8 @@
                 <div class="modal-dialog">
                   <div class="modal-content">
                     <div class="modal-header">
-                      <h4 class="modal-title">{{ .Details.CN }} Details</h4>
-                      <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <h4 class="modal-title">Сведения о {{ .Details.CN }}</h4>
+                      <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
                       <span aria-hidden="true">&times;</span></button>
                     </div>
                     <div class="modal-body">
@@ -135,40 +135,40 @@
                         {{ if eq (printf "%d" $.SettingsC.FuncMode) "1" }}
                         <!--dt class="copy-details">2FA Issuer String: </dt>
                         <dd class="copy-details">{{ $.SettingsC.TFAIssuer }}</dd-->
-                        <dt class="copy-details"><b><h4>2FA Name: </h4></b></dt>
+                        <dt class="copy-details"><b><h4>Имя для 2FA: </h4></b></dt>
                         <dd class="copy-details 2fa-name"><h4 style="color: #3c8dbc">{{ .Details.TFAName }}</h4></dd>
-                        <dt class="copy-details"><b><h5>Certificate Name:</h5></b></dt>
+                        <dt class="copy-details"><b><h5>Имя сертификата:</h5></b></dt>
                         <dd class="copy-details cert-name"><h5 style="color: #3c8dbc">{{ .Details.CN }}</h5></dd>
                         {{else}}
-                        <dt class="copy-details"><b><h4>Name: </h4></b></dt>
+                        <dt class="copy-details"><b><h4>Имя: </h4></b></dt>
                         <dd class="copy-details cert-name"><h4 style="color: #3c8dbc">{{ .Details.CN }}</h4></dd>
                         {{end}}
-                        <dt class="copy-details">Status: </dt>
-                        <dd class="copy-details">{{if eq .EntryType "V"}}<span class="badge bg-success" style="font-size: 110%;" >Valid</span>{{else if eq .EntryType "R"}}<span class="badge bg-danger" style="font-size: 110%;">Revoked</span>{{else}}Unknown{{end}}</dd>
-                        <dt class="copy-details">Expiration Time: </dt>
-                        <dd class="copy-details exp-time">{{ if and .IsExpiring (eq .Revocation "") (ne .Details.Name "") }}<span class="badge bg-warning" style="font-size: 110%;">{{ dateformat .ExpirationT "2006-01-02 15:04"}} <b> This Certificate will soon expire!</b></span>{{else}}<span class="badge bg-success">{{ dateformat .ExpirationT "2006-01-02 15:04"}}</span>{{end}}</dd>
-                        <dt class="copy-details">Revoke Time: </dt>
-                        <dd class="copy-details">{{if ne .Revocation ""}} <span class="badge bg-warning" style="font-size: 110%;">{{ dateformat .RevocationT "2006-01-02 15:04"}}</span> {{else}}<span id="helpBlock" class="text-muted">Not Revoked</span>{{end}}</dd>
-                        <dt class="copy-details">IP Address: </dt>
+                        <dt class="copy-details">Статус: </dt>
+                        <dd class="copy-details">{{if eq .EntryType "V"}}<span class="badge bg-success" style="font-size: 110%;" >Действителен</span>{{else if eq .EntryType "R"}}<span class="badge bg-danger" style="font-size: 110%;">Отозван</span>{{else}}Неизвестно{{end}}</dd>
+                        <dt class="copy-details">Время окончания: </dt>
+                        <dd class="copy-details exp-time">{{ if and .IsExpiring (eq .Revocation "") (ne .Details.Name "") }}<span class="badge bg-warning" style="font-size: 110%;">{{ dateformat .ExpirationT "2006-01-02 15:04"}} <b> Срок действия сертификата скоро истечёт!</b></span>{{else}}<span class="badge bg-success">{{ dateformat .ExpirationT "2006-01-02 15:04"}}</span>{{end}}</dd>
+                        <dt class="copy-details">Время отзыва: </dt>
+                        <dd class="copy-details">{{if ne .Revocation ""}} <span class="badge bg-warning" style="font-size: 110%;">{{ dateformat .RevocationT "2006-01-02 15:04"}}</span> {{else}}<span id="helpBlock" class="text-muted">Не отозван</span>{{end}}</dd>
+                        <dt class="copy-details">IP-адрес: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Details.LocalIP }}</span></dd>
-                        <dt class="copy-details">Serial: </dt>
+                        <dt class="copy-details">Серийный номер: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Serial }}</span></dd>
-                        <dt class="copy-details">Registered e-mail: </dt>
+                        <dt class="copy-details">Зарегистрированный e-mail: </dt>
                         <dd class="copy-details reg-email"><a href="mailto:{{ .Details.Email }}">{{ .Details.Email }}</a></dd>
-                        <dt class="copy-details">Registered Country: </dt>
+                        <dt class="copy-details">Страна регистрации: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Details.Country }}</span></dd>
-                        <dt class="copy-details">Registered State/Region: </dt>
+                        <dt class="copy-details">Регион/область регистрации: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Details.State }}</span></dd>
-                        <dt class="copy-details">Registered City: </dt>
+                        <dt class="copy-details">Город регистрации: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Details.City }}</span></dd>
-                        <dt class="copy-details">Registered Organisation: </dt>
+                        <dt class="copy-details">Организация: </dt>
                         <dd class="copy-details reg-org"><span id="helpBlock" class="text-muted">{{ .Details.Organisation }}</span></dd>
-                        <dt class="copy-details">Registered Unit: </dt>
+                        <dt class="copy-details">Подразделение: </dt>
                         <dd class="copy-details"><span id="helpBlock" class="text-muted">{{ .Details.OrganisationUnit }}</span></dd>
                         {{ if eq (printf "%d" $.SettingsC.FuncMode) "1" }}
                         <!--dt class="copy-details">2FA Issuer String: </dt>
                         <dd class="copy-details">{{ $.SettingsC.TFAIssuer }}</dd-->
-                        <dt class="copy-details">Two Factor Authorisation (2FA) QR Code:</dt>
+                        <dt class="copy-details">QR-код для двухфакторной аутентификации (2FA):</dt>
                         <dd class="copy-details">
                           {{ if and (eq .EntryType "V") (ne .Details.Name "") }}
                             <div class="text-left qr-code">
@@ -179,9 +179,9 @@
                         {{end}}
                       </dl>
                       <div class="modal-footer justify-content-between">
-                        <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary copy-btn copy-modal-data-btn" style="width: 135px;">Copy</button>
-                        <button type="button" class="btn btn-success send-email-with-qr-btn" style="width: 135px;">Send Email</button>
+                        <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Закрыть</button>
+                        <button type="submit" class="btn btn-primary copy-btn copy-modal-data-btn" style="width: 135px;">Копировать</button>
+                        <button type="button" class="btn btn-success send-email-with-qr-btn" style="width: 135px;">Отправить письмо</button>
                       </div>
                       </div>
                     </div>
@@ -195,7 +195,7 @@
         </div>
       </div>
       <!--else
-          It seems OpenVPN CA creation still in progress or you do have problems with your OpenVPN Server configuration
+          Похоже, создание OpenVPN CA ещё продолжается или есть проблемы с конфигурацией сервера OpenVPN
       end-->
       <div class="box-footer clearfix">
       </div>
@@ -209,7 +209,7 @@
   <div class="col-md-12">
     <div class="card card-primary">
       <div class="card-header with-border">
-        <h3 class="card-title">Create New Client Certificate</h3>
+        <h3 class="card-title">Создать новый клиентский сертификат</h3>
         <div class="pull-left card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse">
           <i class="fa fa-minus"></i></button>
@@ -219,7 +219,7 @@
         {{template "common/alert.html" .}}
       <div class="card-body">
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-default">
-          Create Certificate
+          Создать сертификат
         </button>
         <span class="text-muted"> {{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
       </div>
@@ -231,8 +231,8 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Create Certificate</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <h4 class="modal-title">Создать сертификат</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
         <span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body" id="FuncMode" value="{{ $.SettingsC.FuncMode }}">
@@ -242,78 +242,78 @@
         <form role="form" action="{{urlfor "CertificatesController.Post"}}" method="post">
           <div class="box-body">
             <div class="form-group has-success {{if field_error_exist .validation "Name" }}has-error{{end}}">
-              <label class="control-label" for="name" title="Name should not have spaces."><i class="fa fa-bell-o"></i>Name</label>
-              <input type="text" class="form-control is-warning" pattern="^[^\s]+$" placeholder="Certificate Name" id="Name" name="Name">
-              <span class="text-muted" title="Name should not have spaces.">Common name of the certificate.<span>
+              <label class="control-label" for="name" title="Имя не должно содержать пробелы."><i class="fa fa-bell-o"></i>Имя</label>
+              <input type="text" class="form-control is-warning" pattern="^[^\s]+$" placeholder="Имя сертификата" id="Name" name="Name">
+              <span class="text-muted" title="Имя не должно содержать пробелы.">Общее имя (CN) сертификата.<span>
             </div>
 
             {{ if eq (printf "%d" $.SettingsC.FuncMode) "1" }}
             <div class="form-group has-success {{if field_error_exist .validation "TFAName" }}has-error{{end}}">
-              <label class="control-label" for="tfaname" title="2FAName should not have spaces."><i class="fa fa-bell-o"></i>2FA Name</label>
+              <label class="control-label" for="tfaname" title="Имя 2FA не должно содержать пробелы."><i class="fa fa-bell-o"></i>Имя 2FA</label>
               <input type="text" class="form-control is-warning" pattern="^[^\s]+$" placeholder="alice@wonderland.ua" id="TFAName" name="TFAName">
-              <span class="text-muted" title="Name should not have spaces.">Unique 2FA name of the certificate.<span>
+              <span class="text-muted" title="Имя не должно содержать пробелы.">Уникальное имя 2FA для сертификата.<span>
             </div>
 
             <div class="form-group" id="tfa-issuer">
-              <label class="control-label" for="tfaissuer" title="TFAIssuer should have URL format."></i>2FA Issuer String</label>
+              <label class="control-label" for="tfaissuer" title="Значение должно быть в формате URL."></i>Строка издателя 2FA</label>
               <input type="text" class="form-control" placeholder="MFA%20OpenVPN-UI" id="tfaissuer" name="TFAIssuer" value="{{ $.SettingsC.TFAIssuer }}">
-              <span class="text-muted" title="Name should not have spaces.">2FA Issuer for the QR Code sting.<span>
+              <span class="text-muted">Издатель 2FA для строки QR-кода.<span>
             </div>
             {{end}}
     
             <div class="form-group">
-              <label for="name">Passphrase (Optional)</label>
-              <input type="password" class="form-control" placeholder="Enter Password" id="password-input" id="passphrase" name="passphrase">
-              <a href="#" class="password-control" title="Show or Hide Password"></a>
-              <span class="text-muted">Passphrase is used for privte key protection.</span>
+              <label for="name">Парольная фраза (необязательно)</label>
+              <input type="password" class="form-control" placeholder="Введите пароль" id="password-input" id="passphrase" name="passphrase">
+              <a href="#" class="password-control" title="Показать/скрыть пароль"></a>
+              <span class="text-muted">Парольная фраза используется для защиты закрытого ключа.</span>
             </div>
     
             <div class="form-group">
-              <label for="name" title="IPv4 without subnet">Client Static IP (Optional)</label>
-              <input type="text" class="form-control" placeholder="Enter Static IP" pattern="^(\d{1,3}\.){3}\d{1,3}$" id="staticip" name="staticip">
-              <span class="text-muted">Client Static IP used as a local Client IP for subnet split.</span>
+              <label for="name" title="IPv4 без подсети">Статический IP клиента (необязательно)</label>
+              <input type="text" class="form-control" placeholder="Введите статический IP" pattern="^(\d{1,3}\.){3}\d{1,3}$" id="staticip" name="staticip">
+              <span class="text-muted">Статический IP клиента используется как локальный IP для разделения подсетей.</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_EMAIL">Client Email</label>
-              <input type="email" class="form-control" placeholder="Client Email" id="EasyRSAReqEmail" name="EasyRSAReqEmail" value="{{ .EasyRSA.EasyRSAReqEmail }}">
-              <span class="text-muted">The New Client e-mail address.</span>
+              <label for="name" title="EASYRSA_REQ_EMAIL">Email клиента</label>
+              <input type="email" class="form-control" placeholder="Email клиента" id="EasyRSAReqEmail" name="EasyRSAReqEmail" value="{{ .EasyRSA.EasyRSAReqEmail }}">
+              <span class="text-muted">Адрес электронной почты нового клиента.</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_COUNTRY">Expired Days</label>
+              <label for="name" title="Срок действия сертификата в днях">Срок действия (дней)</label>
               <input type="number" min="1" class="form-control" placeholder="825" pattern="^\d{1,6}$" id="EasyRSACertExpire" name="EasyRSACertExpire" value="{{ .EasyRSA.EasyRSACertExpire }}">
-              <span class="text-muted">Number of days until Client certificate expire. The recommended value is 825.</span>
+              <span class="text-muted">Количество дней до окончания срока действия клиентского сертификата. Рекомендуется 825.</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="Cert days to expire">Client Country Name</label>
+              <label for="name" title="EASYRSA_REQ_COUNTRY">Страна клиента</label>
               <input type="text" class="form-control" placeholder="UA" pattern="^[A-Za-z]{2}$" id="EasyRSAReqCountry" name="EasyRSAReqCountry" value="{{ .EasyRSA.EasyRSAReqCountry }}">
-              <span class="text-muted">The two-letter DN Organisational field for Country Code (e.g. UA).</span>
+              <span class="text-muted">Двухбуквенный код страны (например, UA).</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_PROVINCE">Client State or Region Name</label>
+              <label for="name" title="EASYRSA_REQ_PROVINCE">Код региона/штата клиента</label>
               <input type="text" class="form-control" placeholder="KY" pattern="^[A-Za-z]{2}$" id="EasyRSAReqProvince" name="EasyRSAReqProvince" value="{{ .EasyRSA.EasyRSAReqProvince }}">
-              <span class="text-muted">The two-letter DN Organisational field for province code (e.g. KY for "Kyiv region").</span>
+              <span class="text-muted">Двухбуквенный код региона (например, KY для «Киевской области»).</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_CITY">Client City Name</label>
+              <label for="name" title="EASYRSA_REQ_CITY">Город клиента</label>
               <input type="text" class="form-control" placeholder="Kyiv" id="EasyRSAReqCity" name="EasyRSAReqCity" value="{{ .EasyRSA.EasyRSAReqCity }}">
-              <span class="text-muted">The city of DN Organisation.</span>
+              <span class="text-muted">Город в DN организации.</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_ORG">Client Organisation</label>
+              <label for="name" title="EASYRSA_REQ_ORG">Организация клиента</label>
               <input type="text" class="form-control" placeholder="SweetHome" id="EasyRSAReqOrg" name="EasyRSAReqOrg" value="{{ .EasyRSA.EasyRSAReqOrg }}">
-              <span class="text-muted">The Client name of DN Organisation.</span>
+              <span class="text-muted">Название организации клиента в DN.</span>
             </div>
 
             <div class="form-group">
-              <label for="name" title="EASYRSA_REQ_OU">Client Organisation Unit Name</label>
+              <label for="name" title="EASYRSA_REQ_OU">Подразделение клиента</label>
               <input type="text" class="form-control" placeholder="GarageVPN" id="EasyRSAReqOu" name="EasyRSAReqOu" value="{{ .EasyRSA.EasyRSAReqOu }}">
-              <span class="text-muted">The Client Organisational Unit of DN Organisation.</span>
+              <span class="text-muted">Организационное подразделение клиента в DN.</span>
             </div>
 
 
@@ -322,8 +322,8 @@
           <!-- /.box-body -->
 
           <div class="modal-footer justify-content-between">
-            <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary">Create</button>
+            <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Закрыть</button>
+            <button type="submit" class="btn btn-primary">Создать</button>
           </div>
 
         </form>
@@ -334,7 +334,7 @@
 
 <div class="card card-default">
   <div class="card-header with-border">
-    <h3 class="card-title">OpenVPN Server Control</h3>
+    <h3 class="card-title">Управление сервером OpenVPN</h3>
     <div class="pull-left card-tools">
       <button type="button" class="btn btn-tool" data-card-widget="collapse">
       <i class="fa fa-minus"></i></button>
@@ -342,60 +342,59 @@
   </div>
   <!-- /.box-header -->
   <div class="card-body">
-    <span id="helpBlock" class="text-muted">If you are revoking Certificate, don't forget to restart OpenVPN Server to disconnect all active client sessions and make revocation to take the effect.<br/></span><br>
-    <a href="javascript:$.MyAPP.Restart('SIGUSR1')"  class="btn btn-warning btn-primary" style="width: 145px;" title="Conditional Restart (SIGUSR1)">Restart Server</a>
-    &nbsp; OpenVPN Server Conditional Restart to reinitiate all active client sessions. <br><br>
-    <a href="{{urlfor "CertificatesController.Restart"}}" class="btn btn-danger btn-primary" style="width: 145px;" title="Restart OpenVPN container">Restart Container</a> 
-    &nbsp; OpenVPN Container Restart to re-apply Firewall rules and restart OpenVPN Server. Will take more time than regular Restart. 
+    <span id="helpBlock" class="text-muted">Если вы отзываете сертификат, не забудьте перезапустить сервер OpenVPN, чтобы разорвать все активные клиентские сессии и применить отзыв.<br/></span><br>
+    <a href="javascript:$.MyAPP.Restart('SIGUSR1')"  class="btn btn-warning btn-primary" style="width: 145px;" title="Условный перезапуск (SIGUSR1)">Перезапустить сервер</a>
+    &nbsp; Условный перезапуск сервера OpenVPN для переинициализации активных клиентских сессий. <br><br>
+    <a href="{{urlfor "CertificatesController.Restart"}}" class="btn btn-danger btn-primary" style="width: 145px;" title="Перезапустить контейнер OpenVPN">Перезапустить контейнер</a> 
+    &nbsp; Перезапуск контейнера OpenVPN для повторного применения правил межсетевого экрана и перезапуска сервера OpenVPN. Займёт больше времени, чем обычный перезапуск. 
   </div>
   <!-- /.box-footer -->
 </div>
 {{end}}
 
 <script>
-// Attach a click event handler to the "Send Email" button
+// Обработчик клика по кнопке «Отправить письмо»
 $('.send-email-with-qr-btn').on('click', function () {
   var $modal = $(this).closest('.modal');
 
-  // Extract the email address from the modal content (as before)
+  // Извлечь адрес e-mail из содержимого модального окна (как и раньше)
   var emailAddress = $modal.find('.copy-details a[href^="mailto:"]').attr('href');
   emailAddress = emailAddress.replace('mailto:', '');
 
-  // Extract all modal content (as before)
+  // Извлечь всё содержимое модального окна (как и раньше)
   var content = '';
   $modal.find('.copy-details').each(function () {
     content += $(this).text().replace(/:\s/g, ': ') + '\n';
   });
   content = content.replace(/:\s\n/g, ': ');
 
-  // Extract additional details for the email body
+  // Дополнительные данные для тела письма
   var certName = $modal.find('.cert-name').text().trim();
   var expirationDate = $modal.find('.exp-time').text();
   var tfaName = $modal.find('.2fa-name').text();
   var organisation = $modal.find('.reg-org').text().trim();
 
-  // Prepare the email subject
-  var emailSubject = 'Certificate Information for ' + certName;
+  // Тема письма
+  var emailSubject = 'Информация о сертификате для ' + certName;
 
-  // Prepare the email body using the template
-  var emailBody = `Dear ${certName},\n\n`
-    + `Below is your new VPN certificate details.\n\n`
-    + `Name: ${certName}\n`
-    + `Two Factor Authentication (2FA) name(if applicable): ${tfaName}\n`
-    + `The Certificate is registered on e-mail ${emailAddress} and will be valid until ${expirationDate}.\n\n`
-    + `Please take care.\n\n`
-    + `Sincerely yours, ${organisation} engineering team.`;
+  // Тело письма по шаблону
+  var emailBody = `Здравствуйте, ${certName}!\n\n`
+    + `Ниже приведены сведения о вашем новом VPN-сертификате.\n\n`
+    + `Имя: ${certName}\n`
+    + `Имя для двухфакторной аутентификации (2FA), если применимо: ${tfaName}\n`
+    + `Сертификат зарегистрирован на e-mail ${emailAddress} и действителен до ${expirationDate}.\n\n`
+    + `Пожалуйста, храните данные в безопасности.\n\n`
+    + `С уважением, инженерная команда ${organisation}.`;
 
-  // Encode the email body as a URI component
+  // Кодировать тело письма
   var encodedEmailBody = encodeURIComponent(emailBody);
 
-  // Prepare the mailto link with the encoded email address, subject, and body
+  // Подготовить ссылку mailto с адресом, темой и телом письма
   var mailtoLink = 'mailto:' + encodeURIComponent(emailAddress) +
     '?subject=' + encodeURIComponent(emailSubject) +
     '&body=' + encodedEmailBody;
 
-  // Open the default email client with the mailto link
+  // Открыть почтовый клиент по умолчанию
   window.location.href = mailtoLink;
 });
   </script>
-  
