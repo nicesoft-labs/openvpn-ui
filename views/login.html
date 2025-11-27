@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>OpenVPN UI | Log in</title>
+  <title>OpenVPN UI | Вход</title>
   <!-- Tell the browser to be responsive to screen width -->
   <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
   <!-- Font Awesome 5.15.3 -->
@@ -28,7 +28,7 @@
   <!-- /.login-logo -->
   <div class="card">
     <div class="card-body login-card-body">
-      <p class="login-box-msg"><small>Sign in to start your session</small></p>
+      <p class="login-box-msg"><small>Войдите, чтобы начать сеанс</small></p>
 
       {{if .error}}
         <div class="alert alert-danger" role="alert">
@@ -38,7 +38,7 @@
 
       <form action="{{urlfor "LoginController.Login"}}" method="post">
         <div class="input-group mb-3">
-          <input type="text" class="form-control" name="login" placeholder="Login">
+          <input type="text" class="form-control" name="login" placeholder="Логин">
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-user"></span>
@@ -47,7 +47,7 @@
         </div>
 
         <div class="input-group mb-3">
-          <input type="password" class="form-control" name="password" placeholder="Password">
+          <input type="password" class="form-control" name="password" placeholder="Пароль">
           <div class="input-group-append">
             <div class="input-group-text">
               <span class="fas fa-lock"></span>
@@ -61,15 +61,15 @@
         {{ .xsrfdata }}
         <div class="com-md-12">
             <button type="submit" class="btn btn-primary btn-block">
-            <img src="/static/img/openvpn-win.svg" alt="Sign In Icon" style="height: 23px; vertical-align: middle; filter: invert(1);"> &nbsp;Sign In</button>
+            <img src="/static/img/openvpn-win.svg" alt="Иконка входа" style="height: 23px; vertical-align: middle; filter: invert(1);"> &nbsp;Войти</button>
           </div>
         <!-- /.col -->
       </form>
       <br>
       <a href="{{urlfor "LoginController.GoogleLogin"}}" class="btn btn-block btn-danger">
-        <i class="fab fa-google"></i> &nbsp;Sign in with Google
+        <i class="fab fa-google"></i> &nbsp;Войти через Google
       </a>
-      <p class="login-box-msg"><small><a href="https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#authentication-with-google-apis-oauth-20" target="_blank">How to Sign In</a> with Google</small></p>
+      <p class="login-box-msg"><small><a href="https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#authentication-with-google-apis-oauth-20" target="_blank">Как войти</a> через Google</small></p>
     </div>
     <!-- /.login-box-body -->
   </div>
