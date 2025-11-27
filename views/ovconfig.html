@@ -1,7 +1,7 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>Server Settings</title>
+<title>Настройки сервера</title>
 {{end}}
 
 {{define "body"}}
@@ -16,9 +16,9 @@
   <form role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
     {{ .xsrfdata }}
     <div class="card-boddy">
-      <button type="button" style="width: 135px;" class="btn btn-primary" data-toggle="modal" data-target="#config-view-modal">Edit config</button> &nbsp; &nbsp;
-      <a href="javascript:$.MyAPP.Restart('SIGUSR1')" class="btn btn-warning btn-primary" style="width: 135px;" title="Conditional Restart (SIGUSR1)">Restart Server</a>
-      <span style="color:grey;"> &nbsp; OpenVPN Server Conditional Restart will apply new configuration and re-initiate all active clients sessions.</span> 
+      <button type="button" style="width: 135px;" class="btn btn-primary" data-toggle="modal" data-target="#config-view-modal">Редактировать конфиг</button> &nbsp; &nbsp;
+      <a href="javascript:$.MyAPP.Restart('SIGUSR1')" class="btn btn-warning btn-primary" style="width: 135px;" title="Условный перезапуск (SIGUSR1)">Перезапустить сервер</a>
+      <span style="color:grey;"> &nbsp; Условный перезапуск сервера OpenVPN применит новую конфигурацию и переинициализирует все активные клиентские сессии.</span> 
     </div>
       <!-- /.card-body -->
   </form>
@@ -27,7 +27,7 @@
 
 <div class="card card-primary">
   <div class="card-header with-border">
-    <h3 class="card-title">Configuration Template
+    <h3 class="card-title">Шаблон конфигурации
     </h3>
     <div class="pull-right card-tools">
       <button type="button" class="btn btn-tool" data-card-widget="collapse">
@@ -37,7 +37,7 @@
   <!-- /.card-header -->
   <!-- form start -->
   <div class="card-body">
-    <p>All options are in the same order as will be saved into the server.conf file.</p>
+    <p>Все опции перечислены в том же порядке, в котором будут сохранены в файл server.conf.</p>
   <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
     <div class="card-body">
 
@@ -54,8 +54,8 @@
          <label for="name">Dev</label>
          <input type="text" selector="vformdata" class="form-control" name="Device" id="Device" placeholder="tun"
           value="{{ .Settings.Device }}">
-         <span class="text-muted"> Which tunnel(tun) or bridge(tap) should OpenVPN use. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
+         <span class="text-muted"> Какой тип интерфейса использовать: туннель (tun) или мост (tap).
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Инфо</a>
          </span>
       </div>
              
@@ -63,8 +63,8 @@
         <label for="name">Port</label>
         <input type="text" selector="vformdata" class="form-control" name="Port" id="Port" placeholder="1194"
           value="{{ .Settings.Port }}">
-        <span class="text-muted"> Which TCP/UDP port should local OpenVPN Server container listen on. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
+        <span class="text-muted"> TCP/UDP-порт, на котором локальный сервер OpenVPN (контейнер) будет слушать.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Инфо</a>
        </span>
       </div>
                     
@@ -72,8 +72,8 @@
         <label for="name">Proto</label>
         <input type="text" selector="vformdata" class="form-control" name="Proto" id="Proto" placeholder="udp"
           value="{{ .Settings.Proto }}">
-        <span class="text-muted"> TCP or UDP server. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
+        <span class="text-muted"> Сервер TCP или UDP.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Инфо</a>
        </span>
       </div>
                         
@@ -81,8 +81,8 @@
         <label for="name">Topology</label> <!-- <strong><span style="color:#337ab7" title="New format in this version">!</span></strong> -->
         <input type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology" placeholder="subnet"
          value="{{ .Settings.OVConfigTopology }}">
-        <span class="text-muted"> OpenVPN Topology. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Topology" target="_blank">Info</a>
+        <span class="text-muted"> Топология OpenVPN.
+         <a href="https://community.openvpn.net/openvpn/wiki/Topology" target="_blank">Инфо</a>
         </span>
       </div>
               
@@ -90,9 +90,8 @@
         <label for="name">Keepalive</label>
         <input type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive" placeholder="10 120"
          value="{{ .Settings.Keepalive }}">
-        <span id="helpBlock" class="text-muted"> The keepalive directive causes ping-like messages to be sent back and forth over
-         the link so that each side knows when the other side has gone down. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Директива keepalive отправляет ping-сообщения по каналу, чтобы стороны знали о состоянии соединения.
+         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
         </span>
       </div>
               
@@ -100,31 +99,31 @@
         <label for="name">MaxClients</label>
         <input type="text" class="form-control" name="MaxClients" id="MaxClients" placeholder="100"
          value="{{ .Settings.MaxClients }}">
-        <span id="helpBlock" class="text-muted"> The maximum allowed number of concurrently connected clients</span>
+        <span id="helpBlock" class="text-muted"> Максимальное количество одновременно подключённых клиентов.</span>
       </div>
 
       <div class="form-group">
         <label for="name">User</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="OVConfigUser" id="OVConfigUser" placeholder="nobody"
          value="{{ .Settings.OVConfigUser }}">
-        <span id="helpBlock" class="text-muted"> User OpenVPN Server will use (non-Windows only). 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Info</a></span>
+        <span id="helpBlock" class="text-muted"> Пользователь, от имени которого работает OpenVPN Server (только для *nix).
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Инфо</a></span>
      </div>
 
      <div class="form-group">
         <label for="name">Group</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup" placeholder="nogroup"
          value="{{ .Settings.OVConfigGroup }}">
-        <span id="helpBlock" class="text-muted"> Group OpenVPN Server will use (non-Windows only). 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Info</a></span>
+        <span id="helpBlock" class="text-muted"> Группа, от имени которой работает OpenVPN Server (только для *nix).
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Инфо</a></span>
      </div>
 
      <div class="form-group">
       <label for="name">Client-Config-Dir</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
       <input type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir" placeholder="/etc/openvpn/staticclients"
        value="{{ .Settings.OVConfigClientConfigDir }}">
-      <span id="helpBlock" class="text-muted"> Directory, which the OpenVPN server will scan on every incoming connection, searching for a client-specific configuration file. 
-       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Info</a>
+      <span id="helpBlock" class="text-muted"> Каталог, который сервер OpenVPN сканирует при каждом входящем подключении в поисках клиентского конфигурационного файла.
+       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Инфо</a>
       </span>
     </div>
                 
@@ -132,8 +131,8 @@
        <label for="name">Ifconfig-Pool-Persist</label>
        <input type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist" placeholder="pki/ipp.txt"
         value="{{ .Settings.IfconfigPoolPersist }}">
-       <span id="helpBlock" class="text-muted"> Maintains a record of client <-> virtual IP address associations. Used for Client static IP configuration. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+       <span id="helpBlock" class="text-muted"> Поддерживает соответствие клиент ↔ виртуальный IP. Используется для статических IP клиентов.
+         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
        </span>
     </div>
                 
@@ -141,8 +140,8 @@
          <label for="name">CA</label>
          <input type="text" class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt"
           value="{{ .Settings.Ca }}">
-         <span class="text-muted"> The master Certificate Authority (CA) certificate. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#SettingupyourownCertificateAuthorityCAandgeneratingcertificatesandkeysforanOpenVPNserverandmultipleclients" target="_blank">Info</a>
+         <span class="text-muted"> Корневой сертификат Центра сертификации (CA).
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#SettingupyourownCertificateAuthorityCAandgeneratingcertificatesandkeysforanOpenVPNserverandmultipleclients" target="_blank">Инфо</a>
          </span>
       </div>
                    
@@ -151,8 +150,8 @@
         <input type="text" class="form-control" name="Cert" id="Cert" placeholder="pki/issued/server.crt"
           value="{{ .Settings.Cert }}">
         <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> The Server Certificate. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Info</a>
+        <span class="text-muted"> Сертификат сервера.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Инфо</a>
         </span>
       </div>
                      
@@ -161,8 +160,8 @@
         <input type="text" class="form-control" name="Key" id="Key" placeholder="pki/private/server.key"
           value="{{ .Settings.Key }}">
         <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> The Server Key. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Info</a>
+        <span class="text-muted"> Приватный ключ сервера.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Инфо</a>
         </span>
       </div>
                   
@@ -170,8 +169,8 @@
        <label for="name">Crl-verify</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
        <input type="text" class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem"
         value="{{ .Settings.Crl }}">
-       <span id="helpBlock" class="text-muted"> Certificate Revocation List file. 
-       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Info</a>
+       <span id="helpBlock" class="text-muted"> Файл списка отозванных сертификатов (CRL).
+       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Инфо</a>
        </span>
       </div>       
                  
@@ -180,8 +179,8 @@
         <input type="text" class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem"
           value="{{ .Settings.Dh }}">
         <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> Diffie Hellman file. 
-        <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#GenerateDiffieHellmanparameters" target="_blank">Info</a>
+        <span class="text-muted"> Файл параметров Диффи — Хеллмана.
+        <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#GenerateDiffieHellmanparameters" target="_blank">Инфо</a>
         </span>
       </div>
                
@@ -189,8 +188,8 @@
         <label for="name">TLS-Crypt</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel" placeholder="tls-crypt pki/ta.key"
          value="{{ .Settings.TLSControlChannel }}">
-        <span id="helpBlock" class="text-muted"> Key for TLS authentication and session encryption. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Ключ для TLS-аутентификации и шифрования управляющего канала. Полный формат опции (для отключения — закомментируйте #).
+        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
         </span>
       </div>
                 
@@ -198,8 +197,8 @@
         <label for="name">TLS-Version-Min</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion" placeholder="tls-version-min 1.2"
          value="{{ .Settings.TLSMinVersion }}">
-        <span id="helpBlock" class="text-muted"> Sets the minimum TLS version to accept from the peer. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Минимально допустимая версия TLS от пира. Полный формат опции (для отключения — закомментируйте #).
+        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
         </span>
       </div>
                  
@@ -207,8 +206,8 @@
         <label for="name">Remote-Cert-TLS</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert" placeholder="remote-cert-tls client"
          value="{{ .Settings.TLSRemoteCert }}">
-        <span id="helpBlock" class="text-muted"> Security option for clients, to ensure that the host they connect to is a designated server. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Опция безопасности для клиентов, гарантирующая, что хост — именно сервер. Полный формат опции (для отключения — закомментируйте #).
+        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
         </span>
       </div>      
                    
@@ -216,8 +215,8 @@
          <label for="name">Cipher</label>
          <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="AES-256-CBC"
           value="{{ .Settings.Cipher }}">
-         <span id="helpBlock" class="text-muted">Encrypt data channel packets with this cipher algorithm. 
-           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+         <span id="helpBlock" class="text-muted"> Шифр для пакетов дата-канала.
+           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
          </span>
       </div>
                 
@@ -225,8 +224,8 @@
         <label for="name">Ncp-Ciphers</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="AES-256-GCM:AES-192-GCM:AES-128-GCM"
          value="{{ .Settings.OVConfigNcpCiphers }}">
-        <span id="helpBlock" class="text-muted"> The list of ciphers that the client can use. 
-         <a href="https://github.com/OpenVPN/openvpn/blob/master/doc/man-sections/cipher-negotiation.rst" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Список шифров, которые может использовать клиент.
+         <a href="https://github.com/OpenVPN/openvpn/blob/master/doc/man-sections/cipher-negotiation.rst" target="_blank">Инфо</a>
         </span>
       </div>
                   
@@ -238,30 +237,29 @@
       </div>
 
       <div class="form-group">
-        <label for="name" title="New format in this version">Server (Trusted VPN Subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+        <label for="name" title="New format in this version">Server (доверенная VPN-подсеть)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" selector="vformdata" class="form-control" name="Server" id="Server" placeholder="server 10.0.70.0 255.255.255.0"
          value="{{ .Settings.Server }}">
-        <span id="helpBlock" class="text-muted"> In Server mode supplys a Trusted VPN subnet for OpenVPN clients 
-         to draw &quot;VLAN1&quot; addresses from. You can ser server-bridge configuration here for tap mode.
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Info</a> 
+        <span id="helpBlock" class="text-muted"> В режиме сервера задаёт доверенную VPN-подсеть, из которой клиенты получают адреса «VLAN1». Для режима tap можно задать server-bridge.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Инфо</a> 
          </span>
      </div>
 
       <div class="form-group">
-        <label for="name">Route (Guest VPN subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+        <label for="name">Route (гостевая VPN-подсеть)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" selector="vformdata" class="form-control" name="Route" id="Route" placeholder="route 10.0.71.0 255.255.255.0"
           value="{{ .Settings.Route }}">
-        <span id="helpBlock" class="text-muted">Used to route (&quot;route [Guest subnet]&quot;) for Guest Network to for &quot;VLAN2&quot; (Guest Users) subnet clients. 
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Info</a> 
+        <span id="helpBlock" class="text-muted"> Используется для маршрутизации («route [Guest subnet]») к гостевой подсети «VLAN2».
+          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Инфо</a> 
           </span>
       </div>
 
       <div class="form-group">
-        <label for="name">Push Route (Your Home subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+        <label for="name">Push Route (ваша домашняя подсеть)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder="push &quot;route 10.0.60.0 255.255.255.0&quot;"
           value="{{ .Settings.PushRoute }}">
-        <span id="helpBlock" class="text-muted">Used to push route for Home Network to &quot;VLAN1&quot; (Trusted VPN) subnet clients.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#ExpandingthescopeoftheVPNtoincludeadditionalmachinesoneithertheclientorserversubnet" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Пушит маршрут к домашней сети для клиентов «VLAN1» (доверенная VPN).
+          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#ExpandingthescopeoftheVPNtoincludeadditionalmachinesoneithertheclientorserversubnet" target="_blank">Инфо</a>
         </span>
       </div>
 
@@ -269,8 +267,8 @@
         <label for="name">Push DHCP (DNS Server 1)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1" placeholder="push &quot;dhcp-option DNS 8.8.8.8&quot;"
           value="{{ .Settings.DNSServer1 }}">
-        <span class="text-muted">DNS Server 1 configuration for connected Clients. For 'push "dhcp-option DNS [IP of DNS Server]"' configuration.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Info</a>
+        <span class="text-muted"> Настройка первого DNS-сервера для клиентов. Формат: push "dhcp-option DNS [IP]".
+          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Инфо</a>
         </span>
       </div>
 
@@ -278,8 +276,8 @@
         <label for="name">Push DHCP (DNS Server 2)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2" placeholder="push &quot;dhcp-option DNS 1.0.0.1&quot;"
           value="{{ .Settings.DNSServer2 }}">
-        <span class="text-muted">DNS Server 2 configuration for connected Clients. For 'push "dhcp-option DNS [IP of DNS Server]"' configuration.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Info</a>
+        <span class="text-muted"> Настройка второго DNS-сервера для клиентов. Формат: push "dhcp-option DNS [IP]".
+          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Инфо</a>
         </span>
       </div>
 
@@ -287,91 +285,90 @@
         <label for="name">Push Redirect-gateway</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
         <input type="text" class="form-control" name="RedirectGW" id="RedirectGW" placeholder="push &quot;redirect-gateway def1 bypass-dhcp&quot;"
           value="{{ .Settings.RedirectGW }}">
-        <span class="text-muted"> When this option uncommented, the OpenVPN server push a default route to the client, which tells client to 
-         route all Internet traffic through the VPN tunnel. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Routingallclienttrafficincludingweb-trafficthroughtheVPN" target="_blank">Info</a> </span>
+        <span class="text-muted"> Если строка раскомментирована, сервер OpenVPN пушит клиенту маршрут по умолчанию, чтобы направлять весь интернет-трафик через VPN.
+         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Routingallclienttrafficincludingweb-trafficthroughtheVPN" target="_blank">Инфо</a> </span>
       </div>
 
       <div class="form-group">
-         <label for="name">OpenVPN Server Logfile</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Журнал сервера OpenVPN (Logfile)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <input type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile" placeholder="/var/log/openvpn/openvpn.log"
           value="{{ .Settings.OVConfigLogfile }}">
-        <span id="helpBlock" class="text-muted"> This option is used to define the file where OpenVPN Server will save log messages. 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+        <span id="helpBlock" class="text-muted"> Файл, в который сервер OpenVPN будет записывать сообщения журнала.
+        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
         </span>
       </div>
 
       <div class="form-group">
-         <label for="name">OpenVPN Server Logging verbose level</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Уровень подробности логов сервера</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <input type="text" class="form-control" id="OVConfigLogVerbose" name="OVConfigLogVerbose" placeholder="3"
           value="{{ .Settings.OVConfigLogVerbose }}">
-          <span id="helpBlock" class="text-muted"> This option is used to set the verbosity level of log messages generated by the OpenVPN server (0 to 4)
-           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+          <span id="helpBlock" class="text-muted"> Уровень подробности логов, генерируемых сервером OpenVPN (0–4).
+           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
           </span>
       </div>
 
       <div class="form-group">
-         <label for="name">OpenVPN Server Status Log file</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Файл статуса сервера OpenVPN</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <input type="text" class="form-control" name="OVConfigStatusLog" id="OVConfigStatusLog" placeholder="/var/log/openvpn/openvpn-status.log"
           value="{{ .Settings.OVConfigStatusLog }}">
-         <span id="helpBlock" class="text-muted"> This option is used to set the file where OpenVPN Server will report status.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#StatusFile" target="_blank">Info</a></span>
+         <span id="helpBlock" class="text-muted"> Файл, в который сервер OpenVPN будет записывать статус.
+          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#StatusFile" target="_blank">Инфо</a></span>
         </span>
       </div>
 
       <div class="form-group">
-         <label for="name">OpenVPN Server Status Logging version</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Версия формата файла статуса OpenVPN</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <input type="text" class="form-control" name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion" placeholder="2"
           value="{{ .Settings.OVConfigStatusLogVersion }}">
-         <span id="helpBlock" class="text-muted"> This option is used to set the version of OpenVPN Status report file. Used for openvpn-exporters. 
-          <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
+         <span id="helpBlock" class="text-muted"> Версия формата файла отчёта статуса OpenVPN (полезно для openvpn-exporters).
+          <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
          </span>
       </div>
 
       <div class="form-group" id="auth-mode">
-        <label>Authentication Mode</label>
+        <label>Режим аутентификации</label>
         <select name="FuncMode" id="FuncMode" class="form-control">
-          <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Classic Authentication (Certificate and optional password)</option>
-          <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Two Factor Authentication (2FA)</option>
+          <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая аутентификация (сертификат и опционально пароль)</option>
+          <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная аутентификация (2FA)</option>
         </select>
       </div>
 
       <div class="form-group" id="script-sec">
         <label for="ScriptSecurity">Script-security</label>
-        <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity" placeholder="2FA configuration" 
+        <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity" placeholder="Конфигурация 2FA" 
         value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
       </div>
 
       <div class="form-group" id="auth-user-pass-verify">
         <label for="UserPassVerify">Auth-user-pass-verify</label>
-        <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify" placeholder="2FA configuration"
+        <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify" placeholder="Конфигурация 2FA"
         value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
       </div>
 
       <div class="form-group">
-         <label for="name">Custom Option One</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Произвольная опция №1</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne" placeholder="#Custom Option One"
           value="{{ .Settings.CustomOptOne }}">
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
+         <span id="helpBlock" class="text-muted"> Произвольная опция для server.conf. Можно указать что угодно. Полный формат опции (для отключения — закомментируйте #). </span>
       </div>
 
       <div class="form-group">
-         <label for="name">Custom Option Two</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Произвольная опция №2</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo" placeholder="#Custom Option Two" 
          rows="2">{{ .Settings.CustomOptTwo }}</textarea>
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
+         <span id="helpBlock" class="text-muted"> Произвольная опция для server.conf. Можно указать что угодно. Полный формат опции (для отключения — закомментируйте #). </span>
       </div>
 
       <div class="form-group">
-         <label for="name">Custom Option Three</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
+         <label for="name">Произвольная опция №3</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
          <textarea class="form-control" name="CustomOptThree" id="CustomOptThree" placeholder="#Custom Option Three" 
          rows="3">{{ .Settings.CustomOptThree }}</textarea>
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
+         <span id="helpBlock" class="text-muted"> Произвольная опция для server.conf. Можно указать что угодно. Полный формат опции (для отключения — закомментируйте #). </span>
       </div>
 
      {{ .xsrfdata }}
 
-      <button type="submit" style="width: 135px;" class="btn btn-primary" onclick="return confirm('Are you sure you want to Save new configuration file?\nCurrent configuration will be overwritten!');">Save Config</button>
+      <button type="submit" style="width: 135px;" class="btn btn-primary" onclick="return confirm('Вы уверены, что хотите сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">Сохранить конфиг</button>
     </div>
     
       <!-- /.card-body -->
@@ -384,7 +381,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">{{ .BeeSettings.OVConfigPath }}/server.conf</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
           <span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
@@ -398,14 +395,14 @@
                     <div class="card-group" id="accordion">
                       <span >
                         <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false" class="collapsed">
-                          <i class="fa fa-fw fa-info-circle" style="color: #f39c12; font-size: 15px;"></i> <b style="color: #f39c12;">Please note</b>
+                          <i class="fa fa-fw fa-info-circle" style="color: #f39c12; font-size: 15px;"></i> <b style="color: #f39c12;">Обратите внимание</b>
                         </a>
                       </span>
                     </div>
                     <div id="collapseOne" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
                       <div class="card-body">
-                        <span class="text-muted">Manual configuration will not push new changes into OpenVPN UI templates DB.</span><br>
-                        <span class="text-muted">Best practice is update Server configuration with Configuration template.</span><br>
+                        <span class="text-muted">Ручные изменения конфигурации не обновят шаблоны в базе OpenVPN UI.</span><br>
+                        <span class="text-muted">Рекомендуется вносить изменения через шаблон конфигурации сервера.</span><br>
                       </div>
                     </div>
                     <br><textarea type="text" class="form-control my-textarea" name="ServerConfig" id="ServerConfig" spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
@@ -414,8 +411,8 @@
                 {{ .xsrfdata }}
               </div>
               <div class="card-footer">
-                <button type="button" class="btn btn-default pull-left" style="width: 135px;" data-dismiss="modal">Close</button> &nbsp; &nbsp;
-                <button type="submit" class="btn btn-primary" style="width: 135px;" onclick="return confirm('Are you sure you want to Save manually added configuration file?\nTemplate will not be updated!'); window.location.reload();">Save</button>
+                <button type="button" class="btn btn-default pull-left" style="width: 135px;" data-dismiss="modal">Закрыть</button> &nbsp; &nbsp;
+                <button type="submit" class="btn btn-primary" style="width: 135px;" onclick="return confirm('Вы уверены, что хотите сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!'); window.location.reload();">Сохранить</button>
               </div>
                  <!-- /.card-body -->
             </form>
