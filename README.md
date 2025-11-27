@@ -1,4 +1,4 @@
-# OpenVPN UI
+# OpenVPN UI NiceSOFT
 
 OpenVPN server web administration interface.
 
