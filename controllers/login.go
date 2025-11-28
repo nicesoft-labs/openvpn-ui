@@ -10,8 +10,8 @@ import (
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
-	"github.com/d3vilh/openvpn-ui/lib"
-	"github.com/d3vilh/openvpn-ui/models"
+	"github.com/nicesoft-labs/openvpn-ui/lib"
+	"github.com/nicesoft-labs/openvpn-ui/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	oauth2api "google.golang.org/api/oauth2/v2"
