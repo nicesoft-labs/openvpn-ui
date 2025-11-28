@@ -8,18 +8,25 @@ import (
 	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
-	"github.com/nicesoft-labs/openvpn-ui/models"
 	"github.com/go-ldap/ldap/v3"
+	"github.com/nicesoft-labs/openvpn-ui/models"
 	"gopkg.in/hlandau/passlib.v1"
+)
+
+const (
+	authTypeLDAP = "ldap"
+	tcpProtocol  = "tcp"
 )
 
 var authError = errors.New("invalid login or password")
 
 func Authenticate(login, password, authType string) (*models.User, error) {
 	logs.Info("auth type: ", authType)
-	if authType == "ldap" {
+
+	switch authType {
+	case authTypeLDAP:
 		return authenticateLdap(login, password)
-	} else {
+	default:
 		return authenticateSimple(login, password)
 	}
 }
@@ -42,41 +49,62 @@ func authenticateSimple(login, password string) (*models.User, error) {
 	return user, nil
 }
 
-func authenticateLdap(login, password string) (*models.User, error) {
-	address, _ := web.AppConfig.String("LdapAddress")
-	var connection *ldap.Conn
-	var err error
-	ldapTransport, _ := web.AppConfig.String("LdapTransport")
+type ldapConfig struct {
+	address    string
+	transport  string
+	bindDN     string
+	skipVerify bool
+}
+
+func loadLdapConfig() (*ldapConfig, error) {
+	address, err := web.AppConfig.String("LdapAddress")
+	if err != nil {
+		return nil, fmt.Errorf("load LDAP address: %w", err)
+	}
+
+	transport, err := web.AppConfig.String("LdapTransport")
+	if err != nil {
+		return nil, fmt.Errorf("load LDAP transport: %w", err)
+	}
+
+	bindDN, err := web.AppConfig.String("LdapBindDn")
+	if err != nil {
+		return nil, fmt.Errorf("load LDAP bind DN: %w", err)
+	}
+
 	skipVerify, err := web.AppConfig.Bool("LdapInsecureSkipVerify")
 	if err != nil {
-		logs.Error("LDAP Dial:", err)
+		return nil, fmt.Errorf("load LDAP insecure skip verify flag: %w", err)
+	}
+
+	return &ldapConfig{
+		address:    address,
+		transport:  transport,
+		bindDN:     bindDN,
+		skipVerify: skipVerify,
+	}, nil
+}
+
+func authenticateLdap(login, password string) (*models.User, error) {
+	config, err := loadLdapConfig()
+	if err != nil {
+		logs.Error("LDAP config:", err)
 		return nil, authError
 	}
 
-	if ldapTransport == "tls" {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: skipVerify})
-	} else {
-		connection, err = ldap.Dial("tcp", address)
-	}
-
+	connection, err := dialLdap(config)
 	if err != nil {
 		logs.Error("LDAP Dial:", err)
 		return nil, authError
 	}
-
-	if ldapTransport == "starttls" {
-		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: skipVerify})
-		if err != nil {
-			logs.Error("LDAP Start TLS:", err)
-			return nil, authError
-		}
-	}
-
 	defer connection.Close()
 
-	bindDn, _ := web.AppConfig.String("LdapBindDn")
+	if err := startTLSIfNeeded(connection, config); err != nil {
+		logs.Error("LDAP Start TLS:", err)
+		return nil, authError
+	}
 
-	err = connection.Bind(fmt.Sprintf(bindDn, login), password)
+	err = connection.Bind(fmt.Sprintf(config.bindDN, login), password)
 	if err != nil {
 		logs.Error("LDAP Bind:", err)
 		return nil, authError
@@ -93,6 +121,23 @@ func authenticateLdap(login, password string) (*models.User, error) {
 	}
 
 	return user, nil
+}
+
+func dialLdap(config *ldapConfig) (*ldap.Conn, error) {
+	switch config.transport {
+	case "tls":
+		return ldap.DialTLS(tcpProtocol, config.address, &tls.Config{InsecureSkipVerify: config.skipVerify})
+	default:
+		return ldap.Dial(tcpProtocol, config.address)
+	}
+}
+
+func startTLSIfNeeded(connection *ldap.Conn, config *ldapConfig) error {
+	if config.transport != "starttls" {
+		return nil
+	}
+
+	return connection.StartTLS(&tls.Config{InsecureSkipVerify: config.skipVerify})
 }
 
 // GetUserByEmail retrieves a user by their email address
