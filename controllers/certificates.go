@@ -62,11 +62,13 @@ func (c *CertificatesController) Download() {
 		logs.Error(err)
 		return
 	}
+
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
 		logs.Error(err)
 		return
 	}
+
 	if _, err = c.Controller.Ctx.ResponseWriter.Write(data); err != nil {
 		logs.Error(err)
 	}
@@ -75,25 +77,15 @@ func (c *CertificatesController) Download() {
 // @router /certificates [get]
 func (c *CertificatesController) Get() {
 	c.TplName = "certificates.html"
-	c.showCerts()
-	cfg := models.EasyRSAConfig{Profile: "default"}
-	_ = cfg.Read("Profile")
-	c.Data["EasyRSA"] = &cfg
-
-	cfg1 := models.OVClientConfig{Profile: "default"}
-	_ = cfg1.Read("Profile")
-	c.Data["SettingsC"] = &cfg1
+	c.populateCertView()
+	c.Data["EasyRSA"] = c.loadEasyRSAConfig()
+	c.Data["SettingsC"] = c.loadClientConfig()
 }
 
 func (c *CertificatesController) DisplayImage() {
 	imageName := c.Ctx.Input.Param(":imageName")
-	logs.Info("Image name: %s", imageName)
-	imagePath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients/", imageName+".png")
-	// destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients", name+".ovpn")
-	//imagePath := "./openvpn/clients/" + imageName + ".png"
-	logs.Info("Image path: %s", imagePath)
+	imagePath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients", imageName+".png")
 
-	// Check if the image file exists
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
 		c.Ctx.Output.SetStatus(404)
@@ -102,14 +94,11 @@ func (c *CertificatesController) DisplayImage() {
 		return
 	}
 
-	// Set the content type header to indicate it's an image
 	c.Ctx.Output.Header("Content-Type", "image/png")
-
-	// Write the image data directly to the response body
 	c.Ctx.Output.Body(data)
 }
 
-func (c *CertificatesController) showCerts() {
+func (c *CertificatesController) populateCertView() {
 	path := filepath.Join(state.GlobalCfg.OVConfigPath, "pki/index.txt")
 	certs, err := lib.ReadCerts(path)
 	if err != nil {
@@ -117,12 +106,8 @@ func (c *CertificatesController) showCerts() {
 	}
 	lib.Dump(certs)
 	c.Data["certificates"] = &certs
-	cfg := models.EasyRSAConfig{Profile: "default"}
-	_ = cfg.Read("Profile")
-	c.Data["EasyRSA"] = &cfg
-	cfg1 := models.OVClientConfig{Profile: "default"}
-	_ = cfg1.Read("Profile")
-	c.Data["SettingsC"] = &cfg1
+	c.Data["EasyRSA"] = c.loadEasyRSAConfig()
+	c.Data["SettingsC"] = c.loadClientConfig()
 }
 
 // @router /certificates [post]
@@ -135,26 +120,56 @@ func (c *CertificatesController) Post() {
 		logs.Error(err)
 		flash.Error(err.Error())
 		flash.Store(&c.Controller)
-	} else {
-		if vMap := validateCertParams(cParams); vMap != nil {
-			c.Data["validation"] = vMap
-		} else {
-			logs.Info("Controller: Creating certificate with parameters: Name=%s, Staticip=%s, Passphrase=%s, ExpireDays=%s, Email=%s, Country=%s, Province=%s, City=%s, Org=%s, OrgUnit=%s, TFAName=%s, TFAIssuer=%s", cParams.Name, cParams.Staticip, cParams.Passphrase, cParams.ExpireDays, cParams.Email, cParams.Country, cParams.Province, strconv.Quote(cParams.City), strconv.Quote(cParams.Org), strconv.Quote(cParams.OrgUnit), cParams.TFAName, cParams.TFAIssuer)
-			if err := lib.CreateCertificate(cParams.Name, cParams.Staticip, cParams.Passphrase, cParams.ExpireDays, cParams.Email, cParams.Country, cParams.Province, strconv.Quote(cParams.City), strconv.Quote(cParams.Org), strconv.Quote(cParams.OrgUnit), cParams.TFAName, cParams.TFAIssuer); err != nil {
-				logs.Error(err)
-				flash.Error(err.Error())
-				flash.Store(&c.Controller)
-			} else {
-				flash.Success("Success! Certificate for the name \"" + cParams.Name + "\" has been created")
-				flash.Store(&c.Controller)
-			}
-		}
+		c.populateCertView()
+		return
 	}
-	cfg := models.EasyRSAConfig{Profile: "default"}
-	_ = cfg.Read("Profile")
-	c.Data["EasyRSA"] = &cfg
 
-	c.showCerts()
+	if vMap := validateCertParams(cParams); vMap != nil {
+		c.Data["validation"] = vMap
+		c.populateCertView()
+		return
+	}
+
+	logs.Info(
+		"Controller: Creating certificate with parameters: Name=%s, Staticip=%s, Passphrase=%s, ExpireDays=%s, Email=%s, Country=%s, Province=%s, City=%s, Org=%s, OrgUnit=%s, TFAName=%s, TFAIssuer=%s",
+		cParams.Name,
+		cParams.Staticip,
+		cParams.Passphrase,
+		cParams.ExpireDays,
+		cParams.Email,
+		cParams.Country,
+		cParams.Province,
+		strconv.Quote(cParams.City),
+		strconv.Quote(cParams.Org),
+		strconv.Quote(cParams.OrgUnit),
+		cParams.TFAName,
+		cParams.TFAIssuer,
+	)
+
+	if err := lib.CreateCertificate(
+		cParams.Name,
+		cParams.Staticip,
+		cParams.Passphrase,
+		cParams.ExpireDays,
+		cParams.Email,
+		cParams.Country,
+		cParams.Province,
+		strconv.Quote(cParams.City),
+		strconv.Quote(cParams.Org),
+		strconv.Quote(cParams.OrgUnit),
+		cParams.TFAName,
+		cParams.TFAIssuer,
+	); err != nil {
+		logs.Error(err)
+		flash.Error(err.Error())
+		flash.Store(&c.Controller)
+		c.populateCertView()
+		return
+	}
+
+	flash.Success("Success! Certificate for the name \"" + cParams.Name + "\" has been created")
+	flash.Store(&c.Controller)
+	c.populateCertView()
 }
 
 // @router /certificates/revoke/:key [get]
@@ -164,22 +179,20 @@ func (c *CertificatesController) Revoke() {
 	name := c.GetString(":key")
 	serial := c.GetString(":serial")
 	tfaname := c.GetString(":tfaname")
+
 	if err := lib.RevokeCertificate(name, serial, tfaname); err != nil {
 		logs.Error(err)
-		//flash.Error(err.Error())
-		//flash.Store(&c.Controller)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + name + "\" and serial  \"" + serial + "\" has been revoked")
 		flash.Store(&c.Controller)
 	}
-	c.showCerts()
+	c.populateCertView()
 }
 
 // @router /certificates/restart [get]
 func (c *CertificatesController) Restart() {
 	lib.Restart()
 	c.Redirect(c.URLFor("CertificatesController.Get"), 302)
-	// return
 }
 
 // @router /certificates/burn/:key/:serial/:tfaname [get]
@@ -190,15 +203,14 @@ func (c *CertificatesController) Burn() {
 	serial := c.GetString(":serial")
 	tfaname := c.GetString(":tfaname")
 	logs.Info("Controller: Burning certificate with parameters: CN=%s, serial=%s, tfaname=%s", CN, serial, tfaname)
+
 	if err := lib.BurnCertificate(CN, serial, tfaname); err != nil {
 		logs.Error(err)
-		//flash.Error(err.Error())
-		//flash.Store(&c.Controller)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + CN + "\" and serial  \"" + serial + "\"  has been removed")
 		flash.Store(&c.Controller)
 	}
-	c.showCerts()
+	c.populateCertView()
 }
 
 // @router /certificates/revoke/:key [get]
@@ -209,15 +221,14 @@ func (c *CertificatesController) Renew() {
 	localip := c.GetString(":localip")
 	serial := c.GetString(":serial")
 	tfaname := c.GetString(":tfaname")
+
 	if err := lib.RenewCertificate(name, localip, serial, tfaname); err != nil {
 		logs.Error(err)
-		//flash.Error(err.Error())
-		//flash.Store(&c.Controller)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + name + "\"  and IP \"" + localip + "\" and Serial \"" + serial + "\" has been renewed")
 		flash.Store(&c.Controller)
 	}
-	c.showCerts()
+	c.populateCertView()
 }
 
 func validateCertParams(cert NewCertParams) map[string]map[string]string {
@@ -241,6 +252,7 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	if err := ovClientConfig.Read("Profile"); err != nil {
 		return "", err
 	}
+
 	cfg.ServerAddress = ovClientConfig.ServerAddress
 	cfg.OpenVpnServerPort = ovClientConfig.OpenVpnServerPort
 	cfg.AuthUserPass = ovClientConfig.AuthUserPass
@@ -251,9 +263,9 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	cfg.PersistKey = ovClientConfig.PersistKey
 	cfg.RemoteCertTLS = ovClientConfig.RemoteCertTLS
 	cfg.RedirectGateway = ovClientConfig.RedirectGateway
-	cfg.Proto = ovClientConfig.Proto   // this will be set from client instead of server config
-	cfg.Auth = ovClientConfig.Auth     // this will be set from client instead of server config
-	cfg.Cipher = ovClientConfig.Cipher // this will be set from client instead of server config
+	cfg.Proto = ovClientConfig.Proto
+	cfg.Auth = ovClientConfig.Auth
+	cfg.Cipher = ovClientConfig.Cipher
 	cfg.Device = ovClientConfig.Device
 	cfg.AuthNoCache = ovClientConfig.AuthNoCache
 	cfg.TlsClient = ovClientConfig.TlsClient
@@ -290,9 +302,6 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	serverConfig := models.OVConfig{Profile: "default"}
 	_ = serverConfig.Read("Profile")
 	cfg.Port = serverConfig.Port
-	// cfg.Proto = serverConfig.Proto   //Now getting it from client config
-	// cfg.Auth = serverConfig.Auth     //Now getting it from client config
-	// cfg.Cipher = serverConfig.Cipher //Now getting it from client config
 
 	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients", name+".ovpn")
 	if err := SaveToFile(filepath.Join(c.ConfigDir, "openvpn-client-config.tpl"), cfg, destPath); err != nil {
@@ -309,11 +318,12 @@ func GetText(tpl string, c clientconfig.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	buf := new(bytes.Buffer)
-	err = t.Execute(buf, c)
-	if err != nil {
+	if err = t.Execute(buf, c); err != nil {
 		return "", err
 	}
+
 	return buf.String(), nil
 }
 
@@ -329,4 +339,16 @@ func SaveToFile(tplPath string, c clientconfig.Config, destPath string) error {
 	}
 
 	return os.WriteFile(destPath, []byte(str), 0644)
+}
+
+func (c *CertificatesController) loadEasyRSAConfig() *models.EasyRSAConfig {
+	cfg := models.EasyRSAConfig{Profile: "default"}
+	_ = cfg.Read("Profile")
+	return &cfg
+}
+
+func (c *CertificatesController) loadClientConfig() *models.OVClientConfig {
+	cfg := models.OVClientConfig{Profile: "default"}
+	_ = cfg.Read("Profile")
+	return &cfg
 }

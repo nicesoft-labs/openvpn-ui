@@ -21,16 +21,14 @@ type NestFinisher interface {
 }
 
 func (c *BaseController) Prepare() {
-	c.SetParams()
+	c.setParams()
 
 	userID := c.GetSession("userinfo")
 	if userID != nil {
-		var user models.User
-		user.Id = userID.(int64)
-		err := user.Read("Id")
-		if err == nil {
+		user := &models.User{Id: userID.(int64)}
+		if err := user.Read("Id"); err == nil {
 			c.IsLogin = true
-			c.Userinfo = &user
+			c.Userinfo = user
 		} else {
 			c.IsLogin = false
 			c.DelSession("userinfo")
@@ -54,9 +52,14 @@ func (c *BaseController) Finish() {
 }
 
 func (c *BaseController) GetLogin() *models.User {
-	u := &models.User{Id: c.GetSession("userinfo").(int64)}
-	u.Read("Id")
-	return u
+	session := c.GetSession("userinfo")
+	if session == nil {
+		return nil
+	}
+
+	user := &models.User{Id: session.(int64)}
+	_ = user.Read("Id")
+	return user
 }
 
 func (c *BaseController) DelLogin() {
@@ -75,16 +78,19 @@ func (c *BaseController) LoginPath() string {
 	return c.URLFor("LoginController.Login")
 }
 
-func (c *BaseController) SetParams() {
-	c.Data["Params"] = make(map[string]string)
+func (c *BaseController) setParams() {
+	params := make(map[string]string)
+	c.Data["Params"] = params
+
 	input, err := c.Input()
 	if err != nil {
-		// handle the error
-		// log.Println("Error getting input:", err)
 		return
 	}
-	for k, v := range input {
-		c.Data["Params"].(map[string]string)[k] = v[0]
+
+	for key, values := range input {
+		if len(values) > 0 {
+			params[key] = values[0]
+		}
 	}
 }
 
