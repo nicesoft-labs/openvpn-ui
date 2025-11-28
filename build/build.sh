@@ -56,21 +56,21 @@ printf "\033[1;34mBuilding OpenVPN-UI and qrencode binaries.\033[0m\n"
 printf "OpenVPN-UI and qrencode were built \n\033[1;34mBuilding OpenVPN-UI image.\033[0m\n"
 
 time docker run \
-    -v "$PWD/../":/go/src/github.com/d3vilh/openvpn-ui \
+    -v "$PWD/../":/go/src/github.com/nicesoft-labs/openvpn-ui \
     -e GO111MODULE='auto' \
     -e CGO_ENABLED=1 \
     --rm \
     -w /usr/src/myapp \
     local/beego-v8 \
-sh -c "cd /go/src/github.com/d3vilh/openvpn-ui/ && \
-    git config --global --add safe.directory /go/src/github.com/d3vilh/openvpn-ui && \
+sh -c "cd /go/src/github.com/nicesoft-labs/openvpn-ui/ && \
+    git config --global --add safe.directory /go/src/github.com/nicesoft-labs/openvpn-ui && \
     go env -w GOFLAGS=\"-buildvcs=false\" && \
     bee version && \
     CGO_ENABLED=1 CC=musl-gcc bee pack -exr='^vendor|^ace.tar.bz2|^data.db|^build|^README.md|^docs' && \
     cd /app/qrencode && \
     go build -o qrencode main.go && \
     chmod +x /app/qrencode/qrencode && \
-    cp -p /app/qrencode/qrencode /go/src/github.com/d3vilh/openvpn-ui/"
+    cp -p /app/qrencode/qrencode /go/src/github.com/nicesoft-labs/openvpn-ui/"
 printf "OpenVPN-UI and qrencode were built \n\033[1;34mBuilding OpenVPN-UI image.\033[0m\n"
 
 # Build OpenVPN-UI image

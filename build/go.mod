@@ -1,4 +1,4 @@
-module github.com/d3vilh/openvpn-ui
+module github.com/nicesoft-labs/openvpn-ui
 
 go 1.23.4
 
