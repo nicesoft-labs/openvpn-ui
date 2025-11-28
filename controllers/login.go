@@ -17,7 +17,6 @@ import (
 	oauth2api "google.golang.org/api/oauth2/v2"
 )
 
-// Initialize OAuth2 configuration
 var (
 	oauthConf        *oauth2.Config
 	oauthStateString = "random" // use a random string for security purposes
@@ -25,36 +24,8 @@ var (
 )
 
 func init() {
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
-	allowedDomainsStr := os.Getenv("ALLOWED_DOMAINS")
-
-	if clientID == "" {
-		log.Println("Environment variable GOOGLE_CLIENT_ID not set")
-	}
-	if clientSecret == "" {
-		log.Println("Environment variable GOOGLE_CLIENT_SECRET not set")
-	}
-	if redirectURL == "" {
-		log.Println("Environment variable GOOGLE_REDIRECT_URL not set")
-	}
-	if allowedDomainsStr == "" {
-		log.Println("Environment variable ALLOWED_DOMAINS not set")
-	}
-	oauthConf = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURL,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
-	}
-
-	if allowedDomainsStr != "" {
-		allowedDomains = strings.Split(allowedDomainsStr, ",")
-	} else {
-		allowedDomains = []string{}
-	}
+	oauthConf = buildOAuthConfig()
+	allowedDomains = parseAllowedDomains(os.Getenv("ALLOWED_DOMAINS"))
 }
 
 type LoginController struct {
@@ -83,20 +54,21 @@ func (c *LoginController) Login() {
 		flash.Store(&c.Controller)
 		return
 	}
-	user, err := lib.Authenticate(login, password, authType)
 
+	user, err := lib.Authenticate(login, password, authType)
 	if err != nil {
 		flash.Warning(err.Error())
 		flash.Store(&c.Controller)
 		return
 	}
+
 	user.Lastlogintime = time.Now()
-	err = user.Update("Lastlogintime")
-	if err != nil {
+	if err = user.Update("Lastlogintime"); err != nil {
 		flash.Warning(err.Error())
 		flash.Store(&c.Controller)
 		return
 	}
+
 	flash.Success("Successfully logged in")
 	flash.Store(&c.Controller)
 
@@ -148,36 +120,24 @@ func (c *LoginController) GoogleCallback() {
 
 	logs.Info("User Info: %+v", userinfo)
 
-	// Check if the user's email domain is allowed
-	emailDomain := strings.Split(userinfo.Email, "@")[1]
-	allowed := false
-	for _, domain := range allowedDomains {
-		if emailDomain == domain {
-			allowed = true
-			break
-		}
-	}
-
-	if !allowed {
+	if !isDomainAllowed(userinfo.Email) {
 		c.Data["error"] = "Your Email is not allowed to login"
 		c.TplName = "login.html"
-		c.Render()
+		_ = c.Render()
 		return
 	}
 
 	user, err := lib.GetUserByEmail(userinfo.Email)
 	if err != nil {
 		if err.Error() == "user not found" {
-			// Create a new user if not found and set the default values
 			user = &models.User{
 				Email:         userinfo.Email,
-				Name:          userinfo.Email, // Set the name to the email address
+				Name:          userinfo.Email,
 				Login:         userinfo.Email,
 				Lastlogintime: time.Now(),
-				Allowed:       true, // Set to true because authenticated with Google
+				Allowed:       true,
 			}
-			err = user.Insert()
-			if err != nil {
+			if err = user.Insert(); err != nil {
 				c.Ctx.WriteString("Failed to create new user: " + err.Error())
 				return
 			}
@@ -186,22 +146,19 @@ func (c *LoginController) GoogleCallback() {
 			return
 		}
 	} else {
-		// Update existing user's allowed status, last login time, and name
 		user.Allowed = true
 		user.Lastlogintime = time.Now()
-		user.Name = userinfo.Email // Set the name to the email address
-		err = user.Update("Allowed", "Lastlogintime", "Name")
-		if err != nil {
+		user.Name = userinfo.Email
+		if err = user.Update("Allowed", "Lastlogintime", "Name"); err != nil {
 			c.Ctx.WriteString("Failed to update user: " + err.Error())
 			return
 		}
 	}
 
-	// Check if the user is allowed
 	if !user.Allowed {
 		c.Data["error"] = "Access denied"
 		c.TplName = "login.html"
-		c.Render()
+		_ = c.Render()
 		return
 	}
 
@@ -212,4 +169,53 @@ func (c *LoginController) GoogleCallback() {
 	flash.Store(&c.Controller)
 
 	c.Redirect(c.URLFor("MainController.Get"), 302)
+}
+
+func buildOAuthConfig() *oauth2.Config {
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
+
+	if clientID == "" {
+		log.Println("Environment variable GOOGLE_CLIENT_ID not set")
+	}
+	if clientSecret == "" {
+		log.Println("Environment variable GOOGLE_CLIENT_SECRET not set")
+	}
+	if redirectURL == "" {
+		log.Println("Environment variable GOOGLE_REDIRECT_URL not set")
+	}
+
+	return &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
+	}
+}
+
+func parseAllowedDomains(domains string) []string {
+	if domains == "" {
+		log.Println("Environment variable ALLOWED_DOMAINS not set")
+		return []string{}
+	}
+
+	return strings.Split(domains, ",")
+}
+
+func isDomainAllowed(email string) bool {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+
+	domain := parts[1]
+	for _, allowed := range allowedDomains {
+		if domain == allowed {
+			return true
+		}
+	}
+
+	return false
 }
