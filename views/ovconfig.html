@@ -213,7 +213,7 @@
                    
       <div class="form-group">
          <label for="name">Cipher</label>
-         <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="AES-256-CBC"
+          <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="kuznyechik-cbc"
           value="{{ .Settings.Cipher }}">
          <span id="helpBlock" class="text-muted"> Шифр для пакетов дата-канала.
            <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Инфо</a>
@@ -222,7 +222,7 @@
                 
       <div class="form-group">
         <label for="name">Ncp-Ciphers</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="AES-256-GCM:AES-192-GCM:AES-128-GCM"
+        <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="kuznyechik-cbc"
          value="{{ .Settings.OVConfigNcpCiphers }}">
         <span id="helpBlock" class="text-muted"> Список шифров, которые может использовать клиент.
          <a href="https://github.com/OpenVPN/openvpn/blob/master/doc/man-sections/cipher-negotiation.rst" target="_blank">Инфо</a>
@@ -231,7 +231,7 @@
                   
       <div class="form-group">
          <label for="name">Auth</label>
-         <input type="text" class="form-control" name="Auth" id="Auth" placeholder="SHA512"
+          <input type="text" class="form-control" name="Auth" id="Auth" placeholder="id-tc26-gost3411-12-256"
           value="{{ .Settings.Auth }}">
          <span id="helpBlock" class="text-muted"></span>
       </div>
