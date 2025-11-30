@@ -86,6 +86,10 @@ func (c *OVConfigController) Post() {
 		return
 	}
 
+	if err := lib.ApplyFirewallRules(); err != nil {
+		flash.Warning("Firewall rules were not applied: " + err.Error())
+	}
+
 	logs.Info("Post: Updating configuration in database")
 	o := orm.NewOrm()
 	if _, err := o.Update(&cfg); err != nil {
@@ -138,8 +142,12 @@ func (c *OVConfigController) Edit() {
 		flash.Error("Error saving server config to file")
 		return
 	} else {
-		//logs.Info("Edit: Server config saved to file:", destPath)
+		// logs.Info("Edit: Server config saved to file:", destPath)
 		flash.Success("Config has been updated")
+	}
+
+	if err := lib.ApplyFirewallRules(); err != nil {
+		flash.Warning("Firewall rules were not applied: " + err.Error())
 	}
 
 	serverConf, err := os.ReadFile(destPath)
