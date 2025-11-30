@@ -113,13 +113,13 @@
 
       <div class="form-group">
         <label for="name">Cipher</label> <span id="helpBlock" class="text-muted">Не забудьте изменить конфигурацию на стороне сервера.</span>
-        <input type="text" class="form-control" id="Cipher" name="Cipher" placeholder="AES-256-CBC"
+        <input type="text" class="form-control" id="Cipher" name="Cipher" placeholder="kuznyechik-cbc"
           value="{{ .Settings.Cipher }}">
       </div>
 
       <div class="form-group">
         <label for="name">Auth</label> <span id="helpBlock" class="text-muted">Не забудьте изменить конфигурацию на стороне сервера.</span>
-        <input type="text" class="form-control" id="Auth" name="Auth" placeholder="SHA512"
+        <input type="text" class="form-control" id="Auth" name="Auth" placeholder="id-tc26-gost3411-12-256"
           value="{{ .Settings.Auth }}">
       </div>
 
