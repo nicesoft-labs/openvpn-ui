@@ -110,9 +110,13 @@ func CreateDefaultSettings() (*Settings, error) {
 	}
 }
 
-func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string, network string) {
+func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string, network string, profile string) {
+	if profile == "" {
+		profile = "default"
+	}
+
 	c := OVConfig{
-		Profile: "default",
+		Profile: profile,
 		Config: config.Config{
 			FuncMode:                 0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
 			Management:               fmt.Sprintf("%s %s", address, network),
@@ -172,9 +176,13 @@ func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string
 	}
 }
 
-func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address string, network string) {
+func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address string, network string, profile string) {
+	if profile == "" {
+		profile = "default"
+	}
+
 	c := OVClientConfig{
-		Profile: "default",
+		Profile: profile,
 		Config: clientconfig.Config{
 			FuncMode:          0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
 			Device:            "tun",
@@ -219,9 +227,13 @@ func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address 
 	}
 }
 
-func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address string, network string) {
+func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address string, network string, profile string) {
+	if profile == "" {
+		profile = "default"
+	}
+
 	c := EasyRSAConfig{
-		Profile: "default",
+		Profile: profile,
 		Config: easyrsaconfig.Config{
 			EasyRSADN:          "org",
 			EasyRSAReqCountry:  "RU",
@@ -254,4 +266,10 @@ func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address st
 	} else {
 		logs.Error(err)
 	}
+}
+
+func EnsureProfileConfigs(configDir string, settings *Settings) {
+	CreateDefaultOVConfig(configDir, settings.OVConfigPath, settings.MIAddress, settings.MINetwork, settings.Profile)
+	CreateDefaultOVClientConfig(configDir, settings.OVConfigPath, settings.MIAddress, settings.MINetwork, settings.Profile)
+	CreateDefaultEasyRSAConfig(configDir, settings.EasyRSAPath, settings.MIAddress, settings.MINetwork, settings.Profile)
 }
