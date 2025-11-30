@@ -116,8 +116,10 @@ func (c *BaseController) loadCurrentProfile() {
 		profile = state.DefaultProfile
 		settings, _ = state.GetSettings(profile)
 	}
-	if settings == nil {
-		settings = &models.Settings{Profile: profile}
+	if err != nil || settings == nil {
+		cfg := state.GlobalCfg
+		cfg.Profile = profile
+		settings = &cfg
 	}
 
 	c.CurrentProfile = profile
