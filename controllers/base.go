@@ -3,7 +3,6 @@ package controllers
 import (
 	"github.com/beego/beego/v2/server/web"
 	"github.com/nicesoft-labs/openvpn-ui/models"
-	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 type BaseController struct {
@@ -11,9 +10,6 @@ type BaseController struct {
 
 	Userinfo *models.User
 	IsLogin  bool
-
-	CurrentProfile  string
-	CurrentSettings *models.Settings
 }
 
 type NestPreparer interface {
@@ -26,8 +22,6 @@ type NestFinisher interface {
 
 func (c *BaseController) Prepare() {
 	c.setParams()
-
-	c.loadCurrentProfile()
 
 	userID := c.GetSession("userinfo")
 	if userID != nil {
@@ -97,40 +91,6 @@ func (c *BaseController) setParams() {
 		if len(values) > 0 {
 			params[key] = values[0]
 		}
-	}
-}
-
-func (c *BaseController) loadCurrentProfile() {
-    profile := c.GetString("profile")
-    if profile == "" {
-            if sessionValue := c.GetSession("profile"); sessionValue != nil {
-                    if sessionProfile, ok := sessionValue.(string); ok {
-                            profile = sessionProfile
-                    }
-            }
-    }
-	if profile == "" {
-		profile = state.DefaultProfile
-	}
-
-	settings, err := state.GetSettings(profile)
-	if err != nil && profile != state.DefaultProfile {
-		profile = state.DefaultProfile
-		settings, _ = state.GetSettings(profile)
-	}
-	if err != nil || settings == nil {
-		cfg := state.GlobalCfg
-		cfg.Profile = profile
-		settings = &cfg
-	}
-
-	c.CurrentProfile = profile
-	c.CurrentSettings = settings
-	c.SetSession("profile", profile)
-
-	c.Data["CurrentProfile"] = profile
-	if profiles, err := state.ListProfiles(); err == nil {
-		c.Data["AvailableProfiles"] = profiles
 	}
 }
 

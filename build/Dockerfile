@@ -26,7 +26,6 @@ ADD assets/restart.sh /opt/scripts/restart.sh
 ADD assets/rmcert.sh /opt/scripts/rmcert.sh
 ADD assets/remove.sh /opt/scripts/remove.sh
 ADD assets/renew.sh /opt/scripts/renew.sh
-ADD assets/apply-fw-rules.sh /opt/scripts/apply-fw-rules.sh
 ADD openvpn-ui.tar.gz /opt/openvpn-ui/
 ADD qrencode /opt/scripts/qrencode
 RUN rm -f /opt/openvpn-ui/data.db

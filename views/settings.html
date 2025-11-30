@@ -7,60 +7,6 @@
 {{define "body"}}
 <div class="card card-default">
   <div class="card-header with-border">
-    <h3 class="card-title">Инстансы OpenVPN</h3>
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <div class="col-md-6">
-        <form role="form" method="get" action="{{urlfor "SettingsController.Get"}}">
-          <div class="form-group">
-            <label for="profile">Активный инстанс</label>
-            <div class="input-group mb-3">
-              <select class="form-control" name="profile" id="profile">
-                {{range .AvailableProfiles}}
-                  <option value="{{.}}" {{if eq $.CurrentProfile .}}selected{{end}}>{{.}}</option>
-                {{end}}
-              </select>
-              <div class="input-group-append">
-                <button type="submit" class="btn btn-secondary">Переключить</button>
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="col-md-6">
-        <form role="form" action="{{urlfor "SettingsController.Get"}}" method="post">
-          <input type="hidden" name="action" value="create">
-          {{ .xsrfdata }}
-          <div class="form-group">
-            <label for="Profile">Новый инстанс</label>
-            <input type="text" class="form-control" id="Profile" name="Profile" placeholder="example">
-          </div>
-          <div class="form-group">
-            <label class="col-form-label" for="newMIAddress">Адрес интерфейса управления</label>
-            <input type="text" class="form-control" id="newMIAddress" name="MIAddress" placeholder="openvpn:2080">
-          </div>
-          <div class="form-group">
-            <label class="col-form-label" for="newMINetwork">Протокол интерфейса управления</label>
-            <input type="text" class="form-control" id="newMINetwork" name="MINetwork" placeholder="tcp">
-          </div>
-          <div class="form-group">
-            <label class="col-form-label" for="newOVConfigPath">Путь к конфигурации OpenVPN</label>
-            <input type="text" class="form-control" id="newOVConfigPath" name="OVConfigPath" placeholder="/etc/openvpn">
-          </div>
-          <div class="form-group">
-            <label class="col-form-label" for="newEasyRSAPath">Путь к конфигурации EasyRSA</label>
-            <input type="text" class="form-control" id="newEasyRSAPath" name="EasyRSAPath" placeholder="/usr/share/easy-rsa">
-          </div>
-          <button type="submit" class="btn btn-success">Создать</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="card card-default">
-  <div class="card-header with-border">
     <h3 class="card-title">Настройки OpenVPN UI</h3>
     <div class="pull-right card-tools">
       <button type="button" class="btn btn-tool" data-card-widget="collapse">
@@ -71,10 +17,15 @@
   <!-- form start -->
   <div class="card-body">
   {{template "common/alert.html" .}}
-  <form role="form" action="{{urlfor "SettingsController.Get"}}" method="post">
-    <input type="hidden" name="action" value="update">
-    <input type="hidden" name="Profile" value="{{ .Settings.Profile }}">
+  <form role="form" action="{{urlfor "SettingsController.Login"}}" method="post">
     <div class="card-body">
+      <!-- Disabled Profile - yet another feature to implement.
+      <div class="form-group">
+        <label for="name">Профиль</label>
+        <input type="text" class="form-control" id="Profile" disabled
+          value=" {{ .Settings.Profile }} ">
+      </div>
+      Disabled profile -->
       <div class="form-group">
         <label class="col-form-label" for="name">Адрес интерфейса управления</label>
         <div class="input-group mb-3">
@@ -117,11 +68,11 @@
 
       {{ .xsrfdata }}
 
-      <button type="submit" class="btn btn-primary" style="width: 125px;">Сохранить</button>
+      <button type="submit" class="btn btn-primary" style="width: 125px;">Сохранить</button>  
     </div>
         <!-- /.card-body -->
   </form>
-</div>
+</div>  
 </div>
 <!-- /.card -->
 {{end}}

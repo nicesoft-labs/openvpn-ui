@@ -12,6 +12,7 @@ import (
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/nicesoft-labs/openvpn-ui/lib"
 	"github.com/nicesoft-labs/openvpn-ui/models"
+	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 type OVClientConfigController struct {
@@ -31,11 +32,11 @@ func (c *OVClientConfigController) NestPrepare() {
 
 func (c *OVClientConfigController) Get() {
 	c.TplName = "ovclient.html"
-	besettings := models.Settings{Profile: c.CurrentProfile}
+	besettings := models.Settings{Profile: "default"}
 	_ = besettings.Read("Profile")
 	c.Data["BeeSettings"] = &besettings
 
-	destPathClientTempl := filepath.Join(c.CurrentSettings.OVConfigPath, "config/client.conf")
+	destPathClientTempl := filepath.Join(state.GlobalCfg.OVConfigPath, "config/client.conf")
 	clientTemplate, err := os.ReadFile(destPathClientTempl)
 	if err != nil {
 		logs.Error(err)
@@ -43,7 +44,7 @@ func (c *OVClientConfigController) Get() {
 	}
 	c.Data["ClientTemplate"] = string(clientTemplate)
 	c.Data["xsrfdata"] = template.HTML(c.XSRFFormHTML())
-	cfg := models.OVClientConfig{Profile: c.CurrentProfile}
+	cfg := models.OVClientConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 	c.Data["Settings"] = &cfg
 
@@ -54,10 +55,8 @@ func (c *OVClientConfigController) Post() {
 
 	c.TplName = "ovclient.html"
 	flash := web.NewFlash()
-	cfg := models.OVClientConfig{Profile: c.CurrentProfile}
-	if err := cfg.Read("Profile"); err != nil {
-		cfg.Profile = c.CurrentProfile
-	}
+	cfg := models.OVClientConfig{Profile: "default"}
+	_ = cfg.Read("Profile")
 
 	//logs.Info("Post: Parsing form data")
 	if err := c.ParseForm(&cfg); err != nil {
@@ -71,7 +70,7 @@ func (c *OVClientConfigController) Post() {
 	lib.Dump(cfg)
 	c.Data["Settings"] = &cfg
 
-	destPath := filepath.Join(c.CurrentSettings.OVConfigPath, "config/client.conf")
+	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "config/client.conf")
 	//logs.Info("Post: Saving configuration to file according to template")
 	err := clientconfig.SaveToFile(filepath.Join(c.ConfigDir, "openvpn-client-config.tpl"), cfg.Config, destPath)
 	if err != nil {
@@ -87,7 +86,7 @@ func (c *OVClientConfigController) Post() {
 		flash.Error(err.Error())
 	} else {
 		flash.Success("Post: Config has been updated")
-		client := mi.NewClient(c.CurrentSettings.MINetwork, c.CurrentSettings.MIAddress)
+		client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 		if err := client.Signal("SIGTERM"); err != nil {
 			flash.Warning("Config has been updated but OpenVPN server was NOT reloaded: " + err.Error())
 		}
@@ -109,7 +108,7 @@ func (c *OVClientConfigController) Post() {
 func (c *OVClientConfigController) Edit() {
 	c.TplName = "ovclient.html"
 	flash := web.NewFlash()
-	cfg := models.OVClientConfig{Profile: c.CurrentProfile}
+	cfg := models.OVClientConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 
 	//logs.Info("Post: Parsing form data")
@@ -125,7 +124,7 @@ func (c *OVClientConfigController) Edit() {
 	c.Data["Settings"] = &cfg
 
 	//logs.Info("Starting Edit method in OVClientConfigController")
-	destPath := filepath.Join(c.CurrentSettings.OVConfigPath, "config/client.conf")
+	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "config/client.conf")
 
 	err := lib.ConfSaveToFile(destPath, c.GetString("ClientTemplate"))
 	if err != nil {
