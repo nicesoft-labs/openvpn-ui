@@ -21,6 +21,10 @@ type NestFinisher interface {
 }
 
 func (c *BaseController) Prepare() {
+	if c.Data == nil {
+		c.Data = make(map[interface{}]interface{})
+	}
+
 	c.setParams()
 
 	userID := c.GetSession("userinfo")
