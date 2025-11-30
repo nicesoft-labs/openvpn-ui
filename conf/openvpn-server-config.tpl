@@ -36,7 +36,8 @@ auth {{ .Auth }}
 
 {{ .Server }}           # Trusted VPN subnet
 {{ .Route }}            # Route to Guest VPN subnet
-{{ .PushRoute }}     # Route to Home VPN subnet
+# Routes to Home VPN subnet
+{{ .PushRoute }}
 {{ .DNSServer1 }}             # DNS1 server for VPN clients
 {{ .DNSServer2 }}             # DNS2 server for VPN clients
 {{ .RedirectGW }}    # Redirect gateway for VPN clients
