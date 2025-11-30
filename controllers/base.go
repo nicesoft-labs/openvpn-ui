@@ -101,12 +101,14 @@ func (c *BaseController) setParams() {
 }
 
 func (c *BaseController) loadCurrentProfile() {
-	profile := c.GetString("profile")
-	if profile == "" {
-		if sessionProfile, ok := c.GetSession("profile").(string); ok {
-			profile = sessionProfile
-		}
-	}
+    profile := c.GetString("profile")
+    if profile == "" {
+            if sessionValue := c.GetSession("profile"); sessionValue != nil {
+                    if sessionProfile, ok := sessionValue.(string); ok {
+                            profile = sessionProfile
+                    }
+            }
+    }
 	if profile == "" {
 		profile = state.DefaultProfile
 	}
