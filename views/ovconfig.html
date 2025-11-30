@@ -256,10 +256,9 @@
 
       <div class="form-group">
         <label for="name">Push Route (ваша домашняя подсеть)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <div id="push-routes-container"></div>
-        <button type="button" class="btn btn-default btn-sm" id="add-push-route" style="margin-top: 8px;">Добавить маршрут</button>
-        <textarea name="PushRoute" id="PushRoute" style="display: none;">{{ .Settings.PushRoute }}</textarea>
-        <span id="helpBlock" class="text-muted"> Можно добавлять неограниченное количество маршрутов: один push-стейтмент на каждую строку. Маршруты будут пушиться клиентам «VLAN1» (доверенная VPN).
+        <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder="push &quot;route 10.0.60.0 255.255.255.0&quot;"
+          value="{{ .Settings.PushRoute }}">
+        <span id="helpBlock" class="text-muted"> Пушит маршрут к домашней сети для клиентов «VLAN1» (доверенная VPN).
           <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#ExpandingthescopeoftheVPNtoincludeadditionalmachinesoneithertheclientorserversubnet" target="_blank">Инфо</a>
         </span>
       </div>
@@ -432,63 +431,6 @@
   const userPassVerifyDiv = document.getElementById('auth-user-pass-verify');
   const scriptSecurityInput = document.getElementById('scriptsecurity');
   const userPassVerifyInput = document.getElementById('userpassverify');
-  const pushRoutesContainer = document.getElementById('push-routes-container');
-  const pushRoutesHiddenInput = document.getElementById('PushRoute');
-  const addPushRouteButton = document.getElementById('add-push-route');
-  const expertForm = document.getElementById('expert-form');
-
-  function addPushRouteField(value = '') {
-    const routeWrapper = document.createElement('div');
-    routeWrapper.className = 'input-group push-route-row';
-    routeWrapper.style.marginBottom = '8px';
-
-    const routeInput = document.createElement('input');
-    routeInput.type = 'text';
-    routeInput.className = 'form-control';
-    routeInput.placeholder = 'push "route 10.0.60.0 255.255.255.0"';
-    routeInput.value = value;
-
-    const appendWrapper = document.createElement('div');
-    appendWrapper.className = 'input-group-append';
-
-    const removeButton = document.createElement('button');
-    removeButton.className = 'btn btn-danger';
-    removeButton.type = 'button';
-    removeButton.textContent = '×';
-    removeButton.addEventListener('click', () => {
-      routeWrapper.remove();
-    });
-
-    appendWrapper.appendChild(removeButton);
-    routeWrapper.appendChild(routeInput);
-    routeWrapper.appendChild(appendWrapper);
-    pushRoutesContainer.appendChild(routeWrapper);
-  }
-
-  function syncPushRoutesField() {
-    const routes = Array.from(pushRoutesContainer.querySelectorAll('input'))
-      .map((input) => input.value.trim())
-      .filter((value) => value.length > 0);
-
-    pushRoutesHiddenInput.value = routes.join('\n');
-  }
-
-  const initialRoutes = pushRoutesHiddenInput.value
-    ? pushRoutesHiddenInput.value
-        .trim()
-        .split(/\r?\n/)
-        .map((route) => route.trim())
-        .filter((route) => route.length > 0)
-    : [];
-
-  if (initialRoutes.length > 0) {
-    initialRoutes.forEach((route) => addPushRouteField(route));
-  } else {
-    addPushRouteField('');
-  }
-
-  addPushRouteButton.addEventListener('click', () => addPushRouteField(''));
-  expertForm.addEventListener('submit', syncPushRoutesField);
 
   function checkFuncMode() {
     if (funcModeSelect.value === '0') {

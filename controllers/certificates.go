@@ -14,6 +14,7 @@ import (
 	clientconfig "github.com/d3vilh/openvpn-server-config/client/client-config"
 	"github.com/nicesoft-labs/openvpn-ui/lib"
 	"github.com/nicesoft-labs/openvpn-ui/models"
+	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 type NewCertParams struct {
@@ -54,7 +55,7 @@ func (c *CertificatesController) Download() {
 	c.Ctx.Output.Header("Content-Type", "application/octet-stream")
 	c.Ctx.Output.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
-	keysPath := filepath.Join(c.CurrentSettings.OVConfigPath, "pki/issued")
+	keysPath := filepath.Join(state.GlobalCfg.OVConfigPath, "pki/issued")
 
 	cfgPath, err := c.saveClientConfig(keysPath, name)
 	if err != nil {
@@ -83,7 +84,7 @@ func (c *CertificatesController) Get() {
 
 func (c *CertificatesController) DisplayImage() {
 	imageName := c.Ctx.Input.Param(":imageName")
-	imagePath := filepath.Join(c.CurrentSettings.OVConfigPath, "clients", imageName+".png")
+	imagePath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients", imageName+".png")
 
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
@@ -98,7 +99,7 @@ func (c *CertificatesController) DisplayImage() {
 }
 
 func (c *CertificatesController) populateCertView() {
-	path := filepath.Join(c.CurrentSettings.OVConfigPath, "pki/index.txt")
+	path := filepath.Join(state.GlobalCfg.OVConfigPath, "pki/index.txt")
 	certs, err := lib.ReadCerts(path)
 	if err != nil {
 		logs.Error(err)
@@ -146,7 +147,6 @@ func (c *CertificatesController) Post() {
 	)
 
 	if err := lib.CreateCertificate(
-		c.CurrentSettings.OVConfigPath,
 		cParams.Name,
 		cParams.Staticip,
 		cParams.Passphrase,
@@ -180,7 +180,7 @@ func (c *CertificatesController) Revoke() {
 	serial := c.GetString(":serial")
 	tfaname := c.GetString(":tfaname")
 
-	if err := lib.RevokeCertificate(c.CurrentSettings.OVConfigPath, name, serial, tfaname); err != nil {
+	if err := lib.RevokeCertificate(name, serial, tfaname); err != nil {
 		logs.Error(err)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + name + "\" and serial  \"" + serial + "\" has been revoked")
@@ -191,7 +191,7 @@ func (c *CertificatesController) Revoke() {
 
 // @router /certificates/restart [get]
 func (c *CertificatesController) Restart() {
-	lib.Restart(c.CurrentSettings.OVConfigPath)
+	lib.Restart()
 	c.Redirect(c.URLFor("CertificatesController.Get"), 302)
 }
 
@@ -204,7 +204,7 @@ func (c *CertificatesController) Burn() {
 	tfaname := c.GetString(":tfaname")
 	logs.Info("Controller: Burning certificate with parameters: CN=%s, serial=%s, tfaname=%s", CN, serial, tfaname)
 
-	if err := lib.BurnCertificate(c.CurrentSettings.OVConfigPath, CN, serial, tfaname); err != nil {
+	if err := lib.BurnCertificate(CN, serial, tfaname); err != nil {
 		logs.Error(err)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + CN + "\" and serial  \"" + serial + "\"  has been removed")
@@ -222,7 +222,7 @@ func (c *CertificatesController) Renew() {
 	serial := c.GetString(":serial")
 	tfaname := c.GetString(":tfaname")
 
-	if err := lib.RenewCertificate(c.CurrentSettings.OVConfigPath, name, localip, serial, tfaname); err != nil {
+	if err := lib.RenewCertificate(name, localip, serial, tfaname); err != nil {
 		logs.Error(err)
 	} else {
 		flash.Success("Success! Certificate for the name \"" + name + "\"  and IP \"" + localip + "\" and Serial \"" + serial + "\" has been renewed")
@@ -246,9 +246,9 @@ func validateCertParams(cert NewCertParams) map[string]map[string]string {
 
 func (c *CertificatesController) saveClientConfig(keysPath string, name string) (string, error) {
 	cfg := clientconfig.New()
-	keysPathCa := filepath.Join(c.CurrentSettings.OVConfigPath, "pki")
+	keysPathCa := filepath.Join(state.GlobalCfg.OVConfigPath, "pki")
 
-	ovClientConfig := &models.OVClientConfig{Profile: c.CurrentProfile}
+	ovClientConfig := &models.OVClientConfig{Profile: "default"}
 	if err := ovClientConfig.Read("Profile"); err != nil {
 		return "", err
 	}
@@ -292,18 +292,18 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	}
 	cfg.Cert = string(cert)
 
-	keysPathKey := filepath.Join(c.CurrentSettings.OVConfigPath, "pki/private")
+	keysPathKey := filepath.Join(state.GlobalCfg.OVConfigPath, "pki/private")
 	key, err := os.ReadFile(filepath.Join(keysPathKey, name+".key"))
 	if err != nil {
 		return "", err
 	}
 	cfg.Key = string(key)
 
-	serverConfig := models.OVConfig{Profile: c.CurrentProfile}
+	serverConfig := models.OVConfig{Profile: "default"}
 	_ = serverConfig.Read("Profile")
 	cfg.Port = serverConfig.Port
 
-	destPath := filepath.Join(c.CurrentSettings.OVConfigPath, "clients", name+".ovpn")
+	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "clients", name+".ovpn")
 	if err := SaveToFile(filepath.Join(c.ConfigDir, "openvpn-client-config.tpl"), cfg, destPath); err != nil {
 		logs.Error(err)
 		return "", err
@@ -333,10 +333,6 @@ func SaveToFile(tplPath string, c clientconfig.Config, destPath string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
-		return err
-	}
-
 	str, err := GetText(string(tpl), c)
 	if err != nil {
 		return err
@@ -346,13 +342,13 @@ func SaveToFile(tplPath string, c clientconfig.Config, destPath string) error {
 }
 
 func (c *CertificatesController) loadEasyRSAConfig() *models.EasyRSAConfig {
-	cfg := models.EasyRSAConfig{Profile: c.CurrentProfile}
+	cfg := models.EasyRSAConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 	return &cfg
 }
 
 func (c *CertificatesController) loadClientConfig() *models.OVClientConfig {
-	cfg := models.OVClientConfig{Profile: c.CurrentProfile}
+	cfg := models.OVClientConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 	return &cfg
 }

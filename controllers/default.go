@@ -6,6 +6,7 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/nicesoft-labs/openvpn-ui/lib"
+	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 type MainController struct {
@@ -25,7 +26,7 @@ func (c *MainController) NestPrepare() {
 func (c *MainController) Get() {
 	c.Data["sysinfo"] = lib.GetSystemInfo()
 	lib.Dump(lib.GetSystemInfo())
-	client := mi.NewClient(c.CurrentSettings.MINetwork, c.CurrentSettings.MIAddress)
+	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 	status, err := client.GetStatus()
 	if err != nil {
 		logs.Error(err)

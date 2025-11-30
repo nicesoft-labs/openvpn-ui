@@ -1,11 +1,9 @@
 package models
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
@@ -112,18 +110,9 @@ func CreateDefaultSettings() (*Settings, error) {
 	}
 }
 
-func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string, network string, profile string) {
-	if profile == "" {
-		profile = "default"
-	}
-
-	if err := ensureInstanceDirectories(ovConfigPath, ""); err != nil {
-		logs.Error(err)
-		return
-	}
-
+func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string, network string) {
 	c := OVConfig{
-		Profile: profile,
+		Profile: "default",
 		Config: config.Config{
 			FuncMode:                 0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
 			Management:               fmt.Sprintf("%s %s", address, network),
@@ -137,7 +126,7 @@ func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string
 			MaxClients:               100,
 			OVConfigUser:             "nobody",
 			OVConfigGroup:            "nogroup",
-			OVConfigClientConfigDir:  filepath.Join(ovConfigPath, "staticclients"),
+			OVConfigClientConfigDir:  "/etc/openvpn/staticclients",
 			IfconfigPoolPersist:      "pki/ipp.txt",
 			Ca:                       "pki/ca.crt",
 			Cert:                     "pki/issued/server.crt",
@@ -183,18 +172,9 @@ func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string
 	}
 }
 
-func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address string, network string, profile string) {
-	if profile == "" {
-		profile = "default"
-	}
-
-	if err := ensureInstanceDirectories(ovConfigPath, ""); err != nil {
-		logs.Error(err)
-		return
-	}
-
+func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address string, network string) {
 	c := OVClientConfig{
-		Profile: profile,
+		Profile: "default",
 		Config: clientconfig.Config{
 			FuncMode:          0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
 			Device:            "tun",
@@ -239,18 +219,9 @@ func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address 
 	}
 }
 
-func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address string, network string, profile string) {
-	if profile == "" {
-		profile = "default"
-	}
-
-	if err := ensureInstanceDirectories("", easyRSAPath); err != nil {
-		logs.Error(err)
-		return
-	}
-
+func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address string, network string) {
 	c := EasyRSAConfig{
-		Profile: profile,
+		Profile: "default",
 		Config: easyrsaconfig.Config{
 			EasyRSADN:          "org",
 			EasyRSAReqCountry:  "RU",
@@ -283,134 +254,4 @@ func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address st
 	} else {
 		logs.Error(err)
 	}
-}
-
-func ensureInstanceDirectories(ovConfigPath string, easyRSAPath string) error {
-	paths := make([]string, 0)
-
-	if ovConfigPath != "" {
-		paths = append(paths,
-			ovConfigPath,
-			filepath.Join(ovConfigPath, "clients"),
-			filepath.Join(ovConfigPath, "config"),
-			filepath.Join(ovConfigPath, "staticclients"),
-			filepath.Join(ovConfigPath, "pki"),
-			filepath.Join(ovConfigPath, "pki", "issued"),
-			filepath.Join(ovConfigPath, "pki", "private"),
-			filepath.Join(ovConfigPath, "pki", "crl"),
-			filepath.Join(ovConfigPath, "pki", "reqs"),
-		)
-	}
-
-	if easyRSAPath != "" {
-		paths = append(paths,
-			easyRSAPath,
-			filepath.Join(easyRSAPath, "pki"),
-		)
-	}
-
-	for _, path := range paths {
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			return fmt.Errorf("creating instance directory %s: %w", path, err)
-		}
-	}
-
-	return nil
-}
-
-func sanitizeProfileName(profile string) string {
-	clean := strings.TrimSpace(profile)
-	clean = strings.ReplaceAll(clean, "..", "")
-	clean = strings.ReplaceAll(clean, string(os.PathSeparator), "-")
-
-	if clean == "" {
-		return "default"
-	}
-
-	return clean
-}
-
-func ensureProfilePath(basePath, profile string) (string, error) {
-	if basePath == "" {
-		return "", errors.New("base path for instance is required")
-	}
-
-	cleanBase := filepath.Clean(basePath)
-	cleanProfile := sanitizeProfileName(profile)
-
-	if filepath.Base(cleanBase) == cleanProfile {
-		return cleanBase, nil
-	}
-
-	return filepath.Join(cleanBase, cleanProfile), nil
-}
-
-func ensureUniqueInstancePath(path string) string {
-	candidate := path
-	idx := 1
-
-	for pathTaken(candidate) {
-		candidate = fmt.Sprintf("%s-%d", path, idx)
-		idx++
-	}
-
-	return candidate
-}
-
-func pathTaken(path string) bool {
-	if path == "" {
-		return false
-	}
-
-	if _, err := os.Stat(path); err == nil {
-		return true
-	}
-
-	o := orm.NewOrm()
-	if o.QueryTable(new(Settings)).Filter("OVConfigPath", path).Exist() {
-		return true
-	}
-
-	return o.QueryTable(new(Settings)).Filter("EasyRSAPath", path).Exist()
-}
-
-func PrepareInstanceSettings(settings *Settings, defaultOVPath, defaultEasyRSAPath string) error {
-	if settings == nil {
-		return errors.New("settings cannot be nil")
-	}
-
-	settings.Profile = sanitizeProfileName(settings.Profile)
-
-	ovPath, err := ensureProfilePath(firstNonEmpty(settings.OVConfigPath, defaultOVPath), settings.Profile)
-	if err != nil {
-		return err
-	}
-	easyRSAPath, err := ensureProfilePath(firstNonEmpty(settings.EasyRSAPath, defaultEasyRSAPath), settings.Profile)
-	if err != nil {
-		return err
-	}
-
-	settings.OVConfigPath = ensureUniqueInstancePath(ovPath)
-	settings.EasyRSAPath = ensureUniqueInstancePath(easyRSAPath)
-
-	return ensureInstanceDirectories(settings.OVConfigPath, settings.EasyRSAPath)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-
-	return ""
-}
-
-func EnsureProfileConfigs(configDir string, settings *Settings) {
-	if err := ensureInstanceDirectories(settings.OVConfigPath, settings.EasyRSAPath); err != nil {
-		logs.Error(err)
-	}
-	CreateDefaultOVConfig(configDir, settings.OVConfigPath, settings.MIAddress, settings.MINetwork, settings.Profile)
-	CreateDefaultOVClientConfig(configDir, settings.OVConfigPath, settings.MIAddress, settings.MINetwork, settings.Profile)
-	CreateDefaultEasyRSAConfig(configDir, settings.EasyRSAPath, settings.MIAddress, settings.MINetwork, settings.Profile)
 }
