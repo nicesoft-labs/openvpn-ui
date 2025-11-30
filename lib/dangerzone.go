@@ -5,7 +5,6 @@ import (
 	"os/exec"
 
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 func DeletePKI(ovConfigPath string, name string) error {
