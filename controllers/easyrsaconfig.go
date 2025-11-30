@@ -12,7 +12,6 @@ import (
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/nicesoft-labs/openvpn-ui/lib"
 	"github.com/nicesoft-labs/openvpn-ui/models"
-	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 type EasyRSAConfigController struct {
@@ -33,7 +32,7 @@ func (c *EasyRSAConfigController) NestPrepare() {
 func (c *EasyRSAConfigController) Get() {
 	c.TplName = "easyrsavar.html"
 
-	destPathEasyRSAConfig := filepath.Join(state.GlobalCfg.EasyRSAPath, "pki/vars")
+	destPathEasyRSAConfig := filepath.Join(c.CurrentSettings.EasyRSAPath, "pki/vars")
 	easyRSAConfig, err := os.ReadFile(destPathEasyRSAConfig)
 	if err != nil {
 		logs.Error(err)
@@ -42,7 +41,7 @@ func (c *EasyRSAConfigController) Get() {
 	c.Data["EasyRSAConf"] = string(easyRSAConfig)
 
 	c.Data["xsrfdata"] = template.HTML(c.XSRFFormHTML())
-	cfg := models.EasyRSAConfig{Profile: "default"}
+	cfg := models.EasyRSAConfig{Profile: c.CurrentProfile}
 	_ = cfg.Read("Profile")
 	c.Data["Settings"] = &cfg
 
@@ -51,8 +50,10 @@ func (c *EasyRSAConfigController) Get() {
 func (c *EasyRSAConfigController) Post() {
 	c.TplName = "easyrsavar.html"
 	flash := web.NewFlash()
-	cfg := models.EasyRSAConfig{Profile: "default"}
-	_ = cfg.Read("Profile")
+	cfg := models.EasyRSAConfig{Profile: c.CurrentProfile}
+	if err := cfg.Read("Profile"); err != nil {
+		cfg.Profile = c.CurrentProfile
+	}
 	if err := c.ParseForm(&cfg); err != nil {
 		logs.Warning(err)
 		flash.Error(err.Error())
@@ -62,7 +63,7 @@ func (c *EasyRSAConfigController) Post() {
 	lib.Dump(cfg)
 	c.Data["Settings"] = &cfg
 
-	destPath := filepath.Join(state.GlobalCfg.EasyRSAPath, "pki/vars")
+	destPath := filepath.Join(c.CurrentSettings.EasyRSAPath, "pki/vars")
 	err := easyrsaconfig.SaveToFile(filepath.Join(c.ConfigDir, "easyrsa-vars.tpl"), cfg.Config, destPath)
 	if err != nil {
 		logs.Warning(err)
@@ -71,7 +72,7 @@ func (c *EasyRSAConfigController) Post() {
 		return
 	}
 
-	destPath = filepath.Join(state.GlobalCfg.OVConfigPath, "config/easy-rsa.vars")
+	destPath = filepath.Join(c.CurrentSettings.OVConfigPath, "config/easy-rsa.vars")
 	err = easyrsaconfig.SaveToFile(filepath.Join(c.ConfigDir, "easyrsa-vars.tpl"), cfg.Config, destPath)
 	if err != nil {
 		logs.Warning(err)
@@ -85,13 +86,13 @@ func (c *EasyRSAConfigController) Post() {
 		flash.Error(err.Error())
 	} else {
 		flash.Success("Config has been updated")
-		client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
+		client := mi.NewClient(c.CurrentSettings.MINetwork, c.CurrentSettings.MIAddress)
 		if err := client.Signal("SIGTERM"); err != nil {
 			flash.Warning("Config has been updated but OpenVPN server was NOT reloaded: " + err.Error())
 		}
 	}
 
-	destPathEasyRSAConfig := filepath.Join(state.GlobalCfg.EasyRSAPath, "pki/vars")
+	destPathEasyRSAConfig := filepath.Join(c.CurrentSettings.EasyRSAPath, "pki/vars")
 	easyRSAConfig, err := os.ReadFile(destPathEasyRSAConfig)
 	if err != nil {
 		logs.Error(err)

@@ -30,7 +30,7 @@ func (c *DangerController) DeletePKI() {
 	flash := web.NewFlash()
 	name := c.GetString(":key")
 	//logs.Info("Controller: Deleting:", name)
-	if err := lib.DeletePKI(name); err != nil {
+	if err := lib.DeletePKI(c.CurrentSettings.OVConfigPath, name); err != nil {
 		logs.Error(err)
 		flash.Error(err.Error())
 		flash.Store(&c.Controller)
@@ -49,7 +49,7 @@ func (c *DangerController) InitPKI() {
 	flash := web.NewFlash()
 	name := c.GetString(":key")
 	//logs.Info("Controller: Runing init for:", name)
-	if err := lib.InitPKI(name); err != nil {
+	if err := lib.InitPKI(c.CurrentSettings.OVConfigPath, name); err != nil {
 		logs.Error(err)
 		flash.Error(err.Error())
 		flash.Store(&c.Controller)
@@ -68,7 +68,7 @@ func (c *DangerController) RestartContainer() {
 	flash := web.NewFlash()
 	name := c.GetString(":key")
 	//logs.Info("Controller: Restarting:", name)
-	if err := lib.RestartContainer(name); err != nil {
+	if err := lib.RestartContainer(c.CurrentSettings.OVConfigPath, name); err != nil {
 		logs.Error("Error restarting container:", err)
 		//	logs.Error("Stack trace:", string(debug.Stack()))
 		flash.Error(err.Error())

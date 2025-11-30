@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
-	"github.com/nicesoft-labs/openvpn-ui/state"
 )
 
 // APISignalController sends signals to OpenVPN daemon
@@ -25,7 +24,7 @@ type SignalParams struct {
 // @Failure 400 request failure
 // @router / [post]
 func (c *APISignalController) Send() {
-	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
+	client := mi.NewClient(c.CurrentSettings.MINetwork, c.CurrentSettings.MIAddress)
 	p := SignalParams{}
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &p); err != nil {
 		c.ServeJSONError(err.Error())
