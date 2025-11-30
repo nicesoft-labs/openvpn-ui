@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -116,12 +117,17 @@ func trim(s string) string {
 
 func CreateCertificate(ovConfigPath string, name string, staticip string, passphrase string, expiredays string, email string, country string, province string, city string, org string, orgunit string, tfaname string, tfaissuer string) error {
 	logs.Info("Lib: Creating certificate with parameters: name=%s, staticip=%s, passphrase=%s, expiredays=%s, email=%s, country=%s, province=%s, city=%s, org=%s, orgunit=%s, tfaname=%s, tfaissuer=%s", name, staticip, passphrase, expiredays, email, country, province, city, org, orgunit, tfaname, tfaissuer)
-	path := ovConfigPath + "/pki/index.txt"
+	indexPath := filepath.Join(ovConfigPath, "pki", "index.txt")
+	staticClientsDir := filepath.Join(ovConfigPath, "staticclients")
+
+	if err := os.MkdirAll(staticClientsDir, 0o755); err != nil {
+		return err
+	}
 	haveip := staticip != ""
 	pass := passphrase != ""
-	//logs.Info("Org set to: %v", org)
+	// logs.Info("Org set to: %v", org)
 	existsError := errors.New("Error! There is already a valid or invalid certificate for the name \"" + name + "\"")
-	certs, err := ReadCerts(path)
+	certs, err := ReadCerts(indexPath)
 	if err != nil {
 		logs.Error(err)
 	}
@@ -133,6 +139,9 @@ func CreateCertificate(ovConfigPath string, name string, staticip string, passph
 		}
 	}
 	Dump(certs)
+	staticClientFile := filepath.Join(staticClientsDir, name)
+	staticClientFileEscaped := fmt.Sprintf("%q", staticClientFile)
+
 	if !pass { // if no passphrase
 		if !exists && !haveip { // if no exists and no ip
 			logs.Info("No password and no ip")
@@ -176,7 +185,7 @@ func CreateCertificate(ovConfigPath string, name string, staticip string, passph
 						"export EASYRSA_REQ_ORG=%s &&"+
 						"export EASYRSA_REQ_OU=%s &&"+
 						"./genclient.sh %s %s &&"+
-						"echo 'ifconfig-push %s 255.255.255.0' > /etc/openvpn/staticclients/%s", name, tfaname, tfaissuer, expiredays, email, country, province, city, org, orgunit, name, staticip, staticip, name))
+						"echo 'ifconfig-push %s 255.255.255.0' > %s", name, tfaname, tfaissuer, expiredays, email, country, province, city, org, orgunit, name, staticip, staticip, staticClientFileEscaped))
 			cmd.Dir = ovConfigPath
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -230,7 +239,7 @@ func CreateCertificate(ovConfigPath string, name string, staticip string, passph
 						"export EASYRSA_REQ_ORG=%s &&"+
 						"export EASYRSA_REQ_OU=%s &&"+
 						"./genclient.sh %s %s %s &&"+
-						"echo 'ifconfig-push %s 255.255.255.0' > /etc/openvpn/staticclients/%s", name, tfaname, tfaissuer, expiredays, email, country, province, city, org, orgunit, name, staticip, passphrase, staticip, name))
+						"echo 'ifconfig-push %s 255.255.255.0' > %s", name, tfaname, tfaissuer, expiredays, email, country, province, city, org, orgunit, name, staticip, passphrase, staticip, staticClientFileEscaped))
 			cmd.Dir = ovConfigPath
 			output, err := cmd.CombinedOutput()
 			if err != nil {

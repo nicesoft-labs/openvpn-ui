@@ -333,6 +333,10 @@ func SaveToFile(tplPath string, c clientconfig.Config, destPath string) error {
 		return err
 	}
 
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return err
+	}
+
 	str, err := GetText(string(tpl), c)
 	if err != nil {
 		return err
