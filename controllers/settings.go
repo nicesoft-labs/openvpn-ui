@@ -56,6 +56,12 @@ func (c *SettingsController) Post() {
 			break
 		}
 
+		if err := models.PrepareInstanceSettings(&newSettings, c.CurrentSettings.OVConfigPath, c.CurrentSettings.EasyRSAPath); err != nil {
+			logs.Warning(err)
+			flash.Error(err.Error())
+			break
+		}
+
 		if _, err := orm.NewOrm().Insert(&newSettings); err != nil {
 			flash.Error(err.Error())
 			break
