@@ -104,43 +104,99 @@
     <div class="card-body">
       <span><b style="color: #dd4b39;">DANGER ZONE!</b> You can't rollback any actions of this section!</span><br>
       <span class="text-muted">Be cautious, expertise level is essential! <a href="https://github.com/OpenVPN/easy-rsa/blob/master/README.quickstart.md" target="_blank">EasyRSA Quick Guide</a>, <a href="https://github.com/OpenVPN/easy-rsa/tree/master/doc" target="_blank">EasyRSA detailed Guide</a>.</span>
+      <div class="alert alert-secondary mt-3" role="alert">
+        <strong>Памятка по инициализации (рус.)</strong><br>
+        Выполните действия ниже последовательно:<br>
+        <ol class="mb-0">
+          <li>Скопируйте переменные EasyRSA (кнопка <em>EasyRSA VARs</em>).</li>
+          <li>Сгенерируйте новый список отозванных сертификатов (CRL).</li>
+          <li>Инициализируйте PKI.</li>
+          <li>Создайте центр сертификации (CA).</li>
+          <li>Сгенерируйте серверный сертификат и подпишите запрос.</li>
+          <li>Сгенерируйте ключ Диффи-Хеллмана.</li>
+          <li>Сгенерируйте TA-ключ OpenVPN.</li>
+          <li>Кнопка <em>INITIALIZE ALL</em> выполнит все шаги по порядку автоматически.</li>
+        </ol>
+      </div>
     <!-- form start -->
     <form role="form" action="{{urlfor "DangerController.Post"}}" method="post">
       <div class="card-body">
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "copy_vars"}}" class="btn btn-primary" style="width: 125px;" title="Copy EasyRSA VARs" onclick="return confirm('Are you sure you want to Copy EasyRSA VARs?');">EasyRSA VARs</a>
+          <div class="ml-2">
+            {{with .pkiStatus.Vars}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span>Copy EasyRSA vars from &quot;./openvpn/config/easy-rsa.vars to ./easy-rsa/pki/vars&quot;.</span>
         </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "gen_crl"}}" class="btn btn-primary" style="width: 125px;" title="Generate TA key for openvpn" onclick="return confirm('Are you sure you want to generate CRL?');">Generate CRL</a>
+          <div class="ml-2">
+            {{with .pkiStatus.CRL}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span>Generate a new Certificate Revocation List (CRL) by running &quot;easyrsa gen-crl&quot;.</span>
-        </div>   
+        </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "init-pki"}}" class="btn btn-warning btn-primary" style="width: 125px;" title="Initialize PKI" onclick="return confirm('Are you sure you want to Initialize PKI?');">Initialize PKI</a>
+          <div class="ml-2">
+            {{with .pkiStatus.PKIConfig}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span class="text-muted">Initialize PKI by running &quot;easyrsa init-pki&quot;.</span>
-        </div>   
+        </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "build_ca"}}" class="btn btn-warning btn-primary" style="width: 125px;" title="Build CA" onclick="return confirm('Are you sure you want to build CA?');">Build CA</a>
+          <div class="ml-2">
+            {{with .pkiStatus.CA}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span class="text-muted">Build CA by running &quot;easyrsa build-ca nopass&quot;.</span>
-        </div>     
+        </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "gen_req"}}" class="btn btn-warning btn-primary" style="width: 125px;" title="Build Server" onclick="return confirm('Are you sure you want to build Server?');">Build Server</a>
+          <div class="ml-2">
+            {{with .pkiStatus.Server}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span class="text-muted">Generate a new Server Certificate, Key, and Encryption Files by running &quot;easyrsa gen-req&sign-req server nopas&quot;.</span>
-        </div>     
+        </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "gen_dh"}}" class="btn btn-warning btn-primary" style="width: 125px;" title="Generate Diffie-Hellman key" onclick="return confirm('Are you sure you want to generate DH key?');">Generate DH</a>
+          <div class="ml-2">
+            {{with .pkiStatus.DH}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span class="text-muted">Generate a new Diffie-Hellman key by running &quot;easyrsa gen-dh&quot;. This may take <b>up to 10 min</b>. Nothing is freezed, be patient.</span>
-        </div>    
+        </div>
 
-        <div class="form-group">
+        <div class="form-group d-flex flex-wrap align-items-center">
           <a href="{{urlfor "DangerController.InitPKI" ":key" "gen_ta"}}" class="btn btn-warning btn-primary" style="width: 125px;" title="Generate TA key for openvpn" onclick="return confirm('Are you sure you want to generate TA key?');">Generate TA</a>
+          <div class="ml-2">
+            {{with .pkiStatus.TA}}
+            <span class="badge {{if .Exists}}badge-success{{else}}badge-danger{{end}}">{{if .Exists}}Создано{{else}}Создайте{{end}}</span>
+            <small class="d-block text-muted">{{.Path}}</small>
+            {{end}}
+          </div>
           &nbsp; <span class="text-muted">Generate a new openvpn TA key by running &quot;openvpn --genkey --secret ta.key&quot;.</span>
-        </div>     
+        </div>
 
         <div class="card-body">
           <div class="form-group">
