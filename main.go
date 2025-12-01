@@ -29,6 +29,9 @@ func main() {
 	}
 
 	models.InitDB()
+	if err := models.InitMetricsDB(); err != nil {
+		panic(err)
+	}
 	models.CreateDefaultUsers()
 	defaultSettings, err := models.CreateDefaultSettings()
 	if err != nil {
@@ -56,6 +59,7 @@ sessionon = true
 CopyRequestBody = true
 AuthType = "password"
 DbPath = "./db/data.db"
+MetricsDbPath = "./db/metrics.db"
 EasyRsaPath = "/usr/share/easy-rsa"
 OpenVpnPath = "/etc/openvpn"
 OpenVpnManagementAddress = "openvpn:2080"
