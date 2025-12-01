@@ -46,6 +46,10 @@ func main() {
 	collector := lib.NewObservabilityCollector()
 	collector.Start()
 
+	if err := lib.GenerateUIDataReport("ui-data-report.md"); err != nil {
+		fmt.Println("report generation error:", err)
+	}
+
 	routers.Init(*configDir)
 
 	lib.AddFuncMaps()

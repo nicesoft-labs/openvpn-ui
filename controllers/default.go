@@ -57,53 +57,17 @@ func (c *MainController) NestPrepare() {
 func (c *MainController) Get() {
 	sysInfo := lib.GetSystemInfo()
 	c.Data["sysinfo"] = sysInfo
-	lib.Dump(lib.GetSystemInfo())
-	managementAvailable := true
-	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
-	status, err := client.GetStatus()
+
+	snapshot, err := BuildStatuszSnapshot()
 	if err != nil {
-		logs.Error(err)
-		logs.Warn(fmt.Sprintf("passed client line: %s", client))
-		logs.Warn(fmt.Sprintf("error: %s", err))
-		managementAvailable = false
-	} else {
-		c.Data["ovstatus"] = status
+		logs.Warn(fmt.Sprintf("status snapshot error: %v", err))
 	}
-	lib.Dump(status)
-
-	version, err := client.GetVersion()
-	if err != nil {
-		logs.Error(err)
-		managementAvailable = false
-	} else {
-		c.Data["ovversion"] = version.OpenVPN
-	}
-	lib.Dump(version)
-
-	pid, err := client.GetPid()
-	if err != nil {
-		logs.Error(err)
-		managementAvailable = false
-	} else {
-		c.Data["ovpid"] = pid
-	}
-	lib.Dump(pid)
-
-	loadStats, err := client.GetLoadStats()
-	if err != nil {
-		logs.Error(err)
-		managementAvailable = false
-	} else {
-		c.Data["ovstats"] = loadStats
-	}
-	lib.Dump(loadStats)
-
-	metrics := buildDashboardMetrics(status, loadStats, sysInfo, managementAvailable)
-	c.Data["metrics"] = metrics
-
-	if managementAvailable {
-		if err := models.SaveMetrics(buildMetricRecords(metrics)); err != nil {
-			logs.Error(err)
+	if snapshot != nil {
+		c.Data["ovstatus"] = snapshot.Ovstatus
+		c.Data["ovstats"] = snapshot.Ovstats
+		c.Data["metrics"] = snapshot.Metrics
+		if snapshot.Metrics.Ovversion != "" {
+			c.Data["ovversion"] = snapshot.Metrics.Ovversion
 		}
 	}
 
