@@ -22,8 +22,7 @@ type NestFinisher interface {
 	NestFinish()
 }
 
-// sessionUserID безопасно извлекает идентификатор пользователя из сессии.
-// Поддерживает int64, int и string.
+// безопасно извлекаем userID из сессии; поддерживаем int64/int/string
 func (c *BaseController) sessionUserID() (int64, bool) {
 	v := c.GetSession("userinfo")
 	switch id := v.(type) {
@@ -49,7 +48,6 @@ func (c *BaseController) Prepare() {
 			c.IsLogin = true
 			c.Userinfo = &user
 		} else {
-			// Пользователь не найден — чистим сессию
 			c.IsLogin = false
 			c.DelSession("userinfo")
 			c.Userinfo = nil
@@ -62,18 +60,19 @@ func (c *BaseController) Prepare() {
 	c.Data["IsLogin"] = c.IsLogin
 	c.Data["Userinfo"] = c.Userinfo
 
-	if app, ok := c.AppController.(NestPreparer); ok {
+	// Важная защита от typed-nil
+	if app, ok := c.AppController.(NestPreparer); ok && app != nil {
 		app.NestPrepare()
 	}
 }
 
 func (c *BaseController) Finish() {
-	if app, ok := c.AppController.(NestFinisher); ok {
+	if app, ok := c.AppController.(NestFinisher); ok && app != nil {
 		app.NestFinish()
 	}
 }
 
-// GetLogin возвращает пользователя из сессии или nil, если не залогинен.
+// Возвращает пользователя из сессии или nil
 func (c *BaseController) GetLogin() *models.User {
 	if uid, ok := c.sessionUserID(); ok {
 		u := &models.User{Id: uid}
@@ -90,7 +89,7 @@ func (c *BaseController) DelLogin() {
 }
 
 func (c *BaseController) SetLogin(user *models.User) {
-	// Храним ID в сессии как int64 — единообразно
+	// Храним ID в сессии единообразно как int64
 	c.SetSession("userinfo", int64(user.Id))
 	c.IsLogin = true
 	c.Userinfo = user
@@ -101,17 +100,16 @@ func (c *BaseController) LoginPath() string {
 }
 
 func (c *BaseController) SetParams() {
-	c.Data["Params"] = make(map[string]string)
-	input, err := c.Input() // в вашей версии: (url.Values, error)
-	if err != nil {
-		// можно залогировать, если нужно
-		return
-	}
-	for k, v := range input {
-		if len(v) > 0 {
-			c.Data["Params"].(map[string]string)[k] = v[0]
+	params := make(map[string]string)
+	input, err := c.Input() // (url.Values, error) в beego v2
+	if err == nil {
+		for k, v := range input {
+			if len(v) > 0 {
+				params[k] = v[0]
+			}
 		}
 	}
+	c.Data["Params"] = params
 }
 
 type BreadCrumbs struct {
