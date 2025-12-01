@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/beego/beego/v2/server/web"
 	"github.com/d3vilh/openvpn-ui/lib"
 	"github.com/d3vilh/openvpn-ui/models"
 	"github.com/d3vilh/openvpn-ui/routers"
+	"github.com/d3vilh/openvpn-ui/services/mgmtcollector"
 	"github.com/d3vilh/openvpn-ui/state"
 )
 
@@ -46,6 +48,8 @@ func main() {
 	collector := lib.NewObservabilityCollector()
 	collector.Start()
 
+	mgmtcollector.Start(loadMgmtCollectorConfig())
+
 	if err := lib.GenerateUIDataReport("ui-data-report.md"); err != nil {
 		fmt.Println("report generation error:", err)
 	}
@@ -75,7 +79,10 @@ AuthType = "password"
 EasyRsaPath = "/srv/nicevpn/easy-rsa"
 OpenVpnPath = "/srv/nicevpn/openvpn"
 OpenVpnManagementAddress = "127.0.0.1:2080"
-OpenVpnManagementNetwork = "tcp"`
+OpenVpnManagementNetwork = "tcp"
+OpenVpnManagementPollInterval = "5s"
+OpenVpnManagementDialTimeout = "2s"
+OpenVpnManagementRWTimeout = "2s"`
 
 func ensureConfigFile(configDir, configFile string) error {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -89,4 +96,27 @@ func ensureConfigFile(configDir, configFile string) error {
 	}
 
 	return os.WriteFile(configFile, []byte(defaultAppConfig), 0o644)
+}
+
+func loadMgmtCollectorConfig() mgmtcollector.Config {
+	return mgmtcollector.Config{
+		MINetwork:    web.AppConfig.DefaultString("OpenVpnManagementNetwork", state.GlobalCfg.MINetwork),
+		MIAddress:    web.AppConfig.DefaultString("OpenVpnManagementAddress", state.GlobalCfg.MIAddress),
+		PollInterval: parseDurationConfig("OpenVpnManagementPollInterval", 5*time.Second),
+		DialTimeout:  parseDurationConfig("OpenVpnManagementDialTimeout", 2*time.Second),
+		RWTimeout:    parseDurationConfig("OpenVpnManagementRWTimeout", 2*time.Second),
+	}
+}
+
+func parseDurationConfig(key string, def time.Duration) time.Duration {
+	raw := web.AppConfig.DefaultString(key, def.String())
+	if raw == "" {
+		return def
+	}
+	val, err := time.ParseDuration(raw)
+	if err != nil {
+		fmt.Printf("invalid %s: %v, using default %s\n", key, err, def)
+		return def
+	}
+	return val
 }
