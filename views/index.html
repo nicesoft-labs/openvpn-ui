@@ -16,6 +16,13 @@
   /* Фиксированная высота графиков, чтобы сетка не "плыла" без данных */
   .metric-card .chart-wrap{position:relative; height:220px}
   .metric-card canvas{width:100% !important; height:100% !important}
+  /* Статусы */
+  .status-pill{display:inline-flex; align-items:center; padding:5px 12px; border-radius:999px; font-weight:700; font-size:.9rem; color:#fff; letter-spacing:.03em; text-transform:uppercase}
+  .status-pill.pill-mini{font-size:.8rem; padding:4px 10px}
+  .pill-ok{background:#28a745}
+  .pill-warn{background:#ffc107; color:#212529}
+  .pill-bad{background:#dc3545}
+  .small-muted{font-size:.85rem; color:#6c757d}
   /* Плейсхолдер «Нет данных» */
   .empty-state{
     display:none; align-items:center; justify-content:center;
@@ -74,6 +81,45 @@
         {{ dateformat .sysinfo.CurrentTime "2006-01-02 15:04:05" }}
       </div>
       <div class="kpi-box__muted">{{ .sysinfo.Os }} • {{ .sysinfo.Arch }}</div>
+    </div>
+  </div>
+
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="kpi-box h-100 d-flex flex-column">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <div class="kpi-box__title mb-0">Статус OpenVPN</div>
+        <div class="status-pill pill-warn" id="ov-status-pill">UNKNOWN</div>
+      </div>
+      <div class="kpi-box__muted">Аптайм: <span id="ov-uptime">—</span></div>
+      <div class="kpi-box__muted">Версия: <span id="ov-version">{{ .ovversion }}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Management & Queue ===== -->
+<div class="row">
+  <div class="col-lg-6 col-md-12 mb-3">
+    <div class="card-clean h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="kpi-box__title mb-0">Management</div>
+          <div class="d-flex gap-2" style="gap:8px">
+            <span class="status-pill pill-mini pill-warn" id="mgmt-state-pill">state</span>
+            <span class="status-pill pill-mini pill-warn" id="mgmt-log-pill">log</span>
+            <span class="status-pill pill-mini pill-warn" id="mgmt-bytecount-pill">bytecount</span>
+          </div>
+        </div>
+        <div class="kpi-box__muted mb-0">Переподключений за 24ч: <span id="mgmt-reconnects">0</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 col-md-12 mb-3">
+    <div class="card-clean h-100">
+      <div class="card-body">
+        <div class="kpi-box__title">Очередь широковещания/мультикаста</div>
+        <div class="kpi-box__value" id="bcast-queue-val" style="font-size:1.4rem">0</div>
+        <div class="kpi-box__muted">GLOBAL STATS → Max bcast/mcast queue length</div>
+      </div>
     </div>
   </div>
 </div>
@@ -236,23 +282,51 @@
   </div>
 </div>
 
-<!-- ===== Скрипты ===== -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
-  // Бэкенд-данные
-  const ovstats = {{ tojson .ovstats }};
-  const metricsData = {{ tojson .metrics }} || {};
-  const clients = (metricsData && metricsData.client_breakdown) ? metricsData.client_breakdown : [];
+<!-- ===== События безопасности (24ч) ===== -->
+<div class="row mt-3">
+  <div class="col-md-12 mb-3">
+    <div class="card-clean">
+      <div class="card-header"><h3 class="card-title" style="margin:0">События безопасности (24ч)</h3></div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center" style="gap:18px">
+          <div>
+            <div class="kpi-box__title mb-1">Auth fail</div>
+            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-auth-fail">0</div>
+          </div>
+          <div>
+            <div class="kpi-box__title mb-1">TLS/verify</div>
+            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-tls">0</div>
+          </div>
+          <div>
+            <div class="kpi-box__title mb-1">Keepalive timeouts</div>
+            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-keepalive">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="small-muted mt-1" id="metrics-updated">Обновление: —</div>
+
+  <!-- ===== Скрипты ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    // Бэкенд-данные
+    const ovstatusData = {{ tojson .ovstatus }} || {};
+    const ovstats = {{ tojson .ovstats }};
+    const metricsData = {{ tojson .metrics }} || {};
+    const clients = (metricsData && metricsData.client_breakdown) ? metricsData.client_breakdown : [];
 
   // Палитра
   const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
 
-  // Хранилище, чтобы не плодить графики
-  const CHARTS = {};
+    // Хранилище, чтобы не плодить графики
+    const CHARTS = {};
 
-  function destroyChart(id){
-    if (CHARTS[id]) { try { CHARTS[id].destroy(); } catch(e){} delete CHARTS[id]; }
-  }
+    function destroyChart(id){
+      if (CHARTS[id]) { try { CHARTS[id].destroy(); } catch(e){} delete CHARTS[id]; }
+    }
   function showEmpty(id, show=true){
     const canvas = document.getElementById(id);
     const empty = document.querySelector(`[data-empty-for="${id}"]`);
@@ -263,11 +337,11 @@
     if (!arr || !arr.length) return true;
     return arr.every(v => (v===null || v===undefined || v===0));
   }
-  function renderBarOrEmpty({id, labels, datasets, stacked=false}){
-    const noLabels = !labels || labels.length===0;
-    const allZero = !datasets || datasets.length===0 || datasets.every(ds => isAllZeroOrEmpty(ds.data));
-    if (noLabels || allZero){
-      destroyChart(id);
+    function renderBarOrEmpty({id, labels, datasets, stacked=false}){
+      const noLabels = !labels || labels.length===0;
+      const allZero = !datasets || datasets.length===0 || datasets.every(ds => isAllZeroOrEmpty(ds.data));
+      if (noLabels || allZero){
+        destroyChart(id);
       showEmpty(id, true);
       return;
     }
@@ -287,6 +361,107 @@
       }
     });
   }
+
+  function setStatusPill(el, state){
+    if (!el) return;
+    const normalized = (state || 'UNKNOWN').toString().toUpperCase();
+    el.classList.remove('pill-ok', 'pill-warn', 'pill-bad');
+    let cls = 'pill-warn';
+    if (['CONNECTED', 'ACTIVE', 'RUNNING', 'OK'].includes(normalized)) cls = 'pill-ok';
+    else if (['WAIT', 'RECONNECTING', 'UNKNOWN'].includes(normalized)) cls = 'pill-warn';
+    else cls = 'pill-bad';
+    el.classList.add(cls);
+    el.textContent = normalized;
+  }
+
+  function formatUptime(sec){
+    if (sec === undefined || sec === null || isNaN(sec)) return '—';
+    const total = Math.max(0, Math.floor(Number(sec)));
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return `${d}d ${h}h ${m}m`;
+  }
+
+  function formatTimestamp(ts){
+    if (ts === undefined || ts === null) return '—';
+    let d;
+    if (typeof ts === 'number') d = new Date(ts < 1e12 ? ts * 1000 : ts);
+    else {
+      d = new Date(ts);
+      if (isNaN(d.getTime())) return '—';
+    }
+    const pad = (n) => `${n}`.padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  // ===== Статус OpenVPN =====
+  (function(){
+    const statusEl = document.getElementById('ov-status-pill');
+    const uptimeEl = document.getElementById('ov-uptime');
+    const versionEl = document.getElementById('ov-version');
+    const daemonState = (metricsData && metricsData.ovdaemon && metricsData.ovdaemon.state) || metricsData.ovdaemon_state;
+    setStatusPill(statusEl, daemonState || 'UNKNOWN');
+    const uptimeSeconds = ovstats && ovstats.Uptime !== undefined && ovstats.Uptime !== null ? ovstats.Uptime : null;
+    uptimeEl.textContent = formatUptime(uptimeSeconds);
+    if (versionEl && metricsData && metricsData.ovversion) versionEl.textContent = metricsData.ovversion;
+  })();
+
+  // ===== Management =====
+  (function(){
+    const mgmt = (metricsData && metricsData.management) || {};
+    const reconnects = (metricsData && metricsData.management_reconnects_24h);
+    const setPill = (id, val, label) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('pill-ok', 'pill-warn', 'pill-bad');
+      let cls = 'pill-warn';
+      if (val === undefined || val === null) cls = 'pill-warn';
+      else if (val) cls = 'pill-ok';
+      else cls = 'pill-bad';
+      el.classList.add(cls);
+      el.textContent = label;
+    };
+    setPill('mgmt-state-pill', mgmt.state, 'state');
+    setPill('mgmt-log-pill', mgmt.log, 'log');
+    setPill('mgmt-bytecount-pill', mgmt.bytecount, 'bytecount');
+    const reconnectsEl = document.getElementById('mgmt-reconnects');
+    if (reconnectsEl) reconnectsEl.textContent = (reconnects !== undefined && reconnects !== null) ? reconnects : 0;
+  })();
+
+  // ===== Очередь широковещания/мультикаста =====
+  (function(){
+    const valFromMetrics = metricsData && metricsData.global ? metricsData.global.max_bcast_mcast_queue_len : undefined;
+    const valFromStatus = ovstatusData && ovstatusData.GlobalStats ? ovstatusData.GlobalStats.maxbcastmcastqueuelen : undefined;
+    const queueVal = (valFromMetrics !== undefined && valFromMetrics !== null) ? valFromMetrics : (valFromStatus !== undefined && valFromStatus !== null ? valFromStatus : 0);
+    const el = document.getElementById('bcast-queue-val');
+    if (!el) return;
+    el.textContent = queueVal;
+    el.classList.remove('text-success', 'text-danger');
+    if (queueVal > 0) el.classList.add('text-danger');
+    else el.classList.add('text-success');
+  })();
+
+  // ===== События безопасности (24ч) =====
+  (function(){
+    const sec = (metricsData && metricsData.security_24h) || {};
+    const authFail = Number(sec.auth_fail) || 0;
+    const tlsErrors = (Number(sec.handshake_errors) || 0) + (Number(sec.tls_verify_fail) || 0) + (Number(sec.crl_reject) || 0);
+    const keepalive = Number(sec.keepalive_timeouts) || 0;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setVal('sec-auth-fail', authFail);
+    setVal('sec-tls', tlsErrors);
+    setVal('sec-keepalive', keepalive);
+  })();
+
+  // ===== Метка обновления =====
+  (function(){
+    const ts = (metricsData && metricsData.last_seen_ts !== undefined && metricsData.last_seen_ts !== null)
+      ? metricsData.last_seen_ts
+      : (ovstats && ovstats.CollectedAt);
+    const el = document.getElementById('metrics-updated');
+    if (el) el.textContent = `Обновление: ${formatTimestamp(ts)}`;
+  })();
 
   // ===== График 1: Суммарный трафик (MB) =====
   (function(){
