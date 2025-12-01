@@ -13,6 +13,8 @@
   .card + .card { margin-top:1rem; }
   .kuz-note { border-left:3px solid #28a745; padding-left:.5rem; }
   .deprecated { border-left:3px solid #dc3545; padding-left:.5rem; }
+  .input-group .input-group-text { background:#f8f9fa; }
+  .input-group .form-control.is-invalid { border-left-color:#dc3545; }
 </style>
 {{end}}
 
@@ -257,12 +259,12 @@
           <!-- CIPHER (single) -->
           <div class="col-sm-4">
             <label for="CipherSelect">Cipher (data channel)</label>
-            <div class="input-icon">
-              <i class="fa fa-lock"></i>
-              <input required type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
-              <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help">
-                <option value="" disabled selected>Загрузка списка шифров…</option>
-              </select>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fa fa-lock"></i></span>
+              </div>
+              <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help"></select>
+              <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
             </div>
             <small id="cipher-help" class="form-help">Шифр для дата-канала.</small>
             <div class="invalid-feedback">Выберите шифр.</div>
@@ -271,12 +273,12 @@
           <!-- NCP (multiple) -->
           <div class="col-sm-4">
             <label for="NcpSelect">NCP (data-ciphers)</label>
-            <div class="input-icon">
-              <i class="fa fa-list-ul"></i>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fa fa-list-ul"></i></span>
+              </div>
+              <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help"></select>
               <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
-              <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help">
-                <option value="" disabled>Загрузка списка шифров…</option>
-              </select>
             </div>
             <small id="ncp-help" class="form-help">Список предпочтений для переговоров шифра.</small>
           </div>
@@ -284,12 +286,12 @@
           <!-- AUTH -->
           <div class="col-sm-4">
             <label for="AuthSelect">Auth (HMAC digest)</label>
-            <div class="input-icon">
-              <i class="fa fa-fingerprint"></i>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fa fa-fingerprint"></i></span>
+              </div>
+              <select required class="form-control" id="AuthSelect" aria-describedby="cipher-help"></select>
               <input required type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
-              <select required class="form-control" id="AuthSelect" aria-describedby="auth-help">
-                <option value="" disabled selected>Загрузка списка алгоритмов…</option>
-              </select>
             </div>
             <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC.</small>
             <div class="invalid-feedback">Выберите дайджест.</div>
