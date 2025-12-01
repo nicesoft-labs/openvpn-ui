@@ -2,7 +2,9 @@ package lib
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"strconv"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -82,6 +84,14 @@ func AddFuncMaps() {
 			logs.Error("Unknown type:", v)
 		}
 		return "Mapping error"
+	})
+	_ = web.AddFuncMap("tojson", func(v interface{}) template.JS {
+		data, err := json.Marshal(v)
+		if err != nil {
+			logs.Error("json marshal", err)
+			return template.JS("{}")
+		}
+		return template.JS(data)
 	})
 }
 
