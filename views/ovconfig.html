@@ -1,5 +1,4 @@
 {{ template "layout/base.html" . }}
-
 {{define "head"}}
 <title>NiceVPN - Настройки сервера</title>
 <style>
@@ -8,7 +7,6 @@
   .card .card-body .row + .row { margin-top: .75rem; }
   .section-title { display:flex; align-items:center; gap:.5rem; margin:0; }
   .section-title .section-badge { font-size:.75rem; }
-
   .form-help { font-size:.9rem; color:#6c757d; display:block; margin-top:.25rem; }
   .section-badge { font-size:.75rem; margin-left:.5rem }
   .input-icon { position: relative; }
@@ -22,15 +20,12 @@
   .help-icon { margin-left:.35rem; cursor:help; opacity:.8; }
   details.help-block { margin:.25rem 0 .5rem; }
   details.help-block summary { cursor:pointer; user-select:none; color:#495057; }
-
   /* Быстрые якоря-разделы */
   .quick-nav { position:sticky; top:1rem; z-index:1; }
   .quick-nav .btn { margin: .125rem .125rem; }
-
   /* Боковая сводка маршрутизации */
   .aside-summary { position:sticky; top:1rem; }
   .aside-summary .list-group-item { padding:.5rem .75rem; }
-
   /* Липкая панель сохранения */
   .save-bar {
     position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e9ecef;
@@ -39,7 +34,6 @@
   .save-bar .badge { align-self:center; }
 </style>
 {{end}}
-
 {{define "body"}}
 <!-- Верхняя панель действий -->
 <div class="card card-default">
@@ -60,7 +54,6 @@
     </form>
   </div>
 </div>
-
 <!-- Быстрая навигация по разделам -->
 <div class="quick-nav mb-2">
   <a href="#section-template" class="btn btn-sm btn-outline-secondary"><i class="fa fa-cogs"></i> Шаблон</a>
@@ -73,7 +66,6 @@
   <span class="text-muted ml-1 d-none d-md-inline">Навигация по большим формам</span>
   <hr class="mt-2 mb-0">
 </div>
-
 <!-- Шаблон конфигурации -->
 <div class="card card-primary" id="section-template">
   <div class="card-header with-border d-flex align-items-center justify-content-between">
@@ -87,18 +79,15 @@
       </button>
     </div>
   </div>
-
   <div class="card-body">
     <p class="mb-3">
       Опции упорядочены так же, как будут сохранены в <code>server.conf</code>.
       <i class="fa fa-question-circle help-icon" data-toggle="tooltip" title="Все значения проходят клиентскую валидацию и будут сохранены как строки в server.conf."></i>
     </p>
-
     <!-- Главная форма -->
     <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post" novalidate>
       <div class="row">
         <div class="col-12 p-0">
-
           <!-- Базовые параметры -->
           <div class="card" id="section-basics">
             <div class="card-header d-flex align-items-center">
@@ -107,7 +96,6 @@
                  data-content="Базовые сетевые параметры OpenVPN: тип интерфейса, транспорт, порт, топология и базовые лимиты."></i>
             </div>
             <div class="card-body">
-
               <div class="form-group">
                 <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
                 <div class="input-icon">
@@ -124,7 +112,6 @@
                 </details>
                 <div class="invalid-feedback">Укажите tun или tap.</div>
               </div>
-
               <div class="form-group">
                 <label for="Port">Port</label>
                 <div class="input-icon">
@@ -136,7 +123,6 @@
                 <small id="PortHelp" class="form-help">Обычно <code>1194/udp</code> или любой свободный.</small>
                 <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
               </div>
-
               <div class="form-group">
                 <label for="Proto">Proto</label>
                 <div class="input-icon">
@@ -148,7 +134,6 @@
                 <small id="ProtoHelp" class="form-help">Рекомендуется <b>UDP</b> (ниже задержки).</small>
                 <div class="invalid-feedback">Разрешено: udp или tcp.</div>
               </div>
-
               <div class="form-group">
                 <label for="OVConfigTopology">Topology</label>
                 <div class="input-icon">
@@ -163,7 +148,6 @@
                 </details>
                 <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
               </div>
-
               <div class="form-group">
                 <label for="Keepalive">Keepalive</label>
                 <div class="input-icon">
@@ -175,7 +159,6 @@
                 <small id="KeepaliveHelp" class="form-help">Формат: <code>10 120</code> и т.п.</small>
                 <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
               </div>
-
               <div class="form-group">
                 <label for="MaxClients">MaxClients</label>
                 <div class="input-icon">
@@ -189,7 +172,6 @@
               </div>
             </div>
           </div>
-
           <!-- Криптография и TLS -->
           <div class="card" id="section-crypto">
             <div class="card-header d-flex align-items-center">
@@ -198,7 +180,6 @@
                  data-content="Настройки сертификатов, ключей, параметров DH и политики TLS."></i>
             </div>
             <div class="card-body">
-
               <div class="form-group">
                 <label>User / Group</label>
                 <div class="row">
@@ -221,7 +202,6 @@
                 </div>
                 <small id="UGHelp" class="form-help">Понижение привилегий демона после старта.</small>
               </div>
-
               <div class="form-group">
                 <label>PKI</label>
                 <div class="row">
@@ -268,7 +248,6 @@
                   <div>Стандарт: <code>ca</code>, <code>cert</code>, <code>key</code>, при необходимости — <code>crl-verify</code>.</div>
                 </details>
               </div>
-
               <div class="form-group">
                 <label>DH / TLS защита канала</label>
                 <div class="row">
@@ -291,7 +270,6 @@
                   </div>
                 </div>
               </div>
-
               <div class="form-group">
                 <label for="TLSMinVersion">TLS policy</label>
                 <div class="row">
@@ -315,11 +293,9 @@
                 </div>
                 <small id="TLSHelp" class="form-help">Минимальная версия и проверка типа удалённого сертификата.</small>
               </div>
-
               <div class="form-group" id="cipher-blocks">
                 <label for="Cipher">Cipher / NCP / Auth</label>
                 <div class="row">
-
                   <!-- CIPHER (single) -->
                   <div class="col-sm-4">
                     <label for="CipherSelect">Cipher (data channel)
@@ -336,7 +312,6 @@
                     <small id="cipher-help" class="form-help">Основной шифр сервера.</small>
                     <div class="invalid-feedback">Выберите шифр.</div>
                   </div>
-
                   <!-- NCP (multiple) -->
                   <div class="col-sm-4">
                     <label for="NcpSelect">NCP (data-ciphers)
@@ -353,7 +328,6 @@
                     <small id="ncp-help" class="form-help">Список предпочтений для переговоров шифра.</small>
                     <div class="invalid-feedback">Выберите хотя бы один шифр для NCP.</div>
                   </div>
-
                   <!-- AUTH -->
                   <div class="col-sm-4">
                     <label for="AuthSelect">Auth (HMAC digest)
@@ -371,7 +345,6 @@
                     <div class="invalid-feedback">Выберите дайджест.</div>
                   </div>
                 </div>
-
                 <!-- Подсказки по шифрам -->
                 <div class="mt-2">
                   <div class="kuz-note">
@@ -385,7 +358,6 @@
                   </div>
                 </div>
               </div>
-
               <div class="form-group" id="auth-mode">
                 <label for="FuncMode">Режим аутентификации</label>
                 <div class="input-icon">
@@ -398,7 +370,6 @@
                 <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом (TOTP/HOTP).</small>
                 <div class="invalid-feedback">Выберите режим аутентификации.</div>
               </div>
-
               <div class="form-group" id="script-sec">
                 <label for="scriptsecurity">Script-security</label>
                 <div class="input-icon">
@@ -411,7 +382,6 @@
                 <small id="ScriptHelp" class="form-help">Для внешних скриптов нужна <code>script-security 2</code> или выше.</small>
                 <div class="invalid-feedback">Укажите script-security 0–3.</div>
               </div>
-
               <div class="form-group" id="auth-user-pass-verify">
                 <label for="userpassverify">Auth-user-pass-verify</label>
                 <div class="input-icon">
@@ -426,12 +396,10 @@
                 <small id="UPVHelp" class="form-help"><code>via-file</code> предпочтительнее; <code>via-env</code> — переменные окружения.</small>
                 <div class="invalid-feedback">Укажите скрипт и режим via-file/via-env.</div>
               </div>
-
             </div>
           </div>
         </div>
       </div>
-
       <!-- Сети и маршрутизация -->
       <div class="card" id="section-net">
         <div class="card-header d-flex align-items-center">
@@ -439,7 +407,6 @@
           <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
              data-content="Адресное пространство VPN, маршруты для серверной стороны и push-маршруты для клиентов."></i>
         </div>
-
         <div class="card-body">
           <div class="row">
             <!-- Левая часть (поля) -->
@@ -460,7 +427,6 @@
                     <div class="invalid-feedback">Формат: server &lt;IP&gt; &lt;MASK&gt;.</div>
                   </div>
                 </div>
-
                 <div class="col-md-4">
                   <div class="form-group">
                     <label for="Route">Route (гостевая VPN-подсеть)</label>
@@ -475,12 +441,10 @@
                     <div class="invalid-feedback">Формат: route &lt;IP&gt; &lt;MASK&gt;.</div>
                   </div>
                 </div>
-
                 <div class="col-md-4">
                   <div class="form-group">
                     <div class="custom-control custom-switch">
-                      <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
-                             {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
+                      <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode">
                       <label class="custom-control-label" for="SplitOnlyMode">
                         Режим split-tunnel (не пушить default-route)
                       </label>
@@ -489,7 +453,6 @@
                       При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов.
                     </small>
                   </div>
-
                   <div class="form-group">
                     <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
                     <div class="input-icon">
@@ -507,7 +470,6 @@
                   </div>
                 </div>
               </div>
-
               <div class="row">
                 <div class="col-md-6">
                   <div class="form-group">
@@ -527,7 +489,6 @@
                     <div class="invalid-feedback">Каждая строка в формате &lt;IP&gt; &lt;MASK&gt;.</div>
                   </div>
                 </div>
-
                 <div class="col-md-6">
                   <div class="form-group">
                     <label for="DocSplitTunnel">Памятка по split-tunnel</label>
@@ -541,7 +502,6 @@
                   </div>
                 </div>
               </div>
-
               <div class="row">
                 <div class="col-md-3">
                   <div class="form-group">
@@ -557,7 +517,6 @@
                     <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
                   </div>
                 </div>
-
                 <div class="col-md-3">
                   <div class="form-group">
                     <label for="DNSServer2">Push DHCP (DNS #2)</label>
@@ -572,11 +531,9 @@
                     <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
                   </div>
                 </div>
-
                 <div class="col-md-6">
                   <div class="custom-control custom-switch mb-2">
-                    <input type="checkbox" class="custom-control-input" id="ForceDefaultRoute" name="ForceDefaultRoute"
-                           {{ if .Settings.ForceDefaultRoute }}checked{{ end }}>
+                    <input type="checkbox" class="custom-control-input" id="ForceDefaultRoute" name="ForceDefaultRoute">
                     <label class="custom-control-label" for="ForceDefaultRoute">
                       Принудительный default-route через VPN
                     </label>
@@ -601,7 +558,6 @@
                   </div>
                 </div>
               </div>
-
               <div class="form-group">
                 <label for="OVConfigClientConfigDir">Client-Config-Dir</label>
                 <div class="input-icon">
@@ -614,7 +570,6 @@
                 <small id="CCDHelp" class="form-help">Каталог статических настроек клиентов (<code>client-config-dir</code>).</small>
                 <div class="invalid-feedback">Укажите валидный путь к директории.</div>
               </div>
-
               <div class="form-group">
                 <label for="IfconfigPoolPersist">Ifconfig-Pool-Persist</label>
                 <div class="input-icon">
@@ -628,7 +583,6 @@
                 <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
               </div>
             </div>
-
             <!-- Правая часть (сводка) -->
             <div class="col-lg-4">
               <aside class="aside-summary">
@@ -650,7 +604,6 @@
           </div>
         </div>
       </div>
-
       <!-- Логи и статус -->
       <div class="card" id="section-logs">
         <div class="card-header d-flex align-items-center">
@@ -659,7 +612,6 @@
              data-content="Файл лога, уровень подробности, файл статуса (для экспортёров/мониторинга)."></i>
         </div>
         <div class="card-body">
-
           <div class="row">
             <div class="col-md-4">
               <div class="form-group">
@@ -674,7 +626,6 @@
                 <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
               </div>
             </div>
-
             <div class="col-md-4">
               <div class="form-group">
                 <label for="OVConfigLogVerbose">Verb</label>
@@ -688,7 +639,6 @@
                 <div class="invalid-feedback">Уровень 0–9.</div>
               </div>
             </div>
-
             <div class="col-md-4">
               <div class="form-group">
                 <label for="OVConfigStatusLog">Status file</label>
@@ -703,7 +653,6 @@
               </div>
             </div>
           </div>
-
           <div class="form-group col-md-4 p-0">
             <label for="OVConfigStatusLogVersion">Status file version</label>
             <div class="input-icon">
@@ -717,7 +666,6 @@
           </div>
         </div>
       </div>
-
       <!-- Произвольные опции -->
       <div class="card" id="section-custom">
         <div class="card-header d-flex align-items-center">
@@ -755,7 +703,6 @@
           </details>
         </div>
       </div>
-
       {{ .xsrfdata }}
       <div id="section-save" class="save-bar">
         <span class="badge badge-secondary mr-2" id="FormStateBadge">Не сохранено</span>
@@ -767,24 +714,20 @@
     </form>
   </div>
 </div>
-
 <!-- Модальное окно: прямое редактирование server.conf -->
 <div class="modal fade" id="config-view-modal" tabindex="-1" role="dialog" aria-labelledby="configViewTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-
       <div class="modal-header">
         <h4 id="configViewTitle" class="modal-title">
           <i class="fa fa-file-code-o mr-2" aria-hidden="true"></i>{{ .BeeSettings.OVConfigPath }}/server.conf
         </h4>
         <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть"><span aria-hidden="true">&times;</span></button>
       </div>
-
       <div class="modal-body">
         {{template "common/alert.html" .}}
         <form role="server-config" action="{{urlfor "OVConfigController.Edit"}}" method="post">
           <div class="card-body">
-
             <div class="card-group" id="accordion">
               <span>
                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseNotice" aria-expanded="false" class="collapsed">
@@ -799,12 +742,10 @@
                 </div>
               </div>
             </div>
-
             <textarea class="form-control my-textarea" name="ServerConfig" id="ServerConfig"
                       spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
             {{ .xsrfdata }}
           </div>
-
           <div class="card-footer d-flex justify-content-between">
             <button type="button" class="btn btn-default" data-dismiss="modal">
               <i class="fa fa-times mr-1"></i> Закрыть
@@ -815,32 +756,26 @@
             </button>
           </div>
         </form>
-
         <span class="text-muted">{{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
       </div>
-
     </div>
   </div>
 </div>
 {{end}}
-
 <!-- Вспомогательные данные от контроллера (опционально) -->
 <script type="application/json" id="OpenVpnDigestsJSON">{{ .OpenVpnDigestsJSON }}</script>
-
 <script>
   // Инициализация Bootstrap tooltips/popovers
   window.addEventListener('load', function(){
     if (window.$ && $.fn.tooltip) { $('[data-toggle="tooltip"]').tooltip(); }
     if (window.$ && $.fn.popover) { $('[data-toggle="popover"]').popover({ trigger:'hover' }); }
   });
-
   // Переключение режима аутентификации (показываем/прячем 2FA поля)
   const funcModeSelect = document.getElementById('FuncMode');
   const scriptSecurityDiv = document.getElementById('script-sec');
   const userPassVerifyDiv = document.getElementById('auth-user-pass-verify');
   const scriptSecurityInput = document.getElementById('scriptsecurity');
   const userPassVerifyInput = document.getElementById('userpassverify');
-
   function checkFuncMode() {
     if (!funcModeSelect) return;
     if (funcModeSelect.value === '0') {
@@ -855,9 +790,7 @@
       userPassVerifyInput.value = 'auth-user-pass-verify /opt/app/bin/oath.sh via-file';
     }
   }
-
   if (funcModeSelect) { funcModeSelect.addEventListener('change', checkFuncMode); }
-
   window.addEventListener('load', () => {
     checkFuncMode();
     if (localStorage.getItem("theme") === "dark") {
@@ -867,7 +800,6 @@
     }
   });
 </script>
-
 <!-- AUTH digests -->
 <script>
 const DEPRECATED = new Set(['MD5','MD5-SHA1','SHA1','id-GostR3411-94','NULL']);
@@ -877,7 +809,6 @@ const RECOMMENDED = new Set([
   'id-tc26-gost3411-12-256','id-tc26-gost3411-12-512',
   'SHA512-256','SHA512-224','SHA224','SHA3-224','SHA2-256/192'
 ]);
-
 const DIGESTS_FALLBACK_RAW = `
 SHA3-512 512 bit digest size
 SHA512-256 256 bit digest size
@@ -910,7 +841,6 @@ id-tc26-gost3411-12-256 256 bit digest size
 id-tc26-gost3411-12-512 512 bit digest size
 id-GostR3411-94 256 bit digest size
 `;
-
 function parseOpenVpnDigests(raw) {
   const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
   const out = [];
@@ -926,7 +856,6 @@ function parseOpenVpnDigests(raw) {
   for (const d of out) if (!uniq.has(d.name)) uniq.set(d.name, d);
   return Array.from(uniq.values());
 }
-
 function groupDigests(digests) {
   const groups = { recommended:[], modern:[], legacy:[] };
   for (const d of digests) {
@@ -940,7 +869,6 @@ function groupDigests(digests) {
   groups.legacy.sort((a,b)=>a.name.localeCompare(b.name));
   return groups;
 }
-
 function fillAuthSelect(groups, current) {
   const sel = document.getElementById('AuthSelect');
   const hidden = document.getElementById('Auth');
@@ -960,7 +888,6 @@ function fillAuthSelect(groups, current) {
   appendGroup('Рекомендуемые', groups.recommended);
   appendGroup('Современные', groups.modern);
   appendGroup('Устаревшие (не рекомендованы)', groups.legacy);
-
   const cur = String(current || '').trim().replace(/^auth\s+/i,'');
   const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
   if (cur && !found) {
@@ -973,7 +900,6 @@ function fillAuthSelect(groups, current) {
   sel.dataset.ready = '1';
   sel.addEventListener('change', ()=> hidden.value = sel.value);
 }
-
 async function loadDigestsAndRender() {
   const current = (document.getElementById('Auth') || {}).value || '{{ .Settings.Auth }}';
   try {
@@ -993,7 +919,6 @@ async function loadDigestsAndRender() {
 }
 window.addEventListener('load', loadDigestsAndRender);
 </script>
-
 <!-- CIPHERS / NCP -->
 <script>
 const CIPHER_DEPRECATED_SET = new Set([
@@ -1005,7 +930,6 @@ const CIPHER_RECOMMENDED_SET = new Set([
   'kuznyechik-cbc','kuznyechik-cfb','kuznyechik-ofb',
   'SM4-GCM','ARIA-256-GCM','ARIA-128-GCM'
 ]);
-
 const CIPHERS_FALLBACK_RAW = `
 AES-128-CBC (128 bit key, 128 bit block)
 AES-128-CFB (128 bit key, 128 bit block, TLS client/server mode only)
@@ -1082,7 +1006,6 @@ gost89-cnt (256 bit key, 64 bit block, TLS client/server mode only)
 gost89-cnt-12 (256 bit key, stream cipher, TLS client/server mode only)
 magma-cbc (256 bit key, 64 bit block)
 `;
-
 function parseOpenVpnCiphers(raw) {
   const res = [];
   const lines = raw.split('\n').map(s => s.trim());
@@ -1119,7 +1042,6 @@ function parseOpenVpnCiphers(raw) {
   });
   return out;
 }
-
 function groupCiphers(items) {
   const groups = { recommended:[], modern:[], legacy:[] };
   for (const c of items) {
@@ -1129,7 +1051,6 @@ function groupCiphers(items) {
   }
   return groups;
 }
-
 function fillCipherSelect(groups, current) {
   const sel = document.getElementById('CipherSelect');
   const hid = document.getElementById('Cipher');
@@ -1152,7 +1073,6 @@ function fillCipherSelect(groups, current) {
   addGroup('Рекомендуемые', groups.recommended);
   addGroup('Современные', groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
-
   const cur = (current || '').trim();
   const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
   if (cur && !found) {
@@ -1165,7 +1085,6 @@ function fillCipherSelect(groups, current) {
   sel.dataset.ready = '1';
   sel.addEventListener('change', ()=> { hid.value = sel.value; });
 }
-
 function fillNcpSelect(groups, currentListStr) {
   const sel = document.getElementById('NcpSelect');
   const hid = document.getElementById('OVConfigNcpCiphers');
@@ -1189,7 +1108,6 @@ function fillNcpSelect(groups, currentListStr) {
   addGroup('Рекомендуемые', groups.recommended);
   addGroup('Современные', groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
-
   const current = (currentListStr || '').split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
   const options = Array.from(sel.querySelectorAll('option'));
   const present = new Set(options.map(o => o.value));
@@ -1202,7 +1120,6 @@ function fillNcpSelect(groups, currentListStr) {
     }
   }
   for (const o of Array.from(sel.options)) if (current.includes(o.value)) o.selected = true;
-
   function syncHidden() {
     const selected = Array.from(sel.options).filter(o => o.selected).map(o => o.value);
     hid.value = selected.join(',');
@@ -1211,7 +1128,6 @@ function fillNcpSelect(groups, currentListStr) {
   sel.dataset.ready = '1';
   sel.addEventListener('change', syncHidden);
 }
-
 async function loadCiphersAndRender() {
   const curCipher = (document.getElementById('Cipher')||{}).value || '{{ .Settings.Cipher }}';
   const curNcp = (document.getElementById('OVConfigNcpCiphers')||{}).value || '{{ .Settings.OVConfigNcpCiphers }}';
@@ -1232,13 +1148,11 @@ async function loadCiphersAndRender() {
 }
 window.addEventListener('load', loadCiphersAndRender);
 </script>
-
 <!-- Клиентская валидация формы -->
 <script>
 (function(){
   const form = document.getElementById('expert-form');
   if (!form) return;
-
   // Утилиты
   const ipRx = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
   const maskRx = ipRx;
@@ -1250,7 +1164,6 @@ window.addEventListener('load', loadCiphersAndRender);
   const redirectGwRx = /^redirect-gateway(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4)(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4))*)?$/i;
   const scriptSecRx = /^script-security\s+[0-3]$/;
   const userPassVerifyRx = /^auth-user-pass-verify\s+[a-zA-Z0-9_/.-]+\s+via-(file|env)$/i;
-
   function setValidity(el, ok, msg) {
     if (!el) return true;
     if (ok) {
@@ -1263,7 +1176,6 @@ window.addEventListener('load', loadCiphersAndRender);
       return false;
     }
   }
-
   // Поля
   const Device = document.getElementById('Device');
   const Port = document.getElementById('Port');
@@ -1271,7 +1183,6 @@ window.addEventListener('load', loadCiphersAndRender);
   const Topology = document.getElementById('OVConfigTopology');
   const Keepalive = document.getElementById('Keepalive');
   const MaxClients = document.getElementById('MaxClients');
-
   const OVConfigUser = document.getElementById('OVConfigUser');
   const OVConfigGroup = document.getElementById('OVConfigGroup');
   const Ca = document.getElementById('Ca');
@@ -1282,15 +1193,12 @@ window.addEventListener('load', loadCiphersAndRender);
   const TLSControlChannel = document.getElementById('TLSControlChannel');
   const TLSMinVersion = document.getElementById('TLSMinVersion');
   const TLSRemoteCert = document.getElementById('TLSRemoteCert');
-
   const CipherSel = document.getElementById('CipherSelect');
   const NcpSel = document.getElementById('NcpSelect');
   const AuthSel = document.getElementById('AuthSelect');
-
   const FuncMode = document.getElementById('FuncMode');
   const ScriptSecurity = document.getElementById('scriptsecurity');
   const UserPassVerify = document.getElementById('userpassverify');
-
   const Server = document.getElementById('Server');
   const Route = document.getElementById('Route');
   const PushRoute = document.getElementById('PushRoute');
@@ -1300,19 +1208,15 @@ window.addEventListener('load', loadCiphersAndRender);
   const DNSServer1 = document.getElementById('DNSServer1');
   const DNSServer2 = document.getElementById('DNSServer2');
   const RedirectGW = document.getElementById('RedirectGW');
-  const RedirectConflict = document.getElementById('SplitOnlyConflict');
   const OVConfigClientConfigDir = document.getElementById('OVConfigClientConfigDir');
   const IfconfigPoolPersist = document.getElementById('IfconfigPoolPersist');
-
   const OVConfigLogfile = document.getElementById('OVConfigLogfile');
   const OVConfigLogVerbose = document.getElementById('OVConfigLogVerbose');
   const OVConfigStatusLog = document.getElementById('OVConfigStatusLog');
   const OVConfigStatusLogVersion = document.getElementById('OVConfigStatusLogVersion');
-
   const CustomOptOne = document.getElementById('CustomOptOne');
   const CustomOptTwo = document.getElementById('CustomOptTwo');
   const CustomOptThree = document.getElementById('CustomOptThree');
-
   function validateBasics(){
     let ok = true;
     ok &= setValidity(Device, /^(tun|tap)$/i.test(Device.value), 'Допустимо: tun|tap');
@@ -1323,7 +1227,6 @@ window.addEventListener('load', loadCiphersAndRender);
     ok &= setValidity(MaxClients, +MaxClients.value>=1 && +MaxClients.value<=65535, '1–65535');
     return !!ok;
   }
-
   function validateCrypto() {
     let ok = true;
     ok &= setValidity(OVConfigUser, /^[a-z_][a-z0-9_-]*[$]?$/.test(OVConfigUser.value), 'Некорректное имя пользователя');
@@ -1336,16 +1239,13 @@ window.addEventListener('load', loadCiphersAndRender);
     ok &= setValidity(TLSControlChannel, !TLSControlChannel.value || /^(tls-crypt|tls-auth)\s+[a-zA-Z0-9_/.-]+$/.test(TLSControlChannel.value), 'tls-crypt или tls-auth с валидным путём');
     return !!ok;
   }
-
   function validateTLS() {
     let ok = true;
     ok &= setValidity(TLSMinVersion, /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion?.value || ''), 'tls-version-min 1.2/1.3');
     ok &= setValidity(TLSRemoteCert, /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert?.value || ''), 'remote-cert-tls client|server');
-
     if (CipherSel?.dataset.ready === '1') { ok &= setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр'); } else { setValidity(CipherSel, true); }
     if (NcpSel?.dataset.ready === '1') { ok &= setValidity(NcpSel, NcpSel.selectedOptions.length > 0, 'Выберите хотя бы один шифр для NCP'); } else { setValidity(NcpSel, true); }
     if (AuthSel?.dataset.ready === '1') { ok &= setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест'); } else { setValidity(AuthSel, true); }
-
     ok &= setValidity(FuncMode, ['0','1'].includes(FuncMode.value), 'Выберите режим аутентификации');
     if (FuncMode.value === '1') {
       ok &= setValidity(ScriptSecurity, scriptSecRx.test(ScriptSecurity.value), 'script-security 0–3');
@@ -1353,7 +1253,6 @@ window.addEventListener('load', loadCiphersAndRender);
     }
     return !!ok;
   }
-
   function validateNet(){
     let ok = true;
     if (Server.value.trim()) {
@@ -1369,7 +1268,7 @@ window.addEventListener('load', loadCiphersAndRender);
       ok &= setValidity(PushRoute, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: push "route <IP> <MASK>"');
     }
     if (PushRoutesExtra.value.trim()) {
-      const lines = PushRoutesExtra.value.split(/\n/).map(l => l.trim()).filter(Boolean);
+      const lines = PushRoutesExtra.value.split(/\n/).map(line => line.trim()).filter(Boolean);
       const allValid = lines.every(line => {
         const parts = line.split(/\s+/);
         return parts.length === 2 && ipRx.test(parts[0]) && maskRx.test(parts[1]);
@@ -1398,7 +1297,6 @@ window.addEventListener('load', loadCiphersAndRender);
     ok &= setValidity(IfconfigPoolPersist, !IfconfigPoolPersist.value || pathRx.test(IfconfigPoolPersist.value), 'Валидный путь к файлу');
     return !!ok;
   }
-
   function validateLogs() {
     let ok = true;
     ok &= setValidity(OVConfigLogfile, !OVConfigLogfile.value || pathRx.test(OVConfigLogfile.value), 'Валидный путь к файлу лога');
@@ -1407,9 +1305,7 @@ window.addEventListener('load', loadCiphersAndRender);
     ok &= setValidity(OVConfigStatusLogVersion, +OVConfigStatusLogVersion.value >=1 && +OVConfigStatusLogVersion.value <=3, 'Версия 1–3');
     return !!ok;
   }
-
   function validateCustom() { return true; }
-
   // live-валидация
   [
     Device, Port, Proto, Topology, Keepalive, MaxClients,
@@ -1427,7 +1323,6 @@ window.addEventListener('load', loadCiphersAndRender);
       validateBasics(); validateCrypto(); validateTLS(); validateNet(); validateLogs(); validateCustom();
     });
   });
-
   form.addEventListener('submit', (e)=>{
     const ok = validateBasics() && validateCrypto() && validateTLS() && validateNet() && validateLogs() && validateCustom();
     if (!ok) {
@@ -1436,7 +1331,6 @@ window.addEventListener('load', loadCiphersAndRender);
       if (firstBad) firstBad.scrollIntoView({behavior:'smooth', block:'center'});
     }
   });
-
   // первичная проверка
   window.addEventListener('load', async () => {
     validateBasics(); validateCrypto(); validateNet(); validateLogs(); validateCustom();
@@ -1445,43 +1339,35 @@ window.addEventListener('load', loadCiphersAndRender);
   });
 })();
 </script>
-
 <!-- UX-логика: взаимоисключаемость флагов, автоподстановка redirect-gateway, сводка и «Не сохранено» -->
 <script>
 (function(){
   const form = document.getElementById('expert-form');
   const saveBtn = document.getElementById('SaveBtn');
   const badge = document.getElementById('FormStateBadge');
-
-  const SplitOnlyMode   = document.getElementById('SplitOnlyMode');
-  const ForceDefault    = document.getElementById('ForceDefaultRoute');
-  const RedirectGW      = document.getElementById('RedirectGW');
-  const PushRoute       = document.getElementById('PushRoute');
+  const SplitOnlyMode = document.getElementById('SplitOnlyMode');
+  const ForceDefault = document.getElementById('ForceDefaultRoute');
+  const RedirectGW = document.getElementById('RedirectGW');
+  const PushRoute = document.getElementById('PushRoute');
   const PushRoutesExtra = document.getElementById('PushRoutesExtra');
-  const ConflictAlert   = document.getElementById('SplitOnlyConflict');
-
+  const ConflictAlert = document.getElementById('SplitOnlyConflict');
   // Сводка
   const ModeLabel = document.getElementById('RouteModeLabel');
-  const RGWText   = document.getElementById('RouteRGW');
-  const RouteCnt  = document.getElementById('RouteCount');
-  const ResultLn  = document.getElementById('RouteResultLine');
-
+  const RGWText = document.getElementById('RouteRGW');
+  const RouteCnt = document.getElementById('RouteCount');
+  const ResultLn = document.getElementById('RouteResultLine');
   const DEF_RGW = 'redirect-gateway def1 bypass-dhcp';
-
   function recomputeSummary(){
     const split = !!(SplitOnlyMode && SplitOnlyMode.checked);
     const force = !!(ForceDefault && ForceDefault.checked);
-    const rgw   = (RedirectGW && RedirectGW.value.trim()) || '';
-
+    const rgw = (RedirectGW && RedirectGW.value.trim()) || '';
     // режим
     ModeLabel.textContent = split ? 'split-tunnel' : (force ? 'default-route' : 'без дефолт-маршрута');
     ModeLabel.className = 'badge ' + (split ? 'badge-info' : force ? 'badge-warning' : 'badge-secondary');
-
     // redirect-gateway как попадёт в server.conf
     let renderRGW = '';
     if (!split && force) renderRGW = rgw || DEF_RGW;
     RGWText.textContent = renderRGW || '—';
-
     // Подсчёт push routes
     let routes = 0;
     const pr = (PushRoute && PushRoute.value.trim()) ? [PushRoute.value.trim()] : [];
@@ -1489,17 +1375,13 @@ window.addEventListener('load', loadCiphersAndRender);
                     ? PushRoutesExtra.value.trim().split('\n').map(s => s.trim()).filter(Boolean) : [];
     routes = pr.length + extra.length;
     RouteCnt.textContent = String(routes);
-
     // Итоговая строка (для наглядности)
     ResultLn.textContent = renderRGW ? `push "${renderRGW}"` : '—';
   }
-
   function markDirty(){ if (badge) { badge.textContent = 'Не сохранено'; badge.className='badge badge-warning'; } }
-
   function enforceExclusivity(source){
     const split = SplitOnlyMode?.checked;
     const force = ForceDefault?.checked;
-
     if (source === 'split' && split && force) {
       // включили split — выключаем принудительный маршрут и чистим RedirectGW
       ForceDefault.checked = false;
@@ -1512,13 +1394,11 @@ window.addEventListener('load', loadCiphersAndRender);
       if (RedirectGW && !RedirectGW.value.trim()) RedirectGW.value = DEF_RGW;
     }
   }
-
   function syncConflictAndSave(){
     const conflict = (SplitOnlyMode?.checked && ForceDefault?.checked) === true;
     if (ConflictAlert) ConflictAlert.classList.toggle('d-none', !conflict);
     if (saveBtn) saveBtn.disabled = conflict;
   }
-
   [SplitOnlyMode, ForceDefault, RedirectGW, PushRoute, PushRoutesExtra].forEach(el=>{
     if (!el) return;
     const src = (el===SplitOnlyMode?'split':(el===ForceDefault?'force':''));
@@ -1528,7 +1408,6 @@ window.addEventListener('load', loadCiphersAndRender);
     });
     el.addEventListener('input', ()=>{ markDirty(); recomputeSummary(); syncConflictAndSave(); });
   });
-
   // первичная инициализация
   window.addEventListener('load', ()=>{
     enforceExclusivity(null);
