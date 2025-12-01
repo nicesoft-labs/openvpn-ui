@@ -155,6 +155,100 @@
   <div class="col-md-12">
     <div class="card card-default">
       <div class="card-header with-border">
+        <h3 class="card-title">Метрические графики OpenVPN</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-3">Компактный дашборд по сеансам, криптографии, маршрутизации, аутентификации, здоровью процесса и качеству канала. Данные берутся из management/status и приведены к названиям метрик Prometheus.</p>
+        <div class="row">
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Сеансы и нагрузка (core)</span>
+                <small class="text-secondary">openvpn_server_* </small>
+              </div>
+              <canvas id="serverLoadChart" height="180"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Криптография/политики</span>
+                <small class="text-secondary">openvpn_client_* </small>
+              </div>
+              <canvas id="cryptoChart" height="180"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Split-tunnel и маршрутизация</span>
+                <small class="text-secondary">openvpn_push_* </small>
+              </div>
+              <canvas id="routingChart" height="180"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Аутентификация и доступ</span>
+                <small class="text-secondary">auth/crl/2FA</small>
+              </div>
+              <canvas id="authChart" height="180"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Здоровье процесса</span>
+                <small class="text-secondary">tun/probe/process</small>
+              </div>
+              <canvas id="healthChart" height="180"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Качество канала/keepalive</span>
+                <small class="text-secondary">timeouts/sessions</small>
+              </div>
+              <canvas id="qualityChart" height="180"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-lg-7 col-md-12 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Трафик по клиентам</span>
+                <small class="text-secondary">openvpn_client_bytes_*_total</small>
+              </div>
+              <canvas id="clientTrafficChart" height="220"></canvas>
+            </div>
+          </div>
+          <div class="col-lg-5 col-md-12 mb-4">
+            <div class="metric-card">
+              <div class="metric-card__header">
+                <span>Сеансовые тайминги</span>
+                <small class="text-secondary">connected_since / last_ref</small>
+              </div>
+              <canvas id="clientTimingChart" height="220"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-2 mb-0" role="alert">
+          Все подписи совпадают с ожидаемыми именами метрик Prometheus (openvpn_*). При отсутствии прямых данных показатели отображаются как 0, но остаются на графиках для наглядности и дальнейшего подключения источников management/log.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="card card-default">
+      <div class="card-header with-border">
         <h3 class="card-title">Connected clients</h3>
       </div>
       <!-- /.card-header -->
@@ -263,5 +357,90 @@
 </div>
 <!-- /.row -->
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const metricsData = {{ tojson .metrics }} || {};
+
+  const palette = ['#17a2b8', '#28a745', '#ffc107', '#e83e8c', '#6610f2', '#20c997'];
+
+  function buildDonutChart(targetId, metrics, title) {
+    const ctx = document.getElementById(targetId);
+    if (!ctx || !metrics) return;
+
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: metrics.map(m => m.name),
+        datasets: [{
+          data: metrics.map(m => m.value),
+          backgroundColor: palette,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const metric = metrics[ctx.dataIndex];
+                return `${metric.name}: ${ctx.parsed} ${metric.unit}`;
+              },
+              afterLabel: function(ctx) {
+                const metric = metrics[ctx.dataIndex];
+                return metric.description;
+              }
+            }
+          },
+          title: { display: !!title, text: title }
+        },
+        cutout: '55%'
+      }
+    });
+  }
+
+  function buildBarChart(targetId, labels, datasets, stacked = false) {
+    const ctx = document.getElementById(targetId);
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked },
+          y: { stacked, beginAtZero: true }
+        },
+        plugins: {
+          legend: { position: 'bottom' }
+        }
+      }
+    });
+  }
+
+  buildDonutChart('serverLoadChart', metricsData.server_metrics, 'Core');
+  buildDonutChart('cryptoChart', metricsData.crypto_metrics, 'Crypto/Policy');
+  buildDonutChart('routingChart', metricsData.routing_metrics, 'Routing');
+  buildDonutChart('authChart', metricsData.auth_metrics, 'Auth');
+  buildDonutChart('healthChart', metricsData.health_metrics, 'Health');
+  buildDonutChart('qualityChart', metricsData.quality_metrics, 'Quality');
+
+  const clientMetrics = metricsData.client_breakdown || [];
+  const clientLabels = clientMetrics.map(c => c.common_name || c.real_addr || 'peer');
+  const bytesIn = clientMetrics.map(c => c.bytes_in / 1024 / 1024);
+  const bytesOut = clientMetrics.map(c => c.bytes_out / 1024 / 1024);
+  buildBarChart('clientTrafficChart', clientLabels, [
+    { label: 'Входящий трафик, MB', data: bytesIn, backgroundColor: palette[0] },
+    { label: 'Исходящий трафик, MB', data: bytesOut, backgroundColor: palette[1] }
+  ], true);
+
+  const sessionDurations = clientMetrics.map(c => c.session_sec / 60);
+  const idleDurations = clientMetrics.map(c => c.idle_sec / 60);
+  buildBarChart('clientTimingChart', clientLabels, [
+    { label: 'Длительность сессии (мин)', data: sessionDurations, backgroundColor: palette[2] },
+    { label: 'Неактивность (мин)', data: idleDurations, backgroundColor: palette[3] }
+  ], true);
+</script>
 {{end}}
 
