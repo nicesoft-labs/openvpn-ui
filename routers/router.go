@@ -18,7 +18,7 @@ func Init(configDir string) {
 	web.Router("/login", &controllers.LoginController{}, "get:Login;post:Login")
 	web.Router("/logout", &controllers.LoginController{}, "get:Logout")
 	web.Router("/auth/google", &controllers.LoginController{}, "get:GoogleLogin")
-	web.Router("/auth/google/callback", &controllers.LoginController{}, "get:GoogleCallback")	
+	web.Router("/auth/google/callback", &controllers.LoginController{}, "get:GoogleCallback")
 	web.Router("/profile", &controllers.ProfileController{})
 	web.Router("/settings", &controllers.SettingsController{})
 	web.Router("/ov/config", &controllers.OVConfigController{})
@@ -26,6 +26,8 @@ func Init(configDir string) {
 	web.Router("/ov/clientconfig", &controllers.OVClientConfigController{ConfigDir: configDir})
 	web.Router("/easyrsa/config", &controllers.EasyRSAConfigController{ConfigDir: configDir})
 	web.Router("/dangerzone", &controllers.DangerController{})
+	web.Router("/ui/statusz.json", &controllers.StatuszController{}, "get:Statusz")
+	web.Router("/ui/metrics.json", &controllers.StatuszController{}, "get:Metrics")
 
 	web.Include(&controllers.CertificatesController{ConfigDir: configDir})
 	web.Include(&controllers.DangerController{})
