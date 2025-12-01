@@ -722,13 +722,15 @@ function groupDigests(digests) {
   return groups;
 }
 
-/** ——— Рендер селекта ——— */
+/** ------------------------------
+ *  AUTH: заполнение селекта дайджестов
+ * ------------------------------ */
 function fillAuthSelect(groups, current) {
   const sel = document.getElementById('AuthSelect');
   const hidden = document.getElementById('Auth');
   if (!sel || !hidden) return;
 
-  sel.innerHTML = ''; // очистка
+  sel.innerHTML = '';
 
   function appendGroup(label, arr) {
     if (!arr.length) return;
@@ -747,33 +749,36 @@ function fillAuthSelect(groups, current) {
   appendGroup('Современные', groups.modern);
   appendGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
-  // Выставляем текущее значение
-  if (current) {
-    // если пришло в формате "auth X", оставим только алгоритм
-    const cur = String(current).trim().replace(/^auth\s+/i,'');
-    const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
-    if (!found && cur) {
-      // подмешаем кастомный (на случай нестандартной сборки)
-      const og = document.createElement('optgroup'); og.label = 'Текущее значение';
-      const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur;
-      og.appendChild(opt); sel.prepend(og);
-    }
-    sel.value = cur;
-    hidden.value = cur;
-  } else {
-    // выберем первый рекомендуемый, если есть
-    const first = sel.querySelector('optgroup[label="Рекомендуемые"] option')
-              || sel.querySelector('option');
-    if (first) {
-      sel.value = first.value;
-      hidden.value = first.value;
-    }
+  // Текущее значение (может прийти как "auth X")
+  const cur = String(current || '').trim().replace(/^auth\s+/i,'');
+  const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
+  if (cur && !found) {
+    const og = document.createElement('optgroup');
+    og.label = 'Текущее значение';
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = cur;
+    og.appendChild(opt);
+    sel.prepend(og);
   }
+
+  // Выбор значения
+  sel.value =
+    cur ||
+    sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value ||
+    sel.querySelector('option')?.value ||
+    '';
+
+  hidden.value = sel.value;
+
+  // Маркируем селект как «готов»
+  sel.dataset.ready = '1';
 
   sel.addEventListener('change', () => {
     hidden.value = sel.value;
   });
 }
+
 
 /** ——— Загрузка источника: .DigestsJSON → fetch → fallback ——— */
 async function loadDigestsAndRender() {
@@ -972,11 +977,14 @@ function groupCiphers(items) {
   return groups;
 }
 
-/* ——— Рендер одиночного селекта ——— */
+/** ------------------------------
+ *  CIPHER (single): заполнение селекта шифров
+ * ------------------------------ */
 function fillCipherSelect(groups, current) {
   const sel = document.getElementById('CipherSelect');
   const hid = document.getElementById('Cipher');
   if (!sel || !hid) return;
+
   sel.innerHTML = '';
 
   function addGroup(label, arr) {
@@ -999,25 +1007,43 @@ function fillCipherSelect(groups, current) {
   addGroup('Современные',   groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
-  // установить текущий
-  const cur = (current||'').trim();
+  const cur = (current || '').trim();
   const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
   if (cur && !found) {
-    const og = document.createElement('optgroup'); og.label = 'Текущее значение';
-    const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur;
-    og.appendChild(opt); sel.prepend(og);
+    const og = document.createElement('optgroup');
+    og.label = 'Текущее значение';
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = cur;
+    og.appendChild(opt);
+    sel.prepend(og);
   }
-  sel.value = cur || (sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value || sel.querySelector('option')?.value || '');
+
+  sel.value =
+    cur ||
+    sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value ||
+    sel.querySelector('option')?.value ||
+    '';
+
   hid.value = sel.value;
 
-  sel.addEventListener('change', ()=> hid.value = sel.value);
+  // Маркируем селект как «готов»
+  sel.dataset.ready = '1';
+
+  sel.addEventListener('change', () => {
+    hid.value = sel.value;
+  });
 }
 
-/* ——— Рендер multiple для NCP ——— */
+
+/** ------------------------------
+ *  NCP (multiple): заполнение селекта списка предпочтений
+ * ------------------------------ */
 function fillNcpSelect(groups, currentListStr) {
   const sel = document.getElementById('NcpSelect');
   const hid = document.getElementById('OVConfigNcpCiphers');
   if (!sel || !hid) return;
+
   sel.innerHTML = '';
 
   function addGroup(label, arr) {
@@ -1041,33 +1067,42 @@ function fillNcpSelect(groups, currentListStr) {
   addGroup('Современные',   groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
-  // выбрать текущие (по значению из конфигурации)
-  const current = (currentListStr||'').split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
-  const options = Array.from(sel.querySelectorAll('option'));
-  const present = new Set(options.map(o=>o.value));
+  // Текущие значения из конфигурации
+  const current = (currentListStr || '')
+    .split(/[,\s]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
 
-  // если есть нестандартные — добавим отдельной группой
+  const options = Array.from(sel.querySelectorAll('option'));
+  const present = new Set(options.map(o => o.value));
   for (const v of current) {
     if (!present.has(v)) {
-      const og = sel.querySelector('optgroup[label="Текущие"]') || (()=>{const x=document.createElement('optgroup'); x.label='Текущие'; sel.prepend(x); return x;})();
-      const opt = document.createElement('option'); opt.value=v; opt.textContent=v;
+      const og = sel.querySelector('optgroup[label="Текущие"]') ||
+                 (() => { const x = document.createElement('optgroup'); x.label = 'Текущие'; sel.prepend(x); return x; })();
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
       og.appendChild(opt);
     }
   }
 
-  // отмечаем выбранные
+  // Выделяем выбранные
   for (const o of Array.from(sel.options)) {
     if (current.includes(o.value)) o.selected = true;
   }
 
-  // синхронизация скрытого поля (порядок — как в DOM, но выбираем только selected)
   function syncHidden() {
-    const selected = Array.from(sel.options).filter(o=>o.selected).map(o=>o.value);
+    const selected = Array.from(sel.options).filter(o => o.selected).map(o => o.value);
     hid.value = selected.join(',');
   }
   syncHidden();
+
+  // Маркируем селект как «готов»
+  sel.dataset.ready = '1';
+
   sel.addEventListener('change', syncHidden);
 }
+
 
 /* ——— Загрузка с API → фоллбек ——— */
 async function loadCiphersAndRender() {
@@ -1155,17 +1190,52 @@ window.addEventListener('load', loadCiphersAndRender);
     return !!ok;
   }
 
-  function validateTLS(){
-    let ok = true;
-    ok &= setValidity(Ca, !!Ca.value.trim(), 'Укажите путь к CA');
-    ok &= setValidity(Cert, !!Cert.value.trim(), 'Укажите путь к сертификату сервера');
-    ok &= setValidity(Key, !!Key.value.trim(), 'Укажите путь к приватному ключу');
-    ok &= setValidity(TLSMinVersion, /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion.value), 'tls-version-min 1.2/1.3');
-    ok &= setValidity(TLSRemoteCert, /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert.value), 'remote-cert-tls client|server');
-    ok &= setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр');
-    ok &= setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест');
-    return !!ok;
+/** ------------------------------
+ *  Валидация TLS-блока с учётом «готовности» селектов
+ * ------------------------------ */
+function validateTLS() {
+  let ok = true;
+
+  const Ca            = document.getElementById('Ca');
+  const Cert          = document.getElementById('Cert');
+  const Key           = document.getElementById('Key');
+  const TLSMinVersion = document.getElementById('TLSMinVersion');
+  const TLSRemoteCert = document.getElementById('TLSRemoteCert');
+  const CipherSel     = document.getElementById('CipherSelect');
+  const AuthSel       = document.getElementById('AuthSelect');
+
+  ok = setValidity(Ca,  !!Ca?.value?.trim(),  'Укажите путь к CA') && ok;
+  ok = setValidity(Cert,!!Cert?.value?.trim(),'Укажите путь к сертификату сервера') && ok;
+  ok = setValidity(Key, !!Key?.value?.trim(), 'Укажите путь к приватному ключу') && ok;
+
+  ok = setValidity(
+        TLSMinVersion,
+        /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion?.value || ''),
+        'tls-version-min 1.2/1.3'
+      ) && ok;
+
+  ok = setValidity(
+        TLSRemoteCert,
+        /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert?.value || ''),
+        'remote-cert-tls client|server'
+      ) && ok;
+
+  // Селекты валидируем только когда они помечены как «готовые»
+  if (CipherSel?.dataset.ready === '1') {
+    ok = setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр') && ok;
+  } else {
+    setValidity(CipherSel, true);
   }
+
+  if (AuthSel?.dataset.ready === '1') {
+    ok = setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест') && ok;
+  } else {
+    setValidity(AuthSel, true);
+  }
+
+  return !!ok;
+}
+
 
   function validateNet(){
     let ok = true;
@@ -1218,8 +1288,15 @@ window.addEventListener('load', loadCiphersAndRender);
   });
 
   // первичная проверка
-  window.addEventListener('load', ()=> {
-    validateBasics(); validateTLS(); validateNet();
+  window.addEventListener('load', async () => {
+    validateBasics();
+    validateNet();
+    // грузим списки и только потом валидируем TLS
+    await Promise.all([
+      loadCiphersAndRender(),
+      loadDigestsAndRender()
+    ].map(p => p?.catch?.(()=>{}))); // не уронить при фоллбэке
+    validateTLS();
   });
 })();
 </script>
