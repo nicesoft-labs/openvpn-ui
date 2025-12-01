@@ -3,6 +3,11 @@ package mi
 import (
 	"bufio"
 	"net"
+	"time"
+)
+
+const (
+	defaultDialTimeout = 5 * time.Second
 )
 
 // Client is used to connect to OpenVPN Management Interface
@@ -88,11 +93,15 @@ func (c *Client) RestartServer() error {
 
 // Execute connects to the OpenVPN server, sends command and reads response
 func (c *Client) Execute(cmd string) (string, error) {
-	conn, err := net.Dial(c.MINetwork, c.MIAddress)
+	conn, err := net.DialTimeout(c.MINetwork, c.MIAddress, defaultDialTimeout)
 	if err != nil {
 		return "", err
 	}
 	defer conn.Close()
+
+	if err := conn.SetDeadline(time.Now().Add(defaultDialTimeout)); err != nil {
+		return "", err
+	}
 
 	buf := bufio.NewReader(conn)
 	buf.ReadString('\n') //read welcome message
