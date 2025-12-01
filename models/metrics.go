@@ -49,6 +49,7 @@ func InitMetricsDB() error {
 		new(ClientEvent),
 		new(RoutingCCD),
 		new(DaemonInfo),
+		new(UISnapshot),
 	)
 
 	// Create tables if not exist (no force, verbose logs on)
