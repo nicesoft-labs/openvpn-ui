@@ -386,7 +386,22 @@
               </div>
             </div>
 
+          
             <div class="col-md-4">
+
+
+              <div class="form-group">
+  <div class="custom-control custom-switch">
+    <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
+      {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
+    <label class="custom-control-label" for="SplitOnlyMode">
+      Режим split-tunnel (не пушить default-route)
+    </label>
+  </div>
+  <small class="form-help">Если включено — игнорировать поле «redirect-gateway» при генерации конфигурации.</small>
+</div>
+
+              
               <div class="form-group">
                 <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
                 <div class="input-icon">
@@ -401,6 +416,38 @@
               </div>
             </div>
           </div>
+
+          
+<div class="row">
+  <div class="col-md-6">
+    <div class="form-group">
+      <label for="PushRoutesExtra">Пушить только эти сети (split-tunnel)</label>
+      <div class="input-icon">
+        <i class="fa fa-share-alt"></i>
+        <textarea class="form-control" name="PushRoutesExtra" id="PushRoutesExtra" rows="4"
+          placeholder="Каждая строка: 10.10.0.0 255.255.0.0&#10;172.16.100.0 255.255.255.0">{{ .Settings.PushRoutesExtra }}</textarea>
+      </div>
+      <small class="form-help">
+        Сервер отправит клиентам <code>push "route &lt;NET&gt; &lt;MASK&gt;"</code> для каждой строки. 
+        Если это поле заполнено — <b>не используйте</b> <code>redirect-gateway</code>, чтобы трафик по умолчанию шёл мимо VPN.
+      </small>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="form-group">
+      <label for="DocSplitTunnel">Памятка по split-tunnel</label>
+      <div class="alert alert-secondary" id="DocSplitTunnel" role="alert" style="margin:0">
+        <ul class="mb-0 pl-3">
+          <li>Для «только выбранные сети» — <b>не</b> пушьте <code>redirect-gateway</code>, укажите список сетей слева.</li>
+          <li>Для маршрутизации ответов убедитесь в наличии обратного маршрута/маскарадинга на сервере.</li>
+          <li>Если клиенту нельзя принимать вообще никаких пушей — он может использовать
+            <code>route-nopull</code> в своём <i>.ovpn</i> и добавить нужные <code>route</code> локально.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
 
           <div class="row">
             <div class="col-md-3">
