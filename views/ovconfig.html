@@ -89,89 +89,188 @@
       <div class="row">
         <div class="col-12 p-0">
           <!-- Базовые параметры -->
-          <div class="card" id="section-basics">
-            <div class="card-header d-flex align-items-center">
-              <h3 class="section-title"><i class="fa fa-sliders mr-2"></i> Базовые параметры</h3>
-              <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
-                 data-content="Базовые сетевые параметры OpenVPN: тип интерфейса, транспорт, порт, топология и базовые лимиты."></i>
+<div class="card" id="section-basics">
+  <div class="card-header d-flex align-items-center">
+    <h3 class="section-title">
+      <i class="fa fa-sliders mr-2"></i> Базовые параметры
+    </h3>
+    <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+       data-content="Ключевые сетевые параметры OpenVPN-сервера: тип виртуального интерфейса, транспортный протокол, топология адресации, порт, keepalive и лимит клиентов."></i>
+  </div>
+
+  <div class="card-body">
+
+    <!-- Первая строка (3 колонки): Dev / Proto / Topology -->
+    <div class="row">
+      <!-- Dev -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="Device" class="d-flex align-items-center">
+            Dev <span class="text-muted ml-1">(тип интерфейса)</span>
+            <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+               title="Выберите виртуальный интерфейс: tun — L3 IP-туннель (рекомендуется), tap — L2 Ethernet-бридж (только при необходимости уровня канала)."></i>
+          </label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-random"></i></span>
             </div>
-            <div class="card-body">
-              <div class="form-group">
-                <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
-                <div class="input-icon">
-                  <i class="fa fa-random"></i>
-                  <input required pattern="^(tun|tap)$" title="Допустимо: tun или tap"
-                         type="text" selector="vformdata" class="form-control" name="Device" id="Device"
-                         placeholder="tun" value="{{ .Settings.Device }}" aria-describedby="DeviceHelp">
-                </div>
-                <small id="DeviceHelp" class="form-help">
-                  <b>tun</b> — L3 (IP-туннель), <b>tap</b> — L2 (бридж/эмуляция Ethernet).
-                </small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>• <b>tun</b>: экономит MTU, проще маршрутизация; • <b>tap</b>: нужен для L2 (DHCP/NetBIOS/мультикаст).</div>
-                </details>
-                <div class="invalid-feedback">Укажите tun или tap.</div>
-              </div>
-              <div class="form-group">
-                <label for="Port">Port</label>
-                <div class="input-icon">
-                  <i class="fa fa-plug"></i>
-                  <input required type="number" min="1" max="65535"
-                         selector="vformdata" class="form-control" name="Port" id="Port"
-                         placeholder="1194" value="{{ .Settings.Port }}" aria-describedby="PortHelp">
-                </div>
-                <small id="PortHelp" class="form-help">Обычно <code>1194/udp</code> или любой свободный.</small>
-                <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
-              </div>
-              <div class="form-group">
-                <label for="Proto">Proto</label>
-                <div class="input-icon">
-                  <i class="fa fa-exchange"></i>
-                  <input required pattern="^(udp|tcp)$" title="Допустимо: udp или tcp"
-                         type="text" selector="vformdata" class="form-control" name="Proto" id="Proto"
-                         placeholder="udp" value="{{ .Settings.Proto }}" aria-describedby="ProtoHelp">
-                </div>
-                <small id="ProtoHelp" class="form-help">Рекомендуется <b>UDP</b> (ниже задержки).</small>
-                <div class="invalid-feedback">Разрешено: udp или tcp.</div>
-              </div>
-              <div class="form-group">
-                <label for="OVConfigTopology">Topology</label>
-                <div class="input-icon">
-                  <i class="fa fa-sitemap"></i>
-                  <input required pattern="^(subnet|net30|p2p)$" title="subnet, net30 или p2p"
-                         type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology"
-                         placeholder="subnet" value="{{ .Settings.OVConfigTopology }}" aria-describedby="TopoHelp">
-                </div>
-                <small id="TopoHelp" class="form-help">Обычно <b>subnet</b>.</small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>• <b>subnet</b>: проще маршрутизация; • <b>net30</b>: устарело; • <b>p2p</b>: point-to-point.</div>
-                </details>
-                <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
-              </div>
-              <div class="form-group">
-                <label for="Keepalive">Keepalive</label>
-                <div class="input-icon">
-                  <i class="fa fa-heartbeat"></i>
-                  <input required pattern="^\s*\d+\s+\d+\s*$" title="Два числа: <ping> <ping-restart>"
-                         type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
-                         placeholder="10 120" value="{{ .Settings.Keepalive }}" aria-describedby="KeepaliveHelp">
-                </div>
-                <small id="KeepaliveHelp" class="form-help">Формат: <code>10 120</code> и т.п.</small>
-                <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
-              </div>
-              <div class="form-group">
-                <label for="MaxClients">MaxClients</label>
-                <div class="input-icon">
-                  <i class="fa fa-users"></i>
-                  <input required type="number" min="1" max="65535"
-                         class="form-control" name="MaxClients" id="MaxClients"
-                         placeholder="100" value="{{ .Settings.MaxClients }}" aria-describedby="MaxClientsHelp">
-                </div>
-                <small id="MaxClientsHelp" class="form-help">Одновременные подключения (соответствующий пул IP).</small>
-                <div class="invalid-feedback">Положительное число, не более 65535.</div>
-              </div>
-            </div>
+            <select required class="form-control" name="Device" id="Device" aria-describedby="DeviceHelp">
+              <option value="tun" {{if eq .Settings.Device "tun"}}selected{{end}}>tun — L3 (IP-туннель, экономит MTU, проще маршрутизация)</option>
+              <option value="tap" {{if eq .Settings.Device "tap"}}selected{{end}}>tap — L2 (Ethernet-кадр, нужен для DHCP/NetBIOS/мультикаста)</option>
+            </select>
           </div>
+          <small id="DeviceHelp" class="form-help">
+            <b>Рекомендация:</b> используйте <code>tun</code> для большинства сценариев (site-to-site, road-warrior).
+            <b>tap</b> выбирайте только когда требуется настоящий L2 (например, перенос DHCP или сложных широковещательных протоколов).
+          </small>
+          <details class="help-block"><summary>Подробности</summary>
+            <ul class="mb-0 pl-4">
+              <li><b>tun</b>: меньше накладные расходы, устойчивее к фрагментации, легко сочетается со split-tunnel.</li>
+              <li><b>tap</b>: прозрачно переносит L2-широковещание/мультикаст (SMB/NetBIOS, некоторые IPTV), но больше overhead и рисков с MTU.</li>
+            </ul>
+          </details>
+          <div class="invalid-feedback">Укажите тип интерфейса (tun или tap).</div>
+        </div>
+      </div>
+
+      <!-- Proto -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="Proto" class="d-flex align-items-center">
+            Proto <span class="text-muted ml-1">(транспорт)</span>
+            <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+               title="UDP — стандартный выбор: ниже задержки, выше устойчивость к потере пакетов. TCP — только при необходимости обхода ограничений/прокси."></i>
+          </label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-exchange"></i></span>
+            </div>
+            <select required class="form-control" name="Proto" id="Proto" aria-describedby="ProtoHelp">
+              <option value="udp" {{if eq .Settings.Proto "udp"}}selected{{end}}>udp — оптимально для производительности и latency</option>
+              <option value="tcp" {{if eq .Settings.Proto "tcp"}}selected{{end}}>tcp — совместимость через строгие фаерволы/прокси</option>
+            </select>
+          </div>
+          <small id="ProtoHelp" class="form-help">
+            <b>Рекомендация:</b> <code>udp</code>. <code>tcp</code> используйте, если провайдер блокирует UDP или требуется TCP-транспорт (например, через некоторые корпоративные прокси).
+          </small>
+          <details class="help-block"><summary>Подробности</summary>
+            <ul class="mb-0 pl-4">
+              <li><b>UDP</b>: без гарантий доставки на уровне транспорта, зато меньше overhead и jitter.</li>
+              <li><b>TCP</b>: «туннель внутри TCP» может вызывать эффект «TCP-over-TCP meltdown» (дублирование ретрансляций).</li>
+            </ul>
+          </details>
+          <div class="invalid-feedback">Разрешены значения: udp или tcp.</div>
+        </div>
+      </div>
+
+      <!-- Topology -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="OVConfigTopology" class="d-flex align-items-center">
+            Topology <span class="text-muted ml-1">(адресация)</span>
+            <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+               title="subnet — современная модель (рекомендуется). net30 — legacy для старых клиентов. p2p — point-to-point."></i>
+          </label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-sitemap"></i></span>
+            </div>
+            <select required class="form-control" name="OVConfigTopology" id="OVConfigTopology" aria-describedby="TopoHelp">
+              <option value="subnet" {{if eq .Settings.OVConfigTopology "subnet"}}selected{{end}}>subnet — плоская подсеть / упрощённая маршрутизация (рекомендуется)</option>
+              <option value="net30" {{if eq .Settings.OVConfigTopology "net30"}}selected{{end}}>net30 — совместимость со старыми клиентами (устарело)</option>
+              <option value="p2p" {{if eq .Settings.OVConfigTopology "p2p"}}selected{{end}}>p2p — point-to-point (специальные случаи)</option>
+            </select>
+          </div>
+          <small id="TopoHelp" class="form-help">
+            <b>Рекомендация:</b> <code>subnet</code> — проще настройка маршрутов, корректно работает с <code>client-config-dir</code> и статическими IP.
+          </small>
+          <details class="help-block"><summary>Подробности</summary>
+            <ul class="mb-0 pl-4">
+              <li><b>subnet</b>: единый пул адресов, понятные push-маршруты; лучший выбор для road-warrior и большинства site-to-site.</li>
+              <li><b>net30</b>: исторический режим /30 на клиента; используйте только для очень старых клиентов.</li>
+              <li><b>p2p</b>: статические пары адресов; уместно в узких сценариях, когда требуется p2p-линк без общей подсети.</li>
+            </ul>
+          </details>
+          <div class="invalid-feedback">Выберите одно из: subnet, net30, p2p.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Вторая строка: Port / Keepalive / MaxClients (как и было, для целостности блока) -->
+    <div class="row">
+      <!-- Port -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="Port">Port</label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-plug"></i></span>
+            </div>
+            <input required type="number" min="1" max="65535"
+                   selector="vformdata" class="form-control" name="Port" id="Port"
+                   placeholder="1194" value="{{ .Settings.Port }}" aria-describedby="PortHelp">
+          </div>
+          <small id="PortHelp" class="form-help">
+            Типичный выбор: <code>1194/udp</code>. Для TCP выберите отдельный порт (<code>443</code> — для совместимости с прокси/фильтрами).
+          </small>
+          <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
+        </div>
+      </div>
+
+      <!-- Keepalive -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="Keepalive">Keepalive <span class="text-muted ml-1">(ping / restart)</span></label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-heartbeat"></i></span>
+            </div>
+            <input required pattern="^\s*\d+\s+\d+\s*$" title="Два числа: <ping> <ping-restart>"
+                   type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
+                   placeholder="10 120" value="{{ .Settings.Keepalive }}" aria-describedby="KeepaliveHelp">
+          </div>
+          <small id="KeepaliveHelp" class="form-help">
+            Формат: <code>10 120</code> — отправлять ping каждые 10 с; рестарт сессии при отсутствии ответов 120 с. Подбирайте под качество канала.
+          </small>
+          <details class="help-block"><summary>Рекомендации</summary>
+            <ul class="mb-0 pl-4">
+              <li>Мобильные сети/высокий jitter: увеличьте интервалы (например, <code>15 180</code>).</li>
+              <li>Стабильные дата-центры: можно агрессивнее (например, <code>10 60</code>), но следите за ложными рестартами.</li>
+            </ul>
+          </details>
+          <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
+        </div>
+      </div>
+
+      <!-- MaxClients -->
+      <div class="col-md-4">
+        <div class="form-group">
+          <label for="MaxClients">MaxClients</label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="fa fa-users"></i></span>
+            </div>
+            <input required type="number" min="1" max="65535"
+                   class="form-control" name="MaxClients" id="MaxClients"
+                   placeholder="100" value="{{ .Settings.MaxClients }}" aria-describedby="MaxClientsHelp">
+          </div>
+          <small id="MaxClientsHelp" class="form-help">
+            Одновременные подключения. Проверьте, что пул <code>server</code> и ресурсы (CPU/RAM) соответствуют ожидаемой нагрузке.
+          </small>
+          <details class="help-block"><summary>Подсказки по ёмкости</summary>
+            <ul class="mb-0 pl-4">
+              <li>Учитывайте MTU/фрагментацию и выбранный шифр (GCM/CHACHA20 быстрее CBC на слабом CPU).</li>
+              <li>Планируйте запас адресов: /24 &rarr; до ~250 клиентов с учётом служебных адресов.</li>
+            </ul>
+          </details>
+          <div class="invalid-feedback">Положительное число, не более 65535.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
           <!-- Криптография и TLS -->
           <div class="card" id="section-crypto">
             <div class="card-header d-flex align-items-center">
