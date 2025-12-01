@@ -1,8 +1,14 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>Настройки сервера</title>
+<title>NiceVPN - Настройки сервера</title>
 <style>
+  /* Базовая типографика и отступы */
+  .card .card-body > .form-group + .form-group { margin-top: .875rem; }
+  .card .card-body .row + .row { margin-top: .75rem; }
+  .section-title { display:flex; align-items:center; gap:.5rem; margin:0; }
+  .section-title .section-badge { font-size:.75rem; }
+
   .form-help { font-size:.9rem; color:#6c757d; display:block; margin-top:.25rem; }
   .section-badge { font-size:.75rem; margin-left:.5rem }
   .input-icon { position: relative; }
@@ -16,6 +22,21 @@
   .help-icon { margin-left:.35rem; cursor:help; opacity:.8; }
   details.help-block { margin:.25rem 0 .5rem; }
   details.help-block summary { cursor:pointer; user-select:none; color:#495057; }
+
+  /* Быстрые якоря-разделы */
+  .quick-nav { position:sticky; top:1rem; z-index:1; }
+  .quick-nav .btn { margin: .125rem .125rem; }
+
+  /* Боковая сводка маршрутизации */
+  .aside-summary { position:sticky; top:1rem; }
+  .aside-summary .list-group-item { padding:.5rem .75rem; }
+
+  /* Липкая панель сохранения */
+  .save-bar {
+    position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e9ecef;
+    padding: .5rem; display:flex; justify-content:flex-end; gap:.5rem;
+  }
+  .save-bar .badge { align-self:center; }
 </style>
 {{end}}
 
@@ -40,10 +61,23 @@
   </div>
 </div>
 
+<!-- Быстрая навигация по разделам -->
+<div class="quick-nav mb-2">
+  <a href="#section-template" class="btn btn-sm btn-outline-secondary"><i class="fa fa-cogs"></i> Шаблон</a>
+  <a href="#section-basics" class="btn btn-sm btn-outline-secondary"><i class="fa fa-sliders"></i> Базовые</a>
+  <a href="#section-crypto" class="btn btn-sm btn-outline-secondary"><i class="fa fa-shield"></i> Крипто/TLS</a>
+  <a href="#section-net" class="btn btn-sm btn-outline-secondary"><i class="fa fa-network-wired"></i> Маршруты</a>
+  <a href="#section-logs" class="btn btn-sm btn-outline-secondary"><i class="fa fa-file-text-o"></i> Логи</a>
+  <a href="#section-custom" class="btn btn-sm btn-outline-secondary"><i class="fa fa-wrench"></i> Произвольные</a>
+  <a href="#section-save" class="btn btn-sm btn-primary"><i class="fa fa-save"></i> Сохранение</a>
+  <span class="text-muted ml-1 d-none d-md-inline">Навигация по большим формам</span>
+  <hr class="mt-2 mb-0">
+</div>
+
 <!-- Шаблон конфигурации -->
-<div class="card card-primary">
+<div class="card card-primary" id="section-template">
   <div class="card-header with-border d-flex align-items-center justify-content-between">
-    <h3 class="card-title">
+    <h3 class="card-title section-title">
       <i class="fa fa-cogs mr-2"></i> Шаблон конфигурации
       <span class="badge badge-light section-badge">server.conf</span>
     </h3>
@@ -60,16 +94,15 @@
       <i class="fa fa-question-circle help-icon" data-toggle="tooltip" title="Все значения проходят клиентскую валидацию и будут сохранены как строки в server.conf."></i>
     </p>
 
+    <!-- Главная форма -->
     <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post" novalidate>
       <div class="row">
-
-        <!-- Базовые + Криптография -->
         <div class="col-12 p-0">
 
           <!-- Базовые параметры -->
-          <div class="card">
-            <div class="card-header">
-              <i class="fa fa-sliders mr-2"></i> Базовые параметры
+          <div class="card" id="section-basics">
+            <div class="card-header d-flex align-items-center">
+              <h3 class="section-title"><i class="fa fa-sliders mr-2"></i> Базовые параметры</h3>
               <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
                  data-content="Базовые сетевые параметры OpenVPN: тип интерфейса, транспорт, порт, топология и базовые лимиты."></i>
             </div>
@@ -84,11 +117,10 @@
                          placeholder="tun" value="{{ .Settings.Device }}" aria-describedby="DeviceHelp">
                 </div>
                 <small id="DeviceHelp" class="form-help">
-                  <b>tun</b> — L3 (IP-туннель, чаще всего), <b>tap</b> — L2 (бридж/эмуляция Ethernet).
+                  <b>tun</b> — L3 (IP-туннель), <b>tap</b> — L2 (бридж/эмуляция Ethernet).
                 </small>
                 <details class="help-block"><summary>Справка</summary>
-                  <div>• <b>tun</b>: экономит MTU, проще маршрутизация, не тащит широковещательные кадры.<br>
-                       • <b>tap</b>: нужен, если требуется L2 (например, DHCP/NetBIOS/мультикаст на клиенте).</div>
+                  <div>• <b>tun</b>: экономит MTU, проще маршрутизация; • <b>tap</b>: нужен для L2 (DHCP/NetBIOS/мультикаст).</div>
                 </details>
                 <div class="invalid-feedback">Укажите tun или tap.</div>
               </div>
@@ -101,9 +133,7 @@
                          selector="vformdata" class="form-control" name="Port" id="Port"
                          placeholder="1194" value="{{ .Settings.Port }}" aria-describedby="PortHelp">
                 </div>
-                <small id="PortHelp" class="form-help">
-                  Порт прослушивания сервера. Часто: <code>1194/udp</code> или любой свободный.
-                </small>
+                <small id="PortHelp" class="form-help">Обычно <code>1194/udp</code> или любой свободный.</small>
                 <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
               </div>
 
@@ -115,7 +145,7 @@
                          type="text" selector="vformdata" class="form-control" name="Proto" id="Proto"
                          placeholder="udp" value="{{ .Settings.Proto }}" aria-describedby="ProtoHelp">
                 </div>
-                <small id="ProtoHelp" class="form-help">Рекомендуется <b>UDP</b> (меньше задержки, лучше для VPN).</small>
+                <small id="ProtoHelp" class="form-help">Рекомендуется <b>UDP</b> (ниже задержки).</small>
                 <div class="invalid-feedback">Разрешено: udp или tcp.</div>
               </div>
 
@@ -127,13 +157,9 @@
                          type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology"
                          placeholder="subnet" value="{{ .Settings.OVConfigTopology }}" aria-describedby="TopoHelp">
                 </div>
-                <small id="TopoHelp" class="form-help">
-                  Обычно <b>subnet</b> (современный режим адресации клиентов).
-                </small>
+                <small id="TopoHelp" class="form-help">Обычно <b>subnet</b>.</small>
                 <details class="help-block"><summary>Справка</summary>
-                  <div>• <b>subnet</b>: /30 не выдаются, адреса берутся из пула; проще маршрутизация.<br>
-                       • <b>net30</b>: старый режим, выделяет клиенту /30; почти не нужен.<br>
-                       • <b>p2p</b>: point-to-point для специфических сценариев.</div>
+                  <div>• <b>subnet</b>: проще маршрутизация; • <b>net30</b>: устарело; • <b>p2p</b>: point-to-point.</div>
                 </details>
                 <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
               </div>
@@ -146,12 +172,7 @@
                          type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
                          placeholder="10 120" value="{{ .Settings.Keepalive }}" aria-describedby="KeepaliveHelp">
                 </div>
-                <small id="KeepaliveHelp" class="form-help">
-                  Формат: <code>&lt;ping&gt; &lt;ping-restart&gt;</code>. Например: <code>10 120</code>.
-                </small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>• Первое число — период пинга в секундах; второе — таймаут рестарта при отсутствии пингов.</div>
-                </details>
+                <small id="KeepaliveHelp" class="form-help">Формат: <code>10 120</code> и т.п.</small>
                 <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
               </div>
 
@@ -163,18 +184,16 @@
                          class="form-control" name="MaxClients" id="MaxClients"
                          placeholder="100" value="{{ .Settings.MaxClients }}" aria-describedby="MaxClientsHelp">
                 </div>
-                <small id="MaxClientsHelp" class="form-help">
-                  Ограничение одновременных подключений (пул адресов должен соответствовать).
-                </small>
+                <small id="MaxClientsHelp" class="form-help">Одновременные подключения (соответствующий пул IP).</small>
                 <div class="invalid-feedback">Положительное число, не более 65535.</div>
               </div>
             </div>
           </div>
 
           <!-- Криптография и TLS -->
-          <div class="card">
-            <div class="card-header">
-              <i class="fa fa-shield mr-2"></i> Криптография и TLS
+          <div class="card" id="section-crypto">
+            <div class="card-header d-flex align-items-center">
+              <h3 class="section-title"><i class="fa fa-shield mr-2"></i> Криптография и TLS</h3>
               <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
                  data-content="Настройки сертификатов, ключей, параметров DH и политики TLS."></i>
             </div>
@@ -213,7 +232,7 @@
                              class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt"
                              value="{{ .Settings.Ca }}" aria-describedby="PKIHelp">
                     </div>
-                    <small class="form-help">CA-сертификат удостоверяющего центра.</small>
+                    <small class="form-help">CA-сертификат.</small>
                   </div>
                   <div class="col-sm-6">
                     <div class="input-icon">
@@ -242,11 +261,11 @@
                              class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem"
                              value="{{ .Settings.Crl }}">
                     </div>
-                    <small class="form-help">CRL (список отозванных) — опционально.</small>
+                    <small class="form-help">CRL (опционально).</small>
                   </div>
                 </div>
                 <details class="help-block"><summary>Справка</summary>
-                  <div>Стандартный набор: <code>ca</code>, <code>cert</code>, <code>key</code>, при необходимости — <code>crl-verify</code>.</div>
+                  <div>Стандарт: <code>ca</code>, <code>cert</code>, <code>key</code>, при необходимости — <code>crl-verify</code>.</div>
                 </details>
               </div>
 
@@ -259,7 +278,7 @@
                       <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу (опционально)" type="text"
                              class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
                     </div>
-                    <small class="form-help">Параметры Диффи–Хеллмана (для legacy-конфигураций).</small>
+                    <small class="form-help">DH для legacy-конфигураций.</small>
                   </div>
                   <div class="col-sm-6">
                     <div class="input-icon">
@@ -268,13 +287,9 @@
                              type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel"
                              placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
                     </div>
-                    <small class="form-help"><code>tls-crypt</code> предпочтительнее <code>tls-auth</code> (скрывает трафик рукопожатия).</small>
+                    <small class="form-help"><code>tls-crypt</code> предпочтительнее <code>tls-auth</code>.</small>
                   </div>
                 </div>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>• <code>tls-crypt</code> шифрует и аутентифицирует управляющий канал; <code>tls-auth</code> — только HMAC.<br>
-                       • DH нужен в старых связках; при современных TLS-настройках часто не требуется.</div>
-                </details>
               </div>
 
               <div class="form-group">
@@ -301,7 +316,7 @@
                 <small id="TLSHelp" class="form-help">Минимальная версия и проверка типа удалённого сертификата.</small>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" id="cipher-blocks">
                 <label for="Cipher">Cipher / NCP / Auth</label>
                 <div class="row">
 
@@ -309,7 +324,7 @@
                   <div class="col-sm-4">
                     <label for="CipherSelect">Cipher (data channel)
                       <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
-                         title="Шифр для канала данных; для TLS-основанных режимов доступны AEAD (GCM, CHACHA20-POLY1305)."></i>
+                         title="Шифр канала данных; предпочтительны AEAD (GCM/CHACHA20-POLY1305)."></i>
                     </label>
                     <div class="input-group">
                       <div class="input-group-prepend">
@@ -318,7 +333,7 @@
                       <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help"></select>
                       <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
                     </div>
-                    <small id="cipher-help" class="form-help">Выберите основной шифр для сервера.</small>
+                    <small id="cipher-help" class="form-help">Основной шифр сервера.</small>
                     <div class="invalid-feedback">Выберите шифр.</div>
                   </div>
 
@@ -326,7 +341,7 @@
                   <div class="col-sm-4">
                     <label for="NcpSelect">NCP (data-ciphers)
                       <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
-                         title="Negotiable Crypto Parameters: список предпочтений для согласования шифров с клиентом."></i>
+                         title="Negotiable Crypto Parameters: приоритеты шифров на согласование с клиентом."></i>
                     </label>
                     <div class="input-group">
                       <div class="input-group-prepend">
@@ -343,7 +358,7 @@
                   <div class="col-sm-4">
                     <label for="AuthSelect">Auth (HMAC digest)
                       <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
-                         title="Алгоритм дайджеста для HMAC/подписи; при AEAD-шифрах значение может игнорироваться для данных."></i>
+                         title="Дайджест для HMAC/подписи; при AEAD может игнорироваться для данных."></i>
                     </label>
                     <div class="input-group">
                       <div class="input-group-prepend">
@@ -360,13 +375,13 @@
                 <!-- Подсказки по шифрам -->
                 <div class="mt-2">
                   <div class="kuz-note">
-                    <b>Современные шифры:</b> <code>kuznyechik-cbc</code> (256/128), <code>kuznyechik-cfb</code> (TLS-only), <code>kuznyechik-ofb</code> (TLS-only).
+                    <b>Современные шифры:</b> <code>kuznyechik-cbc</code>, <code>kuznyechik-cfb</code> (TLS-only), <code>kuznyechik-ofb</code> (TLS-only).
                   </div>
                   <div class="deprecated mt-2">
-                    <b>Устаревшие (блок &lt; 128):</b> <code>gost89</code>, <code>gost89-cbc</code>, <code>gost89-cnt</code>, <code>gost89-cnt-12</code>, <code>magma-cbc</code>.
+                    <b>Устаревшие (&lt;128-бит блок):</b> <code>gost89</code>, <code>magma-cbc</code> и др.
                   </div>
                   <div class="mt-2">
-                    <b>Дайджесты для <code>--auth</code>:</b> <code>id-tc26-gost3411-12-256</code>, <code>id-tc26-gost3411-12-512</code> (устар.: <code>id-GostR3411-94</code>).
+                    <b>Дайджесты (auth):</b> <code>id-tc26-gost3411-12-256</code>, <code>id-tc26-gost3411-12-512</code>, <code>SHA512</code> и др.
                   </div>
                 </div>
               </div>
@@ -393,10 +408,8 @@
                          placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}"
                          aria-describedby="ScriptHelp">
                 </div>
-                <small id="ScriptHelp" class="form-help">
-                  Для запуска внешних скриптов верификации требуется <code>script-security 2</code> или выше.
-                </small>
-                <div class="invalid-feedback">Укажите script-security 0-3.</div>
+                <small id="ScriptHelp" class="form-help">Для внешних скриптов нужна <code>script-security 2</code> или выше.</small>
+                <div class="invalid-feedback">Укажите script-security 0–3.</div>
               </div>
 
               <div class="form-group" id="auth-user-pass-verify">
@@ -410,10 +423,8 @@
                          value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}"
                          aria-describedby="UPVHelp">
                 </div>
-                <small id="UPVHelp" class="form-help">
-                  <code>via-file</code> предпочтительнее (<i>stdin</i>), <code>via-env</code> — через переменные окружения.
-                </small>
-                <div class="invalid-feedback">Укажите auth-user-pass-verify с скриптом и via-file/via-env.</div>
+                <small id="UPVHelp" class="form-help"><code>via-file</code> предпочтительнее; <code>via-env</code> — переменные окружения.</small>
+                <div class="invalid-feedback">Укажите скрипт и режим via-file/via-env.</div>
               </div>
 
             </div>
@@ -422,221 +433,228 @@
       </div>
 
       <!-- Сети и маршрутизация -->
-      <div class="card">
-        <div class="card-header">
-          <i class="fa fa-network-wired mr-2"></i> Сети и маршруты
+      <div class="card" id="section-net">
+        <div class="card-header d-flex align-items-center">
+          <h3 class="section-title"><i class="fa fa-network-wired mr-2"></i> Сети и маршруты</h3>
           <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
              data-content="Адресное пространство VPN, маршруты для серверной стороны и push-маршруты для клиентов."></i>
         </div>
+
         <div class="card-body">
-
           <div class="row">
-            <div class="col-md-4">
-              <div class="form-group">
-                <label for="Server">Server (доверенная VPN-подсеть)</label>
-                <div class="input-icon">
-                  <i class="fa fa-home"></i>
-                  <input required
-                         pattern="^server\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
-                         title="server <IP> <MASK>"
-                         type="text" selector="vformdata" class="form-control" name="Server" id="Server"
-                         placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}" aria-describedby="ServerHelp">
+            <!-- Левая часть (поля) -->
+            <div class="col-lg-8">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label for="Server">Server (доверенная VPN-подсеть)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-home"></i>
+                      <input required
+                             pattern="^server\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+                             title="server <IP> <MASK>"
+                             type="text" selector="vformdata" class="form-control" name="Server" id="Server"
+                             placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}" aria-describedby="ServerHelp">
+                    </div>
+                    <small id="ServerHelp" class="form-help">Выделяет VPN-подсеть для клиентов.</small>
+                    <div class="invalid-feedback">Формат: server &lt;IP&gt; &lt;MASK&gt;.</div>
+                  </div>
                 </div>
-                <small id="ServerHelp" class="form-help">
-                  Выделяет VPN-подсеть для клиентов. Пример: <code>server 10.0.70.0 255.255.255.0</code>.
-                </small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>• Не должен пересекаться с LAN клиента.<br>
-                       • Для <b>tap</b> вместо этого можно применять <code>server-bridge</code>.</div>
-                </details>
-                <div class="invalid-feedback">Формат: server &lt;IP&gt; &lt;MASK&gt;.</div>
+
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label for="Route">Route (гостевая VPN-подсеть)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-route"></i>
+                      <input pattern="^route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+                             title="route <IP> <MASK>" type="text" selector="vformdata"
+                             class="form-control" name="Route" id="Route"
+                             placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}" aria-describedby="RouteHelp">
+                    </div>
+                    <small id="RouteHelp" class="form-help">Добавляет маршрут на стороне сервера (клиентам не пушится).</small>
+                    <div class="invalid-feedback">Формат: route &lt;IP&gt; &lt;MASK&gt;.</div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
+                             {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
+                      <label class="custom-control-label" for="SplitOnlyMode">
+                        Режим split-tunnel (не пушить default-route)
+                      </label>
+                    </div>
+                    <small class="form-help">
+                      При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-share-square-o"></i>
+                      <input pattern='^push\s+"route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                             title='push "route <IP> <MASK>"'
+                             type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute"
+                             placeholder='push "route 10.0.60.0 255.255.255.0"'
+                             value="{{ .Settings.PushRoute }}" aria-describedby="PushRouteHelp">
+                    </div>
+                    <small id="PushRouteHelp" class="form-help">
+                      Рассылает клиентам маршрут к вашей LAN (split-tunnel).
+                    </small>
+                    <div class="invalid-feedback">Формат: push "route &lt;IP&gt; &lt;MASK&gt;".</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="PushRoutesExtra">Пушить только эти сети (split-tunnel)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-share-alt"></i>
+                      <textarea class="form-control" name="PushRoutesExtra" id="PushRoutesExtra" rows="4"
+                                placeholder="Каждая строка: 10.10.0.0 255.255.0.0&#10;172.16.100.0 255.255.255.0"
+                                aria-describedby="PREHelp">{{ .Settings.PushRoutesExtra }}</textarea>
+                    </div>
+                    <small id="PREHelp" class="form-help">
+                      На каждую строку будет сгенерирован <code>push "route &lt;NET&gt; &lt;MASK&gt;"</code>.
+                    </small>
+                    <details class="help-block"><summary>Справка</summary>
+                      <div>Если используете этот список — не пушьте <code>redirect-gateway</code>, иначе трафик по умолчанию уйдёт в VPN.</div>
+                    </details>
+                    <div class="invalid-feedback">Каждая строка в формате &lt;IP&gt; &lt;MASK&gt;.</div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="DocSplitTunnel">Памятка по split-tunnel</label>
+                    <div class="alert alert-secondary" id="DocSplitTunnel" role="alert" style="margin:0">
+                      <ul class="mb-0 pl-3">
+                        <li>Для «только выбранные сети» — <b>не</b> пушьте <code>redirect-gateway</code>.</li>
+                        <li>Обратные маршруты/NAT обязательны на стороне сервера.</li>
+                        <li>Клиент может игнорировать пуши через <code>route-nopull</code>.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="form-group">
+                    <label for="DNSServer1">Push DHCP (DNS #1)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-globe"></i>
+                      <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                             title='push "dhcp-option DNS <IP>"'
+                             type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1"
+                             placeholder='push "dhcp-option DNS 8.8.8.8"' value="{{ .Settings.DNSServer1 }}">
+                    </div>
+                    <small class="form-help">Основной DNS.</small>
+                    <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
+                  </div>
+                </div>
+
+                <div class="col-md-3">
+                  <div class="form-group">
+                    <label for="DNSServer2">Push DHCP (DNS #2)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-globe"></i>
+                      <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                             title='push "dhcp-option DNS <IP>"'
+                             type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2"
+                             placeholder='push "dhcp-option DNS 1.0.0.1"' value="{{ .Settings.DNSServer2 }}">
+                    </div>
+                    <small class="form-help">Резервный DNS.</small>
+                    <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="custom-control custom-switch mb-2">
+                    <input type="checkbox" class="custom-control-input" id="ForceDefaultRoute" name="ForceDefaultRoute"
+                           {{ if .Settings.ForceDefaultRoute }}checked{{ end }}>
+                    <label class="custom-control-label" for="ForceDefaultRoute">
+                      Принудительный default-route через VPN
+                    </label>
+                  </div>
+                  <div class="form-group mb-1">
+                    <label for="RedirectGW">redirect-gateway (опции)</label>
+                    <div class="input-icon">
+                      <i class="fa fa-location-arrow"></i>
+                      <input pattern='^redirect-gateway(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4)(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4))*)?$'
+                             title='redirect-gateway [options]'
+                             type="text" class="form-control" name="RedirectGW" id="RedirectGW"
+                             placeholder='redirect-gateway def1 bypass-dhcp' value="{{ .Settings.RedirectGW }}"
+                             aria-describedby="RGWHelp">
+                    </div>
+                    <small id="RGWHelp" class="form-help">
+                      Если пусто и включён флаг — подставится <code>redirect-gateway def1 bypass-dhcp</code>. Нельзя сочетать со strict split-tunnel.
+                    </small>
+                    <div class="invalid-feedback">Формат: redirect-gateway [options].</div>
+                  </div>
+                  <div class="alert alert-warning d-none" role="alert" id="SplitOnlyConflict" style="padding: 8px 12px;">
+                    Split-tunnel и принудительный default-route несовместимы: снимите один из флагов.
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="OVConfigClientConfigDir">Client-Config-Dir</label>
+                <div class="input-icon">
+                  <i class="fa fa-folder-open"></i>
+                  <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к директории"
+                         type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir"
+                         placeholder="/etc/openvpn/staticclients" value="{{ .Settings.OVConfigClientConfigDir }}"
+                         aria-describedby="CCDHelp">
+                </div>
+                <small id="CCDHelp" class="form-help">Каталог статических настроек клиентов (<code>client-config-dir</code>).</small>
+                <div class="invalid-feedback">Укажите валидный путь к директории.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="IfconfigPoolPersist">Ifconfig-Pool-Persist</label>
+                <div class="input-icon">
+                  <i class="fa fa-address-book"></i>
+                  <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу"
+                         type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist"
+                         placeholder="pki/ipp.txt" value="{{ .Settings.IfconfigPoolPersist }}"
+                         aria-describedby="IPPHelp">
+                </div>
+                <small id="IPPHelp" class="form-help">Хранение сопоставления клиент ↔ IP.</small>
+                <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
               </div>
             </div>
 
-            <div class="col-md-4">
-              <div class="form-group">
-                <label for="Route">Route (гостевая VPN-подсеть)</label>
-                <div class="input-icon">
-                  <i class="fa fa-route"></i>
-                  <input pattern="^route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
-                         title="route <IP> <MASK>" type="text" selector="vformdata"
-                         class="form-control" name="Route" id="Route"
-                         placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}" aria-describedby="RouteHelp">
+            <!-- Правая часть (сводка) -->
+            <div class="col-lg-4">
+              <aside class="aside-summary">
+                <div class="card">
+                  <div class="card-header">
+                    <h3 class="section-title"><i class="fa fa-map-signs mr-1"></i> Сводка маршрутизации</h3>
+                  </div>
+                  <div class="card-body p-2">
+                    <ul class="list-group list-group-flush" id="RouteSummaryList">
+                      <li class="list-group-item">Режим: <span id="RouteModeLabel" class="badge badge-secondary">—</span></li>
+                      <li class="list-group-item">redirect-gateway: <code id="RouteRGW">—</code></li>
+                      <li class="list-group-item">push "route": <span id="RouteCount" class="badge badge-light">0</span></li>
+                      <li class="list-group-item"><small class="text-muted">Итоговая строка для server.conf</small><br><code id="RouteResultLine">—</code></li>
+                    </ul>
+                  </div>
                 </div>
-                <small id="RouteHelp" class="form-help">
-                  Добавляет маршрут на стороне сервера; клиентам <u>не</u> рассылается.
-                </small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>Для site-to-site используйте <code>client-config-dir</code> + <code>iroute</code> для привязки подсети к конкретному клиенту.</div>
-                </details>
-                <div class="invalid-feedback">Формат: route &lt;IP&gt; &lt;MASK&gt;.</div>
-              </div>
-            </div>
-
-            <div class="col-md-4">
-              <div class="form-group">
-                <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
-                         {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
-                  <label class="custom-control-label" for="SplitOnlyMode">
-                    Режим split-tunnel (не пушить default-route)
-                  </label>
-                </div>
-                <small class="form-help">
-                  При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов (даже если указан).
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
-                <div class="input-icon">
-                  <i class="fa fa-share-square-o"></i>
-                  <input pattern='^push\s+"route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
-                         title='push "route <IP> <MASK>"'
-                         type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute"
-                         placeholder='push "route 10.0.60.0 255.255.255.0"'
-                         value="{{ .Settings.PushRoute }}" aria-describedby="PushRouteHelp">
-                </div>
-                <small id="PushRouteHelp" class="form-help">
-                  Рассылает клиентам маршрут к вашей LAN (split-tunnel). Сервер должен уметь доставлять ответы (обратный маршрут или NAT).
-                </small>
-                <div class="invalid-feedback">Формат: push "route &lt;IP&gt; &lt;MASK&gt;".</div>
-              </div>
+              </aside>
             </div>
           </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label for="PushRoutesExtra">Пушить только эти сети (split-tunnel)</label>
-                <div class="input-icon">
-                  <i class="fa fa-share-alt"></i>
-                  <textarea class="form-control" name="PushRoutesExtra" id="PushRoutesExtra" rows="4"
-                            placeholder="Каждая строка: 10.10.0.0 255.255.0.0&#10;172.16.100.0 255.255.255.0"
-                            aria-describedby="PREHelp">{{ .Settings.PushRoutesExtra }}</textarea>
-                </div>
-                <small id="PREHelp" class="form-help">
-                  На каждую строку будет сгенерирован <code>push "route &lt;NET&gt; &lt;MASK&gt;"</code>.
-                </small>
-                <details class="help-block"><summary>Справка</summary>
-                  <div>Если используете этот список — не пушьте <code>redirect-gateway</code>, иначе трафик по умолчанию уйдёт в VPN.</div>
-                </details>
-                <div class="invalid-feedback">Каждая строка в формате &lt;IP&gt; &lt;MASK&gt;.</div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="form-group">
-                <label for="DocSplitTunnel">Памятка по split-tunnel</label>
-                <div class="alert alert-secondary" id="DocSplitTunnel" role="alert" style="margin:0">
-                  <ul class="mb-0 pl-3">
-                    <li>Для «только выбранные сети» — <b>не</b> пушьте <code>redirect-gateway</code>, укажите список сетей слева.</li>
-                    <li>Обратные маршруты/NAT обязателены на серверной стороне.</li>
-                    <li>Клиент может игнорировать пуши через <code>route-nopull</code> и прописать локальные <code>route</code>.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-3">
-              <div class="form-group">
-                <label for="DNSServer1">Push DHCP (DNS #1)</label>
-                <div class="input-icon">
-                  <i class="fa fa-globe"></i>
-                  <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
-                         title='push "dhcp-option DNS <IP>"'
-                         type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1"
-                         placeholder='push "dhcp-option DNS 8.8.8.8"' value="{{ .Settings.DNSServer1 }}">
-                </div>
-                <small class="form-help">Основной DNS для клиентов.</small>
-                <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
-              </div>
-            </div>
-
-            <div class="col-md-3">
-              <div class="form-group">
-                <label for="DNSServer2">Push DHCP (DNS #2)</label>
-                <div class="input-icon">
-                  <i class="fa fa-globe"></i>
-                  <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
-                         title='push "dhcp-option DNS <IP>"'
-                         type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2"
-                         placeholder='push "dhcp-option DNS 1.0.0.1"' value="{{ .Settings.DNSServer2 }}">
-                </div>
-                <small class="form-help">Резервный DNS.</small>
-                <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="custom-control custom-switch mb-2">
-                <input type="checkbox" class="custom-control-input" id="ForceDefaultRoute" name="ForceDefaultRoute"
-                       {{ if .Settings.ForceDefaultRoute }}checked{{ end }}>
-                <label class="custom-control-label" for="ForceDefaultRoute">
-                  Принудительный default-route через VPN
-                </label>
-              </div>
-              <div class="form-group mb-1">
-                <label for="RedirectGW">redirect-gateway (опции)</label>
-                <div class="input-icon">
-                  <i class="fa fa-location-arrow"></i>
-                  <input pattern='^redirect-gateway(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4)(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4))*)?$'
-                         title='redirect-gateway [options]'
-                         type="text" class="form-control" name="RedirectGW" id="RedirectGW"
-                         placeholder='redirect-gateway def1 bypass-dhcp' value="{{ .Settings.RedirectGW }}"
-                         aria-describedby="RGWHelp">
-                </div>
-                <small id="RGWHelp" class="form-help">
-                  Если поле пустое, при включённом флаге добавится <code>redirect-gateway def1 bypass-dhcp</code>. Опции хранится без <code>push</code>.
-                  Нельзя сочетать со strict split-tunnel.
-                </small>
-                <div class="invalid-feedback">Формат: redirect-gateway [options].</div>
-              </div>
-              <div class="alert alert-warning d-none" role="alert" id="SplitOnlyConflict" style="padding: 8px 12px;">
-                Split-tunnel и принудительный default-route несовместимы: снимите один из флагов.
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="OVConfigClientConfigDir">Client-Config-Dir</label>
-            <div class="input-icon">
-              <i class="fa fa-folder-open"></i>
-              <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к директории"
-                     type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir"
-                     placeholder="/etc/openvpn/staticclients" value="{{ .Settings.OVConfigClientConfigDir }}"
-                     aria-describedby="CCDHelp">
-            </div>
-            <small id="CCDHelp" class="form-help">
-              Каталог для статических настроек клиентов (<code>ccd</code>), применяется с <code>client-config-dir</code>.
-            </small>
-            <div class="invalid-feedback">Укажите валидный путь к директории.</div>
-          </div>
-
-          <div class="form-group">
-            <label for="IfconfigPoolPersist">Ifconfig-Pool-Persist</label>
-            <div class="input-icon">
-              <i class="fa fa-address-book"></i>
-              <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу"
-                     type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist"
-                     placeholder="pki/ipp.txt" value="{{ .Settings.IfconfigPoolPersist }}"
-                     aria-describedby="IPPHelp">
-            </div>
-            <small id="IPPHelp" class="form-help">
-              Хранение сопоставления клиент ↔ IP, удобно для статических адресов.
-            </small>
-            <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
-          </div>
-
         </div>
       </div>
 
       <!-- Логи и статус -->
-      <div class="card">
-        <div class="card-header">
-          <i class="fa fa-file-text-o mr-2"></i> Логи и статус
+      <div class="card" id="section-logs">
+        <div class="card-header d-flex align-items-center">
+          <h3 class="section-title"><i class="fa fa-file-text-o mr-2"></i> Логи и статус</h3>
           <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
              data-content="Файл лога, уровень подробности, файл статуса (для экспортёров/мониторинга)."></i>
         </div>
@@ -652,8 +670,8 @@
                          type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile"
                          placeholder="/var/log/openvpn/openvpn.log" value="{{ .Settings.OVConfigLogfile }}">
                 </div>
-                <small class="form-help">Путь к файлу журнала OpenVPN.</small>
-                <div class="invalid-feedback">Укажите валидный путь к файлу лога.</div>
+                <small class="form-help">Путь к журналу OpenVPN.</small>
+                <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
               </div>
             </div>
 
@@ -694,16 +712,16 @@
                      name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion"
                      placeholder="2" value="{{ .Settings.OVConfigStatusLogVersion }}" aria-describedby="SVerHelp">
             </div>
-            <small id="SVerHelp" class="form-help">Версия формата файла статуса (1–3), нужна некоторым экспортёрам OpenVPN.</small>
+            <small id="SVerHelp" class="form-help">Версия формата файла статуса (1–3).</small>
             <div class="invalid-feedback">Версия 1–3.</div>
           </div>
         </div>
       </div>
 
       <!-- Произвольные опции -->
-      <div class="card">
-        <div class="card-header">
-          <i class="fa fa-wrench mr-2"></i> Произвольные опции
+      <div class="card" id="section-custom">
+        <div class="card-header d-flex align-items-center">
+          <h3 class="section-title"><i class="fa fa-wrench mr-2"></i> Произвольные опции</h3>
           <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
              data-content="Любые дополнительные строки конфигурации. Строки, начинающиеся с #, считаются комментариями."></i>
         </div>
@@ -713,33 +731,36 @@
             <div class="input-icon">
               <i class="fa fa-tag"></i>
               <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne"
-                     placeholder="#Custom Option One" value="{{ .Settings.CustomOptOne }}">
+                     placeholder="# Custom Option One" value="{{ .Settings.CustomOptOne }}">
             </div>
-            <small class="form-help">Введите строку в синтаксисе OpenVPN. Для отключения — начните с <code>#</code>.</small>
+            <small class="form-help">Одна строка в синтаксисе OpenVPN. Чтобы отключить — начните с <code>#</code>.</small>
           </div>
-          <div class="form-group">
-            <label for="CustomOptTwo">Произвольная опция №2</label>
-            <div class="input-icon">
-              <i class="fa fa-tags"></i>
-              <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo"
-                        rows="2" placeholder="#Custom Option Two">{{ .Settings.CustomOptTwo }}</textarea>
+          <details class="help-block"><summary>Расширенные поля</summary>
+            <div class="form-group mt-2">
+              <label for="CustomOptTwo">Произвольная опция №2</label>
+              <div class="input-icon">
+                <i class="fa fa-tags"></i>
+                <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo"
+                          rows="2" placeholder="# Custom Option Two">{{ .Settings.CustomOptTwo }}</textarea>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label for="CustomOptThree">Произвольная опция №3</label>
-            <div class="input-icon">
-              <i class="fa fa-tags"></i>
-              <textarea class="form-control" name="CustomOptThree" id="CustomOptThree"
-                        rows="3" placeholder="#Custom Option Three">{{ .Settings.CustomOptThree }}</textarea>
+            <div class="form-group">
+              <label for="CustomOptThree">Произвольная опция №3</label>
+              <div class="input-icon">
+                <i class="fa fa-tags"></i>
+                <textarea class="form-control" name="CustomOptThree" id="CustomOptThree"
+                          rows="3" placeholder="# Custom Option Three">{{ .Settings.CustomOptThree }}</textarea>
+              </div>
             </div>
-          </div>
+          </details>
         </div>
       </div>
 
       {{ .xsrfdata }}
-      <div class="d-flex justify-content-end">
-        <button type="submit" class="btn btn-primary"
-                onclick="return confirm('Вы уверены, что хотите сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">
+      <div id="section-save" class="save-bar">
+        <span class="badge badge-secondary mr-2" id="FormStateBadge">Не сохранено</span>
+        <button type="submit" id="SaveBtn" class="btn btn-primary"
+                onclick="return confirm('Сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">
           <i class="fa fa-save mr-1"></i> Сохранить конфиг
         </button>
       </div>
@@ -789,7 +810,7 @@
               <i class="fa fa-times mr-1"></i> Закрыть
             </button>
             <button type="submit" class="btn btn-primary"
-                    onclick="return confirm('Вы уверены, что хотите сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!');">
+                    onclick="return confirm('Сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!');">
               <i class="fa fa-save mr-1"></i> Сохранить
             </button>
           </div>
@@ -1421,6 +1442,98 @@ window.addEventListener('load', loadCiphersAndRender);
     validateBasics(); validateCrypto(); validateNet(); validateLogs(); validateCustom();
     await Promise.all([ loadCiphersAndRender(), loadDigestsAndRender() ].map(p => p?.catch?.(()=>{})));
     validateTLS();
+  });
+})();
+</script>
+
+<!-- UX-логика: взаимоисключаемость флагов, автоподстановка redirect-gateway, сводка и «Не сохранено» -->
+<script>
+(function(){
+  const form = document.getElementById('expert-form');
+  const saveBtn = document.getElementById('SaveBtn');
+  const badge = document.getElementById('FormStateBadge');
+
+  const SplitOnlyMode   = document.getElementById('SplitOnlyMode');
+  const ForceDefault    = document.getElementById('ForceDefaultRoute');
+  const RedirectGW      = document.getElementById('RedirectGW');
+  const PushRoute       = document.getElementById('PushRoute');
+  const PushRoutesExtra = document.getElementById('PushRoutesExtra');
+  const ConflictAlert   = document.getElementById('SplitOnlyConflict');
+
+  // Сводка
+  const ModeLabel = document.getElementById('RouteModeLabel');
+  const RGWText   = document.getElementById('RouteRGW');
+  const RouteCnt  = document.getElementById('RouteCount');
+  const ResultLn  = document.getElementById('RouteResultLine');
+
+  const DEF_RGW = 'redirect-gateway def1 bypass-dhcp';
+
+  function recomputeSummary(){
+    const split = !!(SplitOnlyMode && SplitOnlyMode.checked);
+    const force = !!(ForceDefault && ForceDefault.checked);
+    const rgw   = (RedirectGW && RedirectGW.value.trim()) || '';
+
+    // режим
+    ModeLabel.textContent = split ? 'split-tunnel' : (force ? 'default-route' : 'без дефолт-маршрута');
+    ModeLabel.className = 'badge ' + (split ? 'badge-info' : force ? 'badge-warning' : 'badge-secondary');
+
+    // redirect-gateway как попадёт в server.conf
+    let renderRGW = '';
+    if (!split && force) renderRGW = rgw || DEF_RGW;
+    RGWText.textContent = renderRGW || '—';
+
+    // Подсчёт push routes
+    let routes = 0;
+    const pr = (PushRoute && PushRoute.value.trim()) ? [PushRoute.value.trim()] : [];
+    const extra = (PushRoutesExtra && PushRoutesExtra.value.trim())
+                    ? PushRoutesExtra.value.trim().split('\n').map(s => s.trim()).filter(Boolean) : [];
+    routes = pr.length + extra.length;
+    RouteCnt.textContent = String(routes);
+
+    // Итоговая строка (для наглядности)
+    ResultLn.textContent = renderRGW ? `push "${renderRGW}"` : '—';
+  }
+
+  function markDirty(){ if (badge) { badge.textContent = 'Не сохранено'; badge.className='badge badge-warning'; } }
+
+  function enforceExclusivity(source){
+    const split = SplitOnlyMode?.checked;
+    const force = ForceDefault?.checked;
+
+    if (source === 'split' && split && force) {
+      // включили split — выключаем принудительный маршрут и чистим RedirectGW
+      ForceDefault.checked = false;
+      if (RedirectGW) RedirectGW.value = '';
+    }
+    if (source === 'force' && force && split) {
+      // включили default-route — выключаем split
+      SplitOnlyMode.checked = false;
+      // подставим дефолт
+      if (RedirectGW && !RedirectGW.value.trim()) RedirectGW.value = DEF_RGW;
+    }
+  }
+
+  function syncConflictAndSave(){
+    const conflict = (SplitOnlyMode?.checked && ForceDefault?.checked) === true;
+    if (ConflictAlert) ConflictAlert.classList.toggle('d-none', !conflict);
+    if (saveBtn) saveBtn.disabled = conflict;
+  }
+
+  [SplitOnlyMode, ForceDefault, RedirectGW, PushRoute, PushRoutesExtra].forEach(el=>{
+    if (!el) return;
+    const src = (el===SplitOnlyMode?'split':(el===ForceDefault?'force':''));
+    el.addEventListener('change', ()=>{
+      if (src) enforceExclusivity(src);
+      markDirty(); recomputeSummary(); syncConflictAndSave();
+    });
+    el.addEventListener('input', ()=>{ markDirty(); recomputeSummary(); syncConflictAndSave(); });
+  });
+
+  // первичная инициализация
+  window.addEventListener('load', ()=>{
+    enforceExclusivity(null);
+    recomputeSummary();
+    syncConflictAndSave();
   });
 })();
 </script>
