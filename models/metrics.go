@@ -8,11 +8,13 @@ import (
 	"github.com/beego/beego/v2/server/web"
 )
 
+const metricsAlias = "metrics"
+
 // MetricRecord contains a single metric sample that was gathered from the OpenVPN management interface.
 type MetricRecord struct {
 	Id          int64
-	Category    string `orm:"size(32)"`
-	Name        string `orm:"size(128)"`
+	Category    string    `orm:"size(32)"`
+	Name        string    `orm:"size(128)"`
 	Value       float64
 	Unit        string    `orm:"size(64)"`
 	Description string    `orm:"size(256)"`
@@ -33,14 +35,17 @@ func InitMetricsDB() error {
 		return err
 	}
 
+	// Note: for mattn/go-sqlite3 a plain path or "file:<path>" both work.
 	dbSource := "file:" + dbPath
-	if err := orm.RegisterDataBase("metrics", "sqlite3", dbSource); err != nil {
+
+	if err := orm.RegisterDataBase(metricsAlias, "sqlite3", dbSource); err != nil {
 		return err
 	}
 
 	orm.RegisterModel(new(MetricRecord))
 
-	if err := orm.RunSyncdb("metrics", false, true); err != nil {
+	// Create tables if not exist (no force, verbose logs on)
+	if err := orm.RunSyncdb(metricsAlias, false, true); err != nil {
 		return err
 	}
 
@@ -53,16 +58,13 @@ func SaveMetrics(records []MetricRecord) error {
 		return nil
 	}
 
-	o := orm.NewOrm()
-	if err := o.Using("metrics"); err != nil {
-		return err
-	}
+	// beego v2: no Ormer.Using(); use NewOrmUsingDB(alias)
+	o := orm.NewOrmUsingDB(metricsAlias)
 
 	for i := range records {
 		if _, err := o.Insert(&records[i]); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
