@@ -1,446 +1,265 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>OpenVPN UI</title>
+<title>NiceSOFT NiceVPN UI — Сводка</title>
+<style>
+  .kpi .small-box { border-radius: 12px; }
+  .kpi .small-box .inner h3 { font-weight: 700; }
+  .metric-card { border: 1px solid #e9ecef; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.03); }
+  .metric-card__header { font-weight: 600; margin-bottom: 8px; }
+  .info-box-number3 { font-size: 1.15rem; font-weight: 600; }
+  .table thead th { white-space: nowrap; }
+  .button-transparent { background: transparent; border: 0; padding: 0 6px; }
+</style>
 {{end}}
 
 {{define "body"}}
 
-<div class="row">
+<!-- KPI -->
+<div class="row kpi">
   <div class="col-lg-3 col-6">
     <div class="small-box bg-info shadow">
       <div class="inner">
-        <h3>Clients: {{ .ovstats.NClients }}</h3>
+        <h3>Клиенты: {{ .ovstats.NClients }}</h3>
         <div class="info-box-content">
-          <span class="info-box-text">
-            In: <span class="info-box-number2">{{ printmb .ovstats.BytesIn }} MB</span>
-          </span><br>
-          <span class="info-box-text">
-            Out: <span class="info-box-number2">{{ printmb .ovstats.BytesOut }} MB </span>
-          </span>
+          <span class="info-box-text">Вход: <span class="info-box-number2">{{ printmb .ovstats.BytesIn }} MB</span></span><br>
+          <span class="info-box-text">Выход: <span class="info-box-number2">{{ printmb .ovstats.BytesOut }} MB</span></span>
         </div>
       </div>
-      <div class="icon">
-        <i class="fa fa-group"></i>
-      </div>
-      <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-      <div class="card-group" id="accordion">
-      </div>
-      <div id="collapseOne" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-        <div class="card-body text-center">
-          <span>Connected Clients and All traffic</span>
-        </div>
-      </div>
+      <div class="icon"><i class="fa fa-group"></i></div>
     </div>
   </div>
 
   <div class="col-lg-3 col-6">
     <div class="small-box bg-success shadow">
       <div class="inner">
-        <h3>Load Average<sup style="font-size: 20px"></sup></h3>
+        <h3>Нагрузка</h3>
         <div class="info-box-content">
-          <span class="info-box-text">
-            CPU count: <span class="info-box-number2">
-            {{ .sysinfo.CPUList.List | len }}
-            </span>
-          </span><br>
-          <span class="info-box-number">
-            1m: <b>{{ .sysinfo.LoadAvg.One }}</b> &nbsp; &nbsp;
-            5m: <b>{{ .sysinfo.LoadAvg.Five }}</b> &nbsp; &nbsp;
-            15m: <b>{{ .sysinfo.LoadAvg.Fifteen }}</b><br/>
-          </span>
+          <span class="info-box-text">CPU: <b>{{ .sysinfo.CPUList.List | len }}</b></span>
+          <span class="info-box-text">LA: <b>{{ .sysinfo.LoadAvg.One }}</b> / <b>{{ .sysinfo.LoadAvg.Five }}</b> / <b>{{ .sysinfo.LoadAvg.Fifteen }}</b></span>
         </div>
       </div>
-      <div class="icon">
-        <i class="ion ion-stats-bars"></i>
-      </div>
-      <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        <div class="card-group" id="accordion">
-        </div>
-        <div id="collapseTwo" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-          <div class="card-body text-center">
-            <span>Last one, five and ten minutes</span>
-          </div>
-        </div>
+      <div class="icon"><i class="ion ion-stats-bars"></i></div>
     </div>
   </div>
 
   <div class="col-lg-3 col-6">
-    <div class="small-box shadow" style="background-color:#ffc107; color: white;">
+    <div class="small-box shadow" style="background-color:#ffc107; color:#212529;">
       <div class="inner">
-        <h3>OS uptime</h3>
-        <span class="info-box-number">{{ .sysinfo.UptimeS }}</span><br/><br/>
+        <h3>Аптайм ОС</h3>
+        <span class="info-box-number">{{ .sysinfo.UptimeS }}</span>
       </div>
-      <div class="icon">
-        <i class="ion ion-arrow-graph-up-right"></i>
-      </div>
-      <a data-toggle="collapse" data-parent="#accordion" href="#collapseThree" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        <div class="card-group" id="accordion">
-        </div>
-        <div id="collapseThree" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-          <div class="card-body text-center">
-            <span>How long your server is running</span>
-          </div>
-        </div>
+      <div class="icon"><i class="ion ion-arrow-graph-up-right"></i></div>
     </div>
   </div>
 
   <div class="col-lg-3 col-6">
-    <div class="small-box shadow" style="background-color: #e83e8c; color: white;">
+    <div class="small-box shadow" style="background-color:#6f42c1; color:#fff;">
       <div class="inner">
-        <h3>Server Time</h3>
+        <h3>Время сервера</h3>
         <span class="info-box-number">
-          {{ dateformat .sysinfo.CurrentTime "2006-01-02 15:04:05"}}
-        </span><br/><br/>
+          {{ dateformat .sysinfo.CurrentTime "2006-01-02 15:04:05" }}
+        </span>
       </div>
-      <div class="icon">
-        <i class="fa fa-clock-o"></i>
-      </div>
-      <a data-toggle="collapse" data-parent="#accordion" href="#collapseFour" class="small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
-        <div class="card-group" id="accordion">
-        </div>
-        <div id="collapseFour" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-          <div class="card-body text-center">
-            <span>Server time in it's local Time Zone</span>
-          </div>
-        </div>
+      <div class="icon"><i class="fa fa-clock-o"></i></div>
     </div>
   </div>
 </div>
 
-<h3 class="mt-4 mb-2">Memory usage</h3>
+<!-- Память/Swap -->
+<h3 class="mt-2 mb-2">Память</h3>
 <div class="row">
   <div class="col-md-6">
-    <div class="card">
-      <div class="card-body">
-        <div class="progress-group">
-          <span class="progress-number">
-            Memory <b>{{ printmb .sysinfo.Memory.Used }}</b>
-            /
-            {{ printmb .sysinfo.Memory.Total }} MB
-            - {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%
-          </span>
-          <div class="progress progress-xs">
-            <div class="progress-bar bg-primary progress-bar-striped"
-              style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%">
-            </div>
-          </div>
+    <div class="card"><div class="card-body">
+      <div class="progress-group">
+        <span class="progress-number">
+          RAM: <b>{{ printmb .sysinfo.Memory.Used }}</b> / {{ printmb .sysinfo.Memory.Total }} MB — {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%
+        </span>
+        <div class="progress progress-xs">
+          <div class="progress-bar bg-primary progress-bar-striped" style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%"></div>
         </div>
       </div>
+    </div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card"><div class="card-body">
+      <div class="progress-group">
+        <span class="progress-number">
+          Swap: <b>{{ printmb .sysinfo.Swap.Used }}</b> / {{ printmb .sysinfo.Swap.Total }} MB — {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%
+        </span>
+        <div class="progress progress-xs">
+          <div class="progress-bar bg-secondary progress-bar-striped" style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%"></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- Графики: минимум и по делу -->
+<div class="row">
+  <div class="col-lg-6 col-md-12 mb-4">
+    <div class="metric-card">
+      <div class="metric-card__header">Суммарный трафик OpenVPN</div>
+      <canvas id="serverTotalsChart" height="220"></canvas>
+      <small class="text-muted d-block mt-2">Источник: management load-stats / status.</small>
     </div>
   </div>
 
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-body">
-        <div class="progress-group">
-          <span class="progress-number">
-            Swap <b>{{ printmb .sysinfo.Swap.Used }}</b>
-            /
-            {{ printmb .sysinfo.Swap.Total }} MB
-            - {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%
-          </span>
-          <div class="progress progress-xs">
-            <div class="progress-bar bg-primary progress-bar-striped"
-              style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%">
-            </div>
-          </div>
-        </div>
-      </div>
+  <div class="col-lg-6 col-md-12 mb-4">
+    <div class="metric-card">
+      <div class="metric-card__header">Распределение трафика по клиентам</div>
+      <canvas id="clientTrafficChart" height="220"></canvas>
+      <small class="text-muted d-block mt-2">Показывает входящий/исходящий трафик (MB) по активным сессиям.</small>
     </div>
   </div>
 </div>
 
+<!-- Таблица клиентов -->
 <div class="row">
   <div class="col-md-12">
     <div class="card card-default">
       <div class="card-header with-border">
-        <h3 class="card-title">Метрические графики OpenVPN</h3>
+        <h3 class="card-title">Подключённые клиенты</h3>
       </div>
-      <div class="card-body">
-        <p class="text-muted mb-3">Компактный дашборд по сеансам, криптографии, маршрутизации, аутентификации, здоровью процесса и качеству канала. Данные берутся из management/status и приведены к названиям метрик Prometheus.</p>
-        <div class="row">
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Сеансы и нагрузка (core)</span>
-                <small class="text-secondary">openvpn_server_* </small>
-              </div>
-              <canvas id="serverLoadChart" height="180"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Криптография/политики</span>
-                <small class="text-secondary">openvpn_client_* </small>
-              </div>
-              <canvas id="cryptoChart" height="180"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Split-tunnel и маршрутизация</span>
-                <small class="text-secondary">openvpn_push_* </small>
-              </div>
-              <canvas id="routingChart" height="180"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Аутентификация и доступ</span>
-                <small class="text-secondary">auth/crl/2FA</small>
-              </div>
-              <canvas id="authChart" height="180"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Здоровье процесса</span>
-                <small class="text-secondary">tun/probe/process</small>
-              </div>
-              <canvas id="healthChart" height="180"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Качество канала/keepalive</span>
-                <small class="text-secondary">timeouts/sessions</small>
-              </div>
-              <canvas id="qualityChart" height="180"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-lg-7 col-md-12 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Трафик по клиентам</span>
-                <small class="text-secondary">openvpn_client_bytes_*_total</small>
-              </div>
-              <canvas id="clientTrafficChart" height="220"></canvas>
-            </div>
-          </div>
-          <div class="col-lg-5 col-md-12 mb-4">
-            <div class="metric-card">
-              <div class="metric-card__header">
-                <span>Сеансовые тайминги</span>
-                <small class="text-secondary">connected_since / last_ref</small>
-              </div>
-              <canvas id="clientTimingChart" height="220"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="alert alert-info mt-2 mb-0" role="alert">
-          Все подписи совпадают с ожидаемыми именами метрик Prometheus (openvpn_*). При отсутствии прямых данных показатели отображаются как 0, но остаются на графиках для наглядности и дальнейшего подключения источников management/log.
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-md-12">
-    <div class="card card-default">
-      <div class="card-header with-border">
-        <h3 class="card-title">Connected clients</h3>
-      </div>
-      <!-- /.card-header -->
-
       <div class="card-body">
         {{if .ovstatus}}
         <div class="table-responsive">
           <table class="table no-margin">
             <thead>
-            <tr>
-              <th>Common Name</th>
-              <th>Real Address</th>
-              <th>Virtual Address</th>
-              <th>KB Received</th>
-              <th>KB Sent</th>
-              <th>Connected Since</th>
-              <th>Username</th>
-              <th></th>
-            </tr>
+              <tr>
+                <th>Имя (CN)</th>
+                <th>Реальный адрес</th>
+                <th>Виртуальный адрес</th>
+                <th>Получено (KB)</th>
+                <th>Отправлено (KB)</th>
+                <th>Подключён с</th>
+                <th>Пользователь</th>
+                <th></th>
+              </tr>
             </thead>
             <tbody>
-
             {{range .ovstatus.ClientList}}
-            <tr>
+              <tr>
                 <td>{{.CommonName}}</td>
                 <td>{{.RealAddress}}</td>
                 <td>
                   <span class="badge bg-success">{{.VirtualAddress}}</span>
                   <button class="button-transparent button-copy" data-clipboard-text="{{.VirtualAddress}}">
-                      <img class="clippy" src="static/img/clippy.svg" width="13" alt="Copy to clipboard">
+                    <img class="clippy" src="static/img/clippy.svg" width="13" alt="Скопировать">
                   </button>
                 </td>
-                <td align="right" style="padding-right:20px">
-                    {{printkb .BytesReceived}}
-                </td>
-                <td align="right" style="padding-right:20px">
-                    {{printkb .BytesSent}}
-                </td>
+                <td align="right" style="padding-right:20px">{{printkb .BytesReceived}}</td>
+                <td align="right" style="padding-right:20px">{{printkb .BytesSent}}</td>
                 <td>{{.ConnectedSince}}</td>
+                <td>{{if eq .Username "UNDEF"}}–{{else}}{{.Username}}{{end}}</td>
                 <td>
-                  {{if eq .Username "UNDEF"}}
-                    -
-                  {{else}}
-                    {{.Username}}
-                  {{end}}
+                  <a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')" class="btn btn-xs btn-danger btn-flat" title="Отключить">X</a>
                 </td>
-                <td>
-                  <a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')"
-                    class="btn btn-xs btn-danger btn-flat"
-                    title="Disconnect">X</a>
-                </td>
-            </tr>
+              </tr>
             {{end}}
-
             </tbody>
           </table>
         </div>
-        <!-- /.table-responsive -->
-      {{else}}
-          Fix your configuration
-      {{end}}
+        {{else}}
+          Проверьте конфигурацию (данные статуса отсутствуют).
+        {{end}}
       </div>
-
-      <!-- /.card-footer -->
     </div>
-    <!-- /.card -->
   </div>
 </div>
-<!-- /.col -->
-<!-- /.card-body -->
 
-
-<!--h3 class="mt-4 mb-2">Info Section</h3-->
-
-  <div class="row">
-    <div class="col-md-6 col-sm-12 col-12">
-      <div class="info-box">
-        <span class="info-box-icon bg-warning elevation-1 border-width: 3px;" style="padding: 10px; width: 100px; height: 100px;">
-          <img src="/static/img/openvpn-win.svg" alt="OpenVPN" width="74" height="74" style="filter: invert(25%);">
-        </span>
-          <!--i class="fa fa-info fa-2x"></i></span-->
-        <div class="info-box-content">
-          <span class="info-box-text">OpenVPN version:</span>
-          <span class="info-box-number3">{{ .ovversion }}</span>
-        </div>
+<!-- Системная информация -->
+<div class="row">
+  <div class="col-md-6 col-sm-12 col-12">
+    <div class="info-box">
+      <span class="info-box-icon bg-warning elevation-1" style="padding:10px;width:100px;height:100px;">
+        <img src="/static/img/openvpn-win.svg" alt="OpenVPN" width="74" height="74" style="filter: invert(25%);">
+      </span>
+      <div class="info-box-content">
+        <span class="info-box-text">Версия OpenVPN</span>
+        <span class="info-box-number3">{{ .ovversion }}</span>
       </div>
     </div>
+  </div>
 
-    <div class="col-md-6 col-sm-12 col-12">
-      <div class="info-box">
-        <span class="info-box-icon bg-danger elevation-1 border-width: 3px;" style="padding: 10px; width: 100px; height: 100px;"><i class="fa fa-gears fa-2x"></i></span>
-        <div class="info-box-content">
-          <span class="info-box-text">Operating system:</span>
-          <span class="info-box-number3">{{ .sysinfo.Os }}</span>
-          <span class="info-box-text">Architecture: </span>
-          <span class="info-box-number3">{{ .sysinfo.Arch }} </span>
-        </div>
+  <div class="col-md-6 col-sm-12 col-12">
+    <div class="info-box">
+      <span class="info-box-icon bg-primary elevation-1" style="padding:10px;width:100px;height:100px;">
+        <i class="fa fa-gears fa-2x" style="color:#fff;"></i>
+      </span>
+      <div class="info-box-content">
+        <span class="info-box-text">Операционная система</span>
+        <span class="info-box-number3">{{ .sysinfo.Os }}</span>
+        <span class="info-box-text">Архитектура</span>
+        <span class="info-box-number3">{{ .sysinfo.Arch }}</span>
       </div>
     </div>
-
+  </div>
 </div>
-
-  <!-- fix for small devices only -->
-  <div class="clearfix visible-sm-block"></div>
-  <!-- /.col -->
-</div>
-<!-- /.row -->
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+  // Источники данных
+  const ovstats = {{ tojson .ovstats }};
   const metricsData = {{ tojson .metrics }} || {};
+  const clients = (metricsData.client_breakdown || []);
 
-  const palette = ['#17a2b8', '#28a745', '#ffc107', '#e83e8c', '#6610f2', '#20c997'];
+  // Палитра
+  const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
 
-  function buildDonutChart(targetId, metrics, title) {
-    const ctx = document.getElementById(targetId);
-    if (!ctx || !metrics) return;
+  // 1) Суммарный трафик (MB) — вход / выход
+  (function buildServerTotals() {
+    const ctx = document.getElementById('serverTotalsChart');
+    if (!ctx || !ovstats) return;
+    const inMB = (ovstats.BytesIn || 0) / 1024 / 1024;
+    const outMB = (ovstats.BytesOut || 0) / 1024 / 1024;
 
     new Chart(ctx, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: metrics.map(m => m.name),
+        labels: ['Вход', 'Выход'],
         datasets: [{
-          data: metrics.map(m => m.value),
-          backgroundColor: palette,
+          label: 'MB',
+          data: [inMB, outMB],
+          backgroundColor: [palette[0], palette[1]],
           borderWidth: 1
         }]
       },
       options: {
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(ctx) {
-                const metric = metrics[ctx.dataIndex];
-                return `${metric.name}: ${ctx.parsed} ${metric.unit}`;
-              },
-              afterLabel: function(ctx) {
-                const metric = metrics[ctx.dataIndex];
-                return metric.description;
-              }
-            }
-          },
-          title: { display: !!title, text: title }
-        },
-        cutout: '55%'
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } }
       }
     });
-  }
+  })();
 
-  function buildBarChart(targetId, labels, datasets, stacked = false) {
-    const ctx = document.getElementById(targetId);
+  // 2) Трафик по клиентам (MB) — вход/выход
+  (function buildClientTraffic() {
+    const ctx = document.getElementById('clientTrafficChart');
     if (!ctx) return;
+
+    const labels = clients.map(c => c.common_name || c.real_addr || 'peer');
+    const inMB = clients.map(c => (c.bytes_in || 0) / 1024 / 1024);
+    const outMB = clients.map(c => (c.bytes_out || 0) / 1024 / 1024);
+
     new Chart(ctx, {
       type: 'bar',
-      data: { labels, datasets },
+      data: {
+        labels,
+        datasets: [
+          { label: 'Входящий трафик (MB)', data: inMB, backgroundColor: palette[0] },
+          { label: 'Исходящий трафик (MB)', data: outMB, backgroundColor: palette[1] }
+        ]
+      },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-          x: { stacked },
-          y: { stacked, beginAtZero: true }
-        },
-        plugins: {
-          legend: { position: 'bottom' }
-        }
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+        plugins: { legend: { position: 'bottom' } }
       }
     });
-  }
-
-  buildDonutChart('serverLoadChart', metricsData.server_metrics, 'Core');
-  buildDonutChart('cryptoChart', metricsData.crypto_metrics, 'Crypto/Policy');
-  buildDonutChart('routingChart', metricsData.routing_metrics, 'Routing');
-  buildDonutChart('authChart', metricsData.auth_metrics, 'Auth');
-  buildDonutChart('healthChart', metricsData.health_metrics, 'Health');
-  buildDonutChart('qualityChart', metricsData.quality_metrics, 'Quality');
-
-  const clientMetrics = metricsData.client_breakdown || [];
-  const clientLabels = clientMetrics.map(c => c.common_name || c.real_addr || 'peer');
-  const bytesIn = clientMetrics.map(c => c.bytes_in / 1024 / 1024);
-  const bytesOut = clientMetrics.map(c => c.bytes_out / 1024 / 1024);
-  buildBarChart('clientTrafficChart', clientLabels, [
-    { label: 'Входящий трафик, MB', data: bytesIn, backgroundColor: palette[0] },
-    { label: 'Исходящий трафик, MB', data: bytesOut, backgroundColor: palette[1] }
-  ], true);
-
-  const sessionDurations = clientMetrics.map(c => c.session_sec / 60);
-  const idleDurations = clientMetrics.map(c => c.idle_sec / 60);
-  buildBarChart('clientTimingChart', clientLabels, [
-    { label: 'Длительность сессии (мин)', data: sessionDurations, backgroundColor: palette[2] },
-    { label: 'Неактивность (мин)', data: idleDurations, backgroundColor: palette[3] }
-  ], true);
+  })();
 </script>
-{{end}}
 
+{{end}}
