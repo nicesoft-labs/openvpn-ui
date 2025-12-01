@@ -37,6 +37,9 @@ var defaultConfig = Config{
 	Server:                   "server 10.0.70.0 255.255.255.0",
 	Route:                    "route 10.0.71.0 255.255.255.0",
 	PushRoute:                "push \"route 10.0.60.0 255.255.255.0\"",
+	PushRoutes:               "push \"route 10.0.60.0 255.255.255.0\"",
+	PushRoutesExtra:          "",
+	SplitOnlyMode:            false,
 	DNSServer1:               "push \"dhcp-option DNS 8.8.8.8\"",
 	DNSServer2:               "push \"dhcp-option DNS 1.0.0.1\"",
 	RedirectGW:               "push \"redirect-gateway def1 bypass-dhcp\"",
@@ -84,12 +87,15 @@ type Config struct {
 
 	Auth string
 
-	Server     string
-	Route      string
-	PushRoute  string
-	DNSServer1 string
-	DNSServer2 string
-	RedirectGW string
+	Server          string
+	Route           string
+	PushRoute       string
+	PushRoutes      string `form:"-"`
+	PushRoutesExtra string `form:"PushRoutesExtra"`
+	SplitOnlyMode   bool   `form:"SplitOnlyMode"`
+	DNSServer1      string
+	DNSServer2      string
+	RedirectGW      string
 
 	OVConfigLogfile          string
 	OVConfigLogVerbose       int

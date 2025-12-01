@@ -52,7 +52,6 @@ func ensureDir(path string) error {
 	return nil
 }
 
-
 func CreateDefaultUsers() {
 	hash, err := passlib.Hash(os.Getenv("OPENVPN_ADMIN_PASSWORD"))
 	if err != nil {
@@ -150,6 +149,7 @@ func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string
 			Server:                   "server 10.0.70.0 255.255.255.0",
 			Route:                    "route 10.0.71.0 255.255.255.0",
 			PushRoute:                "push \"route 10.0.60.0 255.255.255.0\"",
+			PushRoutes:               "push \"route 10.0.60.0 255.255.255.0\"",
 			DNSServer1:               "push \"dhcp-option DNS 8.8.8.8\"",
 			DNSServer2:               "push \"dhcp-option DNS 1.0.0.1\"",
 			RedirectGW:               "push \"redirect-gateway def1 bypass-dhcp\"",
