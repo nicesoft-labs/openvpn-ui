@@ -15,8 +15,10 @@ type Settings struct {
 	MIAddress string `orm:"size(64);unique" form:"MIAddress" valid:"Required;"`
 	MINetwork string `orm:"size(64);unique" form:"MINetwork" valid:"Required;"`
 
-	OVConfigPath string `orm:"size(64);unique" form:"OVConfigPath" valid:"Required;"`
-	EasyRSAPath  string `orm:"size(64);unique" form:"EasyRSAPath" valid:"Required;"`
+	OVConfigPath    string `orm:"size(64);unique" form:"OVConfigPath" valid:"Required;"`
+	EasyRSAPath     string `orm:"size(64);unique" form:"EasyRSAPath" valid:"Required;"`
+	SplitOnlyMode   bool   `form:"SplitOnlyMode"`
+	PushRoutesExtra string `form:"PushRoutesExtra"`
 
 	//	ServerAddress     string `orm:"size(64);unique" form:"ServerAddress" valid:"Required;"`
 	//	OpenVpnServerPort string `orm:"size(64);unique" form:"OpenVpnServerPort" valid:"Required;"`
