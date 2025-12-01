@@ -18,9 +18,9 @@ type StatuszResponse struct {
 }
 
 type StatuszLoadStats struct {
-	NClients    int       `json:"NClients"`
-	BytesIn     uint64    `json:"BytesIn"`
-	BytesOut    uint64    `json:"BytesOut"`
+	NClients    int64     `json:"NClients"`
+	BytesIn     int64     `json:"BytesIn"`
+	BytesOut    int64     `json:"BytesOut"`
 	Uptime      int64     `json:"Uptime"`
 	CollectedAt time.Time `json:"CollectedAt"`
 }
@@ -125,7 +125,7 @@ func BuildStatuszSnapshot() (*StatuszResponse, error) {
 			NClients:    loadStats.NClients,
 			BytesIn:     loadStats.BytesIn,
 			BytesOut:    loadStats.BytesOut,
-			Uptime:      int64(loadStats.Uptime),
+			Uptime:      0,
 			CollectedAt: time.Now().UTC(),
 		}
 	}
@@ -198,7 +198,7 @@ func convertStatus(status *mi.Status) *StatuszStatus {
 			Username:       cl.Username,
 		})
 	}
-	return &StatuszStatus{ClientList: clients, GlobalStats: status.GlobalStats}
+	return &StatuszStatus{ClientList: clients, GlobalStats: nil}
 }
 
 func convertClientBreakdown(status *StatuszStatus) []ClientBreakdown {
