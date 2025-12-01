@@ -74,7 +74,7 @@ AuthType = "password"
 ;EasyRsaPath = "/usr/share/easy-rsa"
 EasyRsaPath = "/srv/nicevpn/easy-rsa"
 OpenVpnPath = "/srv/nicevpn/openvpn"
-OpenVpnManagementAddress = "0.0.0.0:2080"
+OpenVpnManagementAddress = "127.0.0.1:2080"
 OpenVpnManagementNetwork = "tcp"`
 
 func ensureConfigFile(configDir, configFile string) error {
