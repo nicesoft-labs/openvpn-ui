@@ -49,7 +49,7 @@ func (c *BaseController) Prepare() {
 			c.IsLogin = true
 			c.Userinfo = &user
 		} else {
-			// Пользователь в БД не найден — чистим сессию
+			// Пользователь не найден — чистим сессию
 			c.IsLogin = false
 			c.DelSession("userinfo")
 			c.Userinfo = nil
@@ -77,7 +77,7 @@ func (c *BaseController) Finish() {
 func (c *BaseController) GetLogin() *models.User {
 	if uid, ok := c.sessionUserID(); ok {
 		u := &models.User{Id: uid}
-		_ = u.Read("Id") // игнорируем ошибку: если не нашли — вернём u, но выше логика обычно проверяет IsLogin
+		_ = u.Read("Id")
 		return u
 	}
 	return nil
@@ -90,7 +90,7 @@ func (c *BaseController) DelLogin() {
 }
 
 func (c *BaseController) SetLogin(user *models.User) {
-	// Храним ID в сессии единообразно как int64
+	// Храним ID в сессии как int64 — единообразно
 	c.SetSession("userinfo", int64(user.Id))
 	c.IsLogin = true
 	c.Userinfo = user
@@ -102,9 +102,11 @@ func (c *BaseController) LoginPath() string {
 
 func (c *BaseController) SetParams() {
 	c.Data["Params"] = make(map[string]string)
-
-	// В beego v2 Input() возвращает url.Values и не возвращает ошибку
-	input := c.Input()
+	input, err := c.Input() // в вашей версии: (url.Values, error)
+	if err != nil {
+		// можно залогировать, если нужно
+		return
+	}
 	for k, v := range input {
 		if len(v) > 0 {
 			c.Data["Params"].(map[string]string)[k] = v[0]
