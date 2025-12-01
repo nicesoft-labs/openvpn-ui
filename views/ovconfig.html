@@ -1079,4 +1079,132 @@ async function loadCiphersAndRender() {
 
 window.addEventListener('load', loadCiphersAndRender);
 </script>
+<script>
+(function(){
+  const form = document.getElementById('expert-form');
+  if (!form) return;
+
+  // Утилиты
+  const ipRx = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+  const maskRx = ipRx;
+  const serverLineRx = /^server\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
+  const routeLineRx  = /^route\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
+  const pushRouteRx  = /^push\s+"route\s+([0-9.]+)\s+([0-9.]+)"\s*$/i;
+  const pushDnsRx    = /^push\s+"dhcp-option\s+DNS\s+([0-9.]+)"\s*$/i;
+
+  function setValidity(el, ok, msg) {
+    if (!el) return true;
+    if (ok) {
+      el.classList.remove('is-invalid');
+      el.setCustomValidity('');
+      return true;
+    } else {
+      el.classList.add('is-invalid');
+      el.setCustomValidity(msg || 'Некорректное значение');
+      return false;
+    }
+  }
+
+  // Поля
+  const Device = document.getElementById('Device');
+  const Port = document.getElementById('Port');
+  const Proto = document.getElementById('Proto');
+  const Topology = document.getElementById('OVConfigTopology');
+  const Keepalive = document.getElementById('Keepalive');
+  const MaxClients = document.getElementById('MaxClients');
+
+  const Ca = document.getElementById('Ca');
+  const Cert = document.getElementById('Cert');
+  const Key = document.getElementById('Key');
+  const TLSMinVersion = document.getElementById('TLSMinVersion');
+  const TLSRemoteCert = document.getElementById('TLSRemoteCert');
+
+  const CipherSel = document.getElementById('CipherSelect');
+  const AuthSel = document.getElementById('AuthSelect');
+
+  const Server = document.getElementById('Server');
+  const Route  = document.getElementById('Route');
+  const PushRoute = document.getElementById('PushRoute');
+  const DNSServer1 = document.getElementById('DNSServer1');
+  const DNSServer2 = document.getElementById('DNSServer2');
+
+  function validateBasics(){
+    let ok = true;
+    ok &= setValidity(Device, /^(tun|tap)$/i.test(Device.value), 'Допустимо: tun|tap');
+    ok &= setValidity(Port, +Port.value>=1 && +Port.value<=65535, 'Порт 1–65535');
+    ok &= setValidity(Proto, /^(udp|tcp)$/i.test(Proto.value), 'udp|tcp');
+    ok &= setValidity(Topology, /^(subnet|net30|p2p)$/i.test(Topology.value), 'subnet|net30|p2p');
+    ok &= setValidity(Keepalive, /^\s*\d+\s+\d+\s*$/.test(Keepalive.value), 'Формат: "10 120"');
+    ok &= setValidity(MaxClients, +MaxClients.value>=1 && +MaxClients.value<=65535, '1–65535');
+    return !!ok;
+  }
+
+  function validateTLS(){
+    let ok = true;
+    ok &= setValidity(Ca, !!Ca.value.trim(), 'Укажите путь к CA');
+    ok &= setValidity(Cert, !!Cert.value.trim(), 'Укажите путь к сертификату сервера');
+    ok &= setValidity(Key, !!Key.value.trim(), 'Укажите путь к приватному ключу');
+    ok &= setValidity(TLSMinVersion, /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion.value), 'tls-version-min 1.2/1.3');
+    ok &= setValidity(TLSRemoteCert, /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert.value), 'remote-cert-tls client|server');
+    ok &= setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр');
+    ok &= setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест');
+    return !!ok;
+  }
+
+  function validateNet(){
+    let ok = true;
+    // server 10.0.70.0 255.255.255.0
+    if (Server.value.trim()) {
+      const m = Server.value.trim().match(serverLineRx);
+      ok &= setValidity(Server, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: server <IP> <MASK>');
+    }
+    if (Route.value.trim()) {
+      const m = Route.value.trim().match(routeLineRx);
+      ok &= setValidity(Route, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: route <IP> <MASK>');
+    }
+    if (PushRoute.value.trim()) {
+      const m = PushRoute.value.trim().match(pushRouteRx);
+      ok &= setValidity(PushRoute, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: push "route <IP> <MASK>"');
+    }
+    if (DNSServer1.value.trim()) {
+      const m = DNSServer1.value.trim().match(pushDnsRx);
+      ok &= setValidity(DNSServer1, !!m && ipRx.test(m?.[1]||''), 'Формат: push "dhcp-option DNS <IP>"');
+    }
+    if (DNSServer2.value.trim()) {
+      const m = DNSServer2.value.trim().match(pushDnsRx);
+      ok &= setValidity(DNSServer2, !!m && ipRx.test(m?.[1]||''), 'Формат: push "dhcp-option DNS <IP>"');
+    }
+    return !!ok;
+  }
+
+  // live-валидация
+  [
+    Device, Port, Proto, Topology, Keepalive, MaxClients,
+    Ca, Cert, Key, TLSMinVersion, TLSRemoteCert, CipherSel, AuthSel,
+    Server, Route, PushRoute, DNSServer1, DNSServer2
+  ].filter(Boolean).forEach(el=>{
+    el.addEventListener('input', ()=> {
+      validateBasics(); validateTLS(); validateNet();
+    });
+    el.addEventListener('change', ()=> {
+      validateBasics(); validateTLS(); validateNet();
+    });
+  });
+
+  // при отправке — проверяем и скроллим к первому ошибочному
+  form.addEventListener('submit', (e)=>{
+    const ok = validateBasics() & validateTLS() & validateNet();
+    if (!ok) {
+      e.preventDefault();
+      const firstBad = form.querySelector('.is-invalid');
+      if (firstBad) firstBad.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  });
+
+  // первичная проверка
+  window.addEventListener('load', ()=> {
+    validateBasics(); validateTLS(); validateNet();
+  });
+})();
+</script>
 
