@@ -1,274 +1,120 @@
-package models
+package controllers
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+	"strconv"
 
-	"github.com/beego/beego/v2/client/orm"
-	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
-	clientconfig "github.com/d3vilh/openvpn-server-config/client/client-config"
-	easyrsaconfig "github.com/d3vilh/openvpn-server-config/easyrsa/config"
-	"github.com/d3vilh/openvpn-server-config/server/config"
-	"gopkg.in/hlandau/passlib.v1"
+	"github.com/d3vilh/openvpn-ui/models"
 )
 
-func InitDB() {
-	err := orm.RegisterDriver("sqlite3", orm.DRSqlite)
-	if err != nil {
-		panic(err)
-	}
-	dbPath, err := web.AppConfig.String("dbPath")
-	if err != nil {
-		panic(err)
-	}
-	dbSource := "file:" + dbPath
+type BaseController struct {
+	web.Controller
 
-	err = orm.RegisterDataBase("default", "sqlite3", dbSource)
-	if err != nil {
-		panic(err)
-	}
-	orm.Debug = true
-	orm.RegisterModel(
-		new(User),
-		new(Settings),
-		new(OVConfig),
-		new(OVClientConfig),
-		new(EasyRSAConfig),
-	)
+	Userinfo *models.User
+	IsLogin  bool
+}
 
-	err = orm.RunSyncdb("default", false, true)
-	if err != nil {
-		logs.Error(err)
-		return
+type NestPreparer interface {
+	NestPrepare()
+}
+
+type NestFinisher interface {
+	NestFinish()
+}
+
+// sessionUserID безопасно извлекает идентификатор пользователя из сессии.
+// Поддерживает int64, int и string.
+func (c *BaseController) sessionUserID() (int64, bool) {
+	v := c.GetSession("userinfo")
+	switch id := v.(type) {
+	case int64:
+		return id, true
+	case int:
+		return int64(id), true
+	case string:
+		n, err := strconv.ParseInt(id, 10, 64)
+		if err == nil {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
+func (c *BaseController) Prepare() {
+	c.SetParams()
+
+	if uid, ok := c.sessionUserID(); ok {
+		user := models.User{Id: uid}
+		if err := user.Read("Id"); err == nil {
+			c.IsLogin = true
+			c.Userinfo = &user
+		} else {
+			// Пользователь не найден — чистим сессию
+			c.IsLogin = false
+			c.DelSession("userinfo")
+			c.Userinfo = nil
+		}
+	} else {
+		c.IsLogin = false
+		c.Userinfo = nil
+	}
+
+	c.Data["IsLogin"] = c.IsLogin
+	c.Data["Userinfo"] = c.Userinfo
+
+	if app, ok := c.AppController.(NestPreparer); ok {
+		app.NestPrepare()
 	}
 }
-func ensureDir(path string) error {
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		return fmt.Errorf("unable to create directory %s: %w", path, err)
-	}
 
+func (c *BaseController) Finish() {
+	if app, ok := c.AppController.(NestFinisher); ok {
+		app.NestFinish()
+	}
+}
+
+// GetLogin возвращает пользователя из сессии или nil, если не залогинен.
+func (c *BaseController) GetLogin() *models.User {
+	if uid, ok := c.sessionUserID(); ok {
+		u := &models.User{Id: uid}
+		_ = u.Read("Id")
+		return u
+	}
 	return nil
 }
 
+func (c *BaseController) DelLogin() {
+	c.DelSession("userinfo")
+	c.IsLogin = false
+	c.Userinfo = nil
+}
 
-func CreateDefaultUsers() {
-	hash, err := passlib.Hash(os.Getenv("OPENVPN_ADMIN_PASSWORD"))
+func (c *BaseController) SetLogin(user *models.User) {
+	// Храним ID в сессии как int64 — единообразно
+	c.SetSession("userinfo", int64(user.Id))
+	c.IsLogin = true
+	c.Userinfo = user
+}
+
+func (c *BaseController) LoginPath() string {
+	return c.URLFor("LoginController.Login")
+}
+
+func (c *BaseController) SetParams() {
+	c.Data["Params"] = make(map[string]string)
+	input, err := c.Input() // в вашей версии: (url.Values, error)
 	if err != nil {
-		logs.Error("Unable to hash password", err)
+		// можно залогировать, если нужно
+		return
 	}
-	user := User{
-		Id:       1,
-		Login:    os.Getenv("OPENVPN_ADMIN_USERNAME"),
-		IsAdmin:  true,
-		Name:     "Administrator",
-		Email:    "root@localhost",
-		Password: hash,
-	}
-	o := orm.NewOrm()
-	if created, _, err := o.ReadOrCreate(&user, "Name"); err == nil {
-		if created {
-			logs.Info("Default admin account created")
-		} else {
-			logs.Debug(user)
+	for k, v := range input {
+		if len(v) > 0 {
+			c.Data["Params"].(map[string]string)[k] = v[0]
 		}
 	}
 }
 
-func CreateDefaultSettings() (*Settings, error) {
-	miAddress, err := web.AppConfig.String("OpenVpnManagementAddress")
-	if err != nil {
-		return nil, err
-	}
-	miNetwork, err := web.AppConfig.String("OpenVpnManagementNetwork")
-	if err != nil {
-		return nil, err
-	}
-	ovConfigPath, err := web.AppConfig.String("OpenVpnPath")
-	if err != nil {
-		return nil, err
-	}
-
-	easyRSAPath, err := web.AppConfig.String("EasyRsaPath")
-	if err != nil {
-		return nil, err
-	}
-
-	s := Settings{
-		Profile:      "default",
-		MIAddress:    miAddress,
-		MINetwork:    miNetwork,
-		OVConfigPath: ovConfigPath,
-		EasyRSAPath:  easyRSAPath,
-		//	ServerAddress:     serverAddress,
-		//	OpenVpnServerPort: serverPort,
-	}
-
-	o := orm.NewOrm()
-	if created, _, err := o.ReadOrCreate(&s, "Profile"); err == nil {
-		if created {
-			logs.Info("New settings profile created")
-		} else {
-			logs.Debug(s)
-		}
-		return &s, nil
-	} else {
-		return nil, err
-	}
-}
-
-func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string, network string) {
-	c := OVConfig{
-		Profile: "default",
-		Config: config.Config{
-			FuncMode:                 0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
-			Management:               fmt.Sprintf("%s %s", address, network),
-			ScriptSecurity:           "",
-			UserPassVerify:           "",
-			Device:                   "tun",
-			Port:                     1194,
-			Proto:                    "udp",
-			OVConfigTopology:         "subnet",
-			Keepalive:                "10 120",
-			MaxClients:               100,
-			OVConfigUser:             "nobody",
-			OVConfigGroup:            "nogroup",
-			OVConfigClientConfigDir:  "/etc/openvpn/staticclients",
-			IfconfigPoolPersist:      "pki/ipp.txt",
-			Ca:                       "pki/ca.crt",
-			Cert:                     "pki/issued/server.crt",
-			Key:                      "pki/private/server.key",
-			Crl:                      "pki/crl.pem",
-			Dh:                       "pki/dh.pem",
-			TLSControlChannel:        "tls-crypt pki/ta.key",
-			TLSMinVersion:            "tls-version-min 1.2",
-			TLSRemoteCert:            "remote-cert-tls client",
-			Cipher:                   "AES-256-GCM",
-			OVConfigNcpCiphers:       "AES-256-GCM:AES-192-GCM:AES-128-GCM",
-			Auth:                     "SHA512",
-			Server:                   "server 10.0.70.0 255.255.255.0",
-			Route:                    "route 10.0.71.0 255.255.255.0",
-			PushRoute:                "push \"route 10.0.60.0 255.255.255.0\"",
-			DNSServer1:               "push \"dhcp-option DNS 8.8.8.8\"",
-			DNSServer2:               "push \"dhcp-option DNS 1.0.0.1\"",
-			RedirectGW:               "push \"redirect-gateway def1 bypass-dhcp\"",
-			OVConfigLogfile:          "/var/log/openvpn/openvpn.log",
-			OVConfigLogVerbose:       3,
-			OVConfigStatusLog:        "/var/log/openvpn/openvpn-status.log",
-			OVConfigStatusLogVersion: 2,
-			CustomOptOne:             "# Custom Option One",
-			CustomOptTwo:             "# Custom Option Two\n# client-to-client",
-			CustomOptThree:           "# Custom Option Three\n# push \"route 0.0.0.0 255.255.255.255 net_gateway\"\n# push block-outside-dns",
-		},
-	}
-	o := orm.NewOrm()
-	if created, _, err := o.ReadOrCreate(&c, "Profile"); err == nil {
-		if created {
-			logs.Info("New settings profile created")
-		} else {
-			logs.Debug(c)
-		}
-		if err := ensureDir(filepath.Join(ovConfigPath, "config")); err != nil {
-			logs.Error(err)
-		}
-		serverConfig := filepath.Join(ovConfigPath, "config", "server.conf")
-		if _, err = os.Stat(serverConfig); os.IsNotExist(err) {
-			if err = config.SaveToFile(filepath.Join(configDir, "openvpn-server-config.tpl"), c.Config, serverConfig); err != nil {
-				logs.Error(err)
-			}
-		}
-	} else {
-		logs.Error(err)
-	}
-}
-
-func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address string, network string) {
-	c := OVClientConfig{
-		Profile: "default",
-		Config: clientconfig.Config{
-			FuncMode:          0, // 0 = standard authentication (cert, cert + password), 1 = 2FA authentication (cert + OTP)
-			Device:            "tun",
-			Port:              1194,
-			Proto:             "udp",
-			ServerAddress:     "127.0.0.1",
-			OpenVpnServerPort: "1194",
-			ResolveRetry:      "resolv-retry infinite",
-			OVClientUser:      "nobody",
-			OVClientGroup:     "nogroup",
-			PersistTun:        "persist-tun",
-			PersistKey:        "persist-key",
-			RemoteCertTLS:     "remote-cert-tls server",
-			Cipher:            "AES-256-GCM",
-			RedirectGateway:   "redirect-gateway def1",
-			Auth:              "SHA512",
-			AuthNoCache:       "auth-nocache",
-			TlsClient:         "tls-client",
-			Verbose:           "3",
-			AuthUserPass:      "",                 // "auth-user-pass" when 2fa
-			TFAIssuer:         "MFA%20OpenVPN-UI", // 2FA issuer
-			CustomConfOne:     "#Custom Option One",
-			CustomConfTwo:     "#Custom Option Two",
-			CustomConfThree:   "#Custom Option Three",
-		},
-	}
-	o := orm.NewOrm()
-	if created, _, err := o.ReadOrCreate(&c, "Profile"); err == nil {
-		if created {
-			logs.Info("New settings profile created")
-		} else {
-			logs.Debug(c)
-		}
-		if err := ensureDir(filepath.Join(ovConfigPath, "config")); err != nil {
-			logs.Error(err)
-		}
-		clientConfig := filepath.Join(ovConfigPath, "config/client.conf")
-		if _, err = os.Stat(clientConfig); os.IsNotExist(err) {
-			if err = clientconfig.SaveToFile(filepath.Join(configDir, "openvpn-client-config.tpl"), c.Config, clientConfig); err != nil {
-				logs.Error(err)
-			}
-		}
-	} else {
-		logs.Error(err)
-	}
-}
-
-func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address string, network string) {
-	c := EasyRSAConfig{
-		Profile: "default",
-		Config: easyrsaconfig.Config{
-			EasyRSADN:          "org",
-			EasyRSAReqCountry:  "UA",
-			EasyRSAReqProvince: "KY",
-			EasyRSAReqCity:     "Kyiv",
-			EasyRSAReqOrg:      "SweetHome",
-			EasyRSAReqEmail:    "sweet@home.net",
-			EasyRSAReqOu:       "MyOrganizationalUnit",
-			EasyRSAReqCn:       "server",
-			EasyRSAKeySize:     2048,
-			EasyRSACaExpire:    3650,
-			EasyRSACertExpire:  825,
-			EasyRSACertRenew:   30,
-			EasyRSACrlDays:     180,
-		},
-	}
-	o := orm.NewOrm()
-	if created, _, err := o.ReadOrCreate(&c, "Profile"); err == nil {
-		if created {
-			logs.Info("New settings profile created")
-		} else {
-			logs.Debug(c)
-		}
-		if err := ensureDir(filepath.Join(easyRSAPath, "pki")); err != nil {
-			logs.Error(err)
-		}
-		easyRSAConfig := filepath.Join(easyRSAPath, "pki/vars")
-		if _, err = os.Stat(easyRSAConfig); os.IsNotExist(err) {
-			if err = easyrsaconfig.SaveToFile(filepath.Join(configDir, "easyrsa-vars.tpl"), c.Config, easyRSAConfig); err != nil {
-				logs.Error(err)
-			}
-		}
-	} else {
-		logs.Error(err)
-	}
+type BreadCrumbs struct {
+	Title    string
+	Subtitle string
 }
