@@ -1,6 +1,8 @@
 package models
 
 import (
+	"context"
+	"database/sql"
 	"path/filepath"
 	"time"
 
@@ -9,6 +11,44 @@ import (
 )
 
 const metricsAlias = "metrics"
+
+// txOrmerAdapter adds a Begin method to orm.TxOrmer so it satisfies the orm.Ormer
+// interface expected by existing helper functions.
+type txOrmerAdapter struct {
+	orm.TxOrmer
+}
+
+func (a txOrmerAdapter) Begin() (orm.TxOrmer, error) {
+	return a.TxOrmer, nil
+}
+
+func (a txOrmerAdapter) BeginWithCtx(ctx context.Context) (orm.TxOrmer, error) {
+	return a.TxOrmer, nil
+}
+
+func (a txOrmerAdapter) BeginWithOpts(opts *sql.TxOptions) (orm.TxOrmer, error) {
+	return a.TxOrmer, nil
+}
+
+func (a txOrmerAdapter) BeginWithCtxAndOpts(ctx context.Context, opts *sql.TxOptions) (orm.TxOrmer, error) {
+	return a.TxOrmer, nil
+}
+
+func (a txOrmerAdapter) DoTx(task func(ctx context.Context, txOrm orm.TxOrmer) error) error {
+	return task(context.Background(), a.TxOrmer)
+}
+
+func (a txOrmerAdapter) DoTxWithCtx(ctx context.Context, task func(ctx context.Context, txOrm orm.TxOrmer) error) error {
+	return task(ctx, a.TxOrmer)
+}
+
+func (a txOrmerAdapter) DoTxWithOpts(opts *sql.TxOptions, task func(ctx context.Context, txOrm orm.TxOrmer) error) error {
+	return task(context.Background(), a.TxOrmer)
+}
+
+func (a txOrmerAdapter) DoTxWithCtxAndOpts(ctx context.Context, opts *sql.TxOptions, task func(ctx context.Context, txOrm orm.TxOrmer) error) error {
+	return task(ctx, a.TxOrmer)
+}
 
 // MetricRecord contains a single metric sample that was gathered from the OpenVPN management interface.
 type MetricRecord struct {
@@ -86,14 +126,15 @@ func SaveMetrics(records []MetricRecord) error {
 // WithMetricsTx executes fn inside a transaction on metrics DB.
 func WithMetricsTx(fn func(o orm.Ormer) error) error {
 	o := orm.NewOrmUsingDB(metricsAlias)
-	if err := o.Begin(); err != nil {
+	tx, err := o.Begin()
+	if err != nil {
 		return err
 	}
-	if err := fn(o); err != nil {
-		_ = o.Rollback()
+	if err := fn(txOrmerAdapter{tx}); err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	return o.Commit()
+	return tx.Commit()
 }
 
 func startMetricsRetention() {

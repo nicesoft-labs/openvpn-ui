@@ -96,14 +96,15 @@ type DaemonInfo struct {
 // SaveMetricSamples persists metric samples into the dedicated metrics database.
 func SaveMetricSamples(samples []MetricSample) error {
 	o := orm.NewOrmUsingDB(metricsAlias)
-	if err := o.Begin(); err != nil {
+	tx, err := o.Begin()
+	if err != nil {
 		return err
 	}
-	if err := saveMetricSamplesWithOrm(o, samples); err != nil {
-		_ = o.Rollback()
+	if err := saveMetricSamplesWithOrm(txOrmerAdapter{tx}, samples); err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	return o.Commit()
+	return tx.Commit()
 }
 
 // SaveMetricSamplesWithOrm persists metrics using provided Ormer (expects caller to manage transaction lifecycle).
