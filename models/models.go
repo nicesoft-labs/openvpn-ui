@@ -45,6 +45,14 @@ func InitDB() {
 	}
 }
 
+func ensureDir(path string) error {
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return fmt.Errorf("unable to create directory %s: %w", path, err)
+	}
+
+	return nil
+}
+
 func CreateDefaultUsers() {
 	hash, err := passlib.Hash(os.Getenv("OPENVPN_ADMIN_PASSWORD"))
 	if err != nil {
@@ -161,7 +169,10 @@ func CreateDefaultOVConfig(configDir string, ovConfigPath string, address string
 		} else {
 			logs.Debug(c)
 		}
-		serverConfig := filepath.Join(ovConfigPath, "server.conf")
+		if err := ensureDir(filepath.Join(ovConfigPath, "config")); err != nil {
+			logs.Error(err)
+		}
+		serverConfig := filepath.Join(ovConfigPath, "config/server.conf")
 		if _, err = os.Stat(serverConfig); os.IsNotExist(err) {
 			if err = config.SaveToFile(filepath.Join(configDir, "openvpn-server-config.tpl"), c.Config, serverConfig); err != nil {
 				logs.Error(err)
@@ -208,6 +219,9 @@ func CreateDefaultOVClientConfig(configDir string, ovConfigPath string, address 
 		} else {
 			logs.Debug(c)
 		}
+		if err := ensureDir(filepath.Join(ovConfigPath, "config")); err != nil {
+			logs.Error(err)
+		}
 		clientConfig := filepath.Join(ovConfigPath, "config/client.conf")
 		if _, err = os.Stat(clientConfig); os.IsNotExist(err) {
 			if err = clientconfig.SaveToFile(filepath.Join(configDir, "openvpn-client-config.tpl"), c.Config, clientConfig); err != nil {
@@ -244,6 +258,9 @@ func CreateDefaultEasyRSAConfig(configDir string, easyRSAPath string, address st
 			logs.Info("New settings profile created")
 		} else {
 			logs.Debug(c)
+		}
+		if err := ensureDir(filepath.Join(easyRSAPath, "pki")); err != nil {
+			logs.Error(err)
 		}
 		easyRSAConfig := filepath.Join(easyRSAPath, "pki/vars")
 		if _, err = os.Stat(easyRSAConfig); os.IsNotExist(err) {
