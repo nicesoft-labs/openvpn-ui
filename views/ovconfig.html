@@ -222,41 +222,55 @@
               <div class="form-group">
                 <label for="Cipher">Cipher / NCP / Auth</label>
                 <div class="row">
-                  <div class="col-sm-4">
-                    <div class="input-icon">
-                      <i class="fa fa-lock"></i>
-                      <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="kuznyechik-cbc" value="{{ .Settings.Cipher }}">
-                    </div>
-                    <small class="form-help">Шифр дата-канала (<code>--cipher</code>).</small>
-                  </div>
-                  <div class="col-sm-4">
-                    <div class="input-icon">
-                      <i class="fa fa-list-ul"></i>
-                      <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="kuznyechik-cbc" value="{{ .Settings.OVConfigNcpCiphers }}">
-                    </div>
-                    <small class="form-help">Список для NCP (<code>--ncp-ciphers</code>).</small>
-                  </div>
-                 <div class="col-sm-4">
-  <label for="AuthSelect">Auth (HMAC digest)</label>
-  <div class="input-icon">
-    <i class="fa fa-fingerprint"></i>
-    <!-- Скрытое поле, которое реально уходит в форму -->
-    <input type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
-    <!-- Видимый селект -->
-    <select class="form-control" id="AuthSelect" aria-describedby="auth-help">
-      <option value="" disabled selected>Загрузка списка алгоритмов…</option>
-    </select>
+  <!-- CIPHER (single) -->
+  <div class="col-sm-4">
+    <label for="CipherSelect">Cipher (data channel)</label>
+    <div class="input-icon">
+      <i class="fa fa-lock"></i>
+      <!-- скрытое реальное поле -->
+      <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
+      <!-- видимый селект -->
+      <select class="form-control" id="CipherSelect" aria-describedby="cipher-help">
+        <option value="" disabled selected>Загрузка списка шифров…</option>
+      </select>
+    </div>
+    <small id="cipher-help" class="form-help">
+      Шифр для дата-канала (<code>--cipher</code>). В статическом ключевом режиме разрешён только CBC.
+    </small>
   </div>
-  <small id="auth-help" class="form-help">
-    Алгоритм дайджеста для HMAC-аутентификации пакетов (<code>--auth</code>).
-  </small>
-  <small class="form-help">
-    Современные и рекомендуемые: <b>SHA2-256/192</b>, <b>SHA256</b>, <b>SHA384</b>, <b>SHA512</b>, <b>SHA3-256/384/512</b>, <b>BLAKE2s256</b>, <b>BLAKE2b512</b>, <b>SM3</b>, <b>id-tc26-gost3411-12-256/512</b>.
-    Устаревшие: <b>MD5</b>, <b>MD5-SHA1</b>, <b>SHA1</b>, <b>id-GostR3411-94</b>, <b>NULL</b>.
-  </small>
+
+  <!-- NCP (multiple) -->
+  <div class="col-sm-4">
+    <label for="NcpSelect">NCP (data-ciphers, список предпочтений)</label>
+    <div class="input-icon">
+      <i class="fa fa-list-ul"></i>
+      <!-- скрытое реальное поле -->
+      <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
+      <!-- видимый multiple-селект -->
+      <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help">
+        <option value="" disabled>Загрузка списка шифров…</option>
+      </select>
+    </div>
+    <small id="ncp-help" class="form-help">
+      Перечень шифров для переговоров (<code>--data-ciphers</code>). Порядок важен: первым будет выбран при возможности.
+      NCP работает в TLS-режиме (client/server).
+    </small>
+  </div>
+
+  <!-- AUTH (как сделали ранее) -->
+  <div class="col-sm-4">
+    <label for="AuthSelect">Auth (HMAC digest)</label>
+    <div class="input-icon">
+      <i class="fa fa-fingerprint"></i>
+      <input type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
+      <select class="form-control" id="AuthSelect" aria-describedby="auth-help">
+        <option value="" disabled selected>Загрузка списка алгоритмов…</option>
+      </select>
+    </div>
+    <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC-аутентификации пакетов (<code>--auth</code>).</small>
+  </div>
 </div>
 
-                </div>
 
                 <!-- Расширенные подсказки по криптографии -->
                 <div class="mt-2">
@@ -769,3 +783,291 @@ async function loadDigestsAndRender() {
 
 window.addEventListener('load', loadDigestsAndRender);
 </script>
+<script>
+/* ——— Рекомендации и «устаревшие» ——— */
+const CIPHER_DEPRECATED_SET = new Set([
+  'DES-EDE-CBC','DES-EDE-CFB','DES-EDE-OFB',
+  'DES-EDE3-CBC','DES-EDE3-CFB','DES-EDE3-CFB1','DES-EDE3-CFB8','DES-EDE3-OFB',
+  'gost89','gost89-cbc','gost89-cnt','gost89-cnt-12','magma-cbc'
+]);
+
+const CIPHER_RECOMMENDED_SET = new Set([
+  'AES-256-GCM','AES-128-GCM','CHACHA20-POLY1305',
+  'kuznyechik-cbc','kuznyechik-cfb','kuznyechik-ofb',
+  'SM4-GCM','ARIA-256-GCM','ARIA-128-GCM'
+]);
+
+/* ——— Фоллбек «сырой» вывод ——— */
+const CIPHERS_FALLBACK_RAW = `
+AES-128-CBC  (128 bit key, 128 bit block)
+AES-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CBC  (192 bit key, 128 bit block)
+AES-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-GCM  (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CBC  (256 bit key, 128 bit block)
+AES-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CBC  (128 bit key, 128 bit block)
+ARIA-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CBC  (192 bit key, 128 bit block)
+ARIA-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-GCM  (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CBC  (256 bit key, 128 bit block)
+ARIA-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CBC  (128 bit key, 128 bit block)
+CAMELLIA-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CBC  (192 bit key, 128 bit block)
+CAMELLIA-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CBC  (256 bit key, 128 bit block)
+CAMELLIA-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
+CHACHA20-POLY1305  (256 bit key, stream cipher, TLS client/server mode only)
+SM4-CBC  (128 bit key, 128 bit block)
+SM4-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
+SM4-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
+SM4-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
+kuznyechik-cbc  (256 bit key, 128 bit block)
+kuznyechik-cfb  (256 bit key, 128 bit block, TLS client/server mode only)
+kuznyechik-ofb  (256 bit key, 128 bit block, TLS client/server mode only)
+
+The following ciphers have a block size of less than 128 bits, 
+and are therefore deprecated.  Do not use unless you have to.
+
+DES-EDE-CBC  (128 bit key, 64 bit block)
+DES-EDE-CFB  (128 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE-OFB  (128 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CBC  (192 bit key, 64 bit block)
+DES-EDE3-CFB  (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CFB1  (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CFB8  (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-OFB  (192 bit key, 64 bit block, TLS client/server mode only)
+gost89  (256 bit key, stream cipher, TLS client/server mode only)
+gost89-cbc  (256 bit key, 64 bit block)
+gost89-cnt  (256 bit key, 64 bit block, TLS client/server mode only)
+gost89-cnt-12  (256 bit key, stream cipher, TLS client/server mode only)
+magma-cbc  (256 bit key, 64 bit block)
+`;
+
+/* ——— Парсер ——— */
+function parseOpenVpnCiphers(raw) {
+  const res = [];
+  const lines = raw.split('\n').map(s => s.trim());
+  let deprecated = false;
+
+  const depStart = /^The following ciphers have a block size of less than 128 bits/i;
+
+  // пример строки: AES-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
+  const rx = /^([A-Za-z0-9][A-Za-z0-9_\-]+)\s+\(([^)]+)\)\s*$/;
+
+  for (const ln of lines) {
+    if (!ln) continue;
+    if (depStart.test(ln)) { deprecated = true; continue; }
+    if (/^and are therefore deprecated/i.test(ln)) continue; // вторая строка заголовка
+    const m = ln.match(rx);
+    if (!m) continue;
+
+    const name = m[1];
+    const meta = m[2];
+
+    // ключевые признаки
+    const keyBitsM = meta.match(/(\d+)\s*bit\s*key/i);
+    const blockBitsM = meta.match(/(\d+)\s*bit\s*block/i);
+    const tlsOnly = /TLS client\/server mode only/i.test(meta);
+    const stream = /stream cipher/i.test(meta);
+    const modeM = name.match(/-(CBC|CFB1?|CFB8|OFB|GCM|POLY1305)$/i);
+    const mode = modeM ? modeM[1].toUpperCase() : (name === 'CHACHA20-POLY1305' ? 'CHACHA20-POLY1305' : null);
+
+    const keyBits = keyBitsM ? parseInt(keyBitsM[1],10) : null;
+    const blockBits = stream ? null : (blockBitsM ? parseInt(blockBitsM[1],10) : null);
+
+    res.push({
+      name, keyBits, blockBits, mode, tlsOnly, stream,
+      deprecated: deprecated || CIPHER_DEPRECATED_SET.has(name)
+    });
+  }
+
+  // Уникализация по имени и сортировка
+  const uniq = new Map();
+  for (const c of res) if (!uniq.has(c.name)) uniq.set(c.name, c);
+  const out = Array.from(uniq.values());
+
+  out.sort((a,b)=>{
+    // сперва по deprecated, затем по «уровню» (GCM/CHACHA выше), затем по keyBits, затем по имени
+    const ra = (CIPHER_RECOMMENDED_SET.has(a.name)?0:1) + (a.deprecated?2:0);
+    const rb = (CIPHER_RECOMMENDED_SET.has(b.name)?0:1) + (b.deprecated?2:0);
+    if (ra !== rb) return ra - rb;
+    const mprio = n => (n.mode==='GCM'||n.mode==='CHACHA20-POLY1305')?0:(n.mode==='CBC'?1:2);
+    const pa = mprio(a), pb = mprio(b);
+    if (pa !== pb) return pa - pb;
+    const ka = a.keyBits ?? -1, kb = b.keyBits ?? -1;
+    if (ka !== kb) return kb - ka;
+    return a.name.localeCompare(b.name);
+  });
+
+  return out;
+}
+
+/* ——— Группировка ——— */
+function groupCiphers(items) {
+  const groups = { recommended: [], modern: [], legacy: [] };
+  for (const c of items) {
+    if (c.deprecated) groups.legacy.push(c);
+    else if (CIPHER_RECOMMENDED_SET.has(c.name)) groups.recommended.push(c);
+    else groups.modern.push(c);
+  }
+  return groups;
+}
+
+/* ——— Рендер одиночного селекта ——— */
+function fillCipherSelect(groups, current) {
+  const sel = document.getElementById('CipherSelect');
+  const hid = document.getElementById('Cipher');
+  if (!sel || !hid) return;
+  sel.innerHTML = '';
+
+  function addGroup(label, arr) {
+    if (!arr.length) return;
+    const og = document.createElement('optgroup');
+    og.label = label;
+    for (const c of arr) {
+      const opt = document.createElement('option');
+      const bits = c.keyBits ? `${c.keyBits}-bit` : '';
+      const mode = c.mode ? c.mode : (c.stream ? 'STREAM' : '');
+      opt.value = c.name;
+      opt.textContent = [c.name, bits, mode].filter(Boolean).join(' • ');
+      if (c.tlsOnly) opt.textContent += ' • TLS-only';
+      og.appendChild(opt);
+    }
+    sel.appendChild(og);
+  }
+
+  addGroup('Рекомендуемые', groups.recommended);
+  addGroup('Современные',   groups.modern);
+  addGroup('Устаревшие (не рекомендованы)', groups.legacy);
+
+  // установить текущий
+  const cur = (current||'').trim();
+  const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
+  if (cur && !found) {
+    const og = document.createElement('optgroup'); og.label = 'Текущее значение';
+    const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur;
+    og.appendChild(opt); sel.prepend(og);
+  }
+  sel.value = cur || (sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value || sel.querySelector('option')?.value || '');
+  hid.value = sel.value;
+
+  sel.addEventListener('change', ()=> hid.value = sel.value);
+}
+
+/* ——— Рендер multiple для NCP ——— */
+function fillNcpSelect(groups, currentListStr) {
+  const sel = document.getElementById('NcpSelect');
+  const hid = document.getElementById('OVConfigNcpCiphers');
+  if (!sel || !hid) return;
+  sel.innerHTML = '';
+
+  function addGroup(label, arr) {
+    if (!arr.length) return;
+    const og = document.createElement('optgroup');
+    og.label = label;
+    for (const c of arr) {
+      const opt = document.createElement('option');
+      const bits = c.keyBits ? `${c.keyBits}-bit` : '';
+      const mode = c.mode ? c.mode : (c.stream ? 'STREAM' : '');
+      opt.value = c.name;
+      opt.textContent = [c.name, bits, mode].filter(Boolean).join(' • ');
+      if (c.tlsOnly) opt.textContent += ' • TLS-only';
+      if (c.deprecated) opt.textContent += ' • deprecated';
+      og.appendChild(opt);
+    }
+    sel.appendChild(og);
+  }
+
+  addGroup('Рекомендуемые', groups.recommended);
+  addGroup('Современные',   groups.modern);
+  addGroup('Устаревшие (не рекомендованы)', groups.legacy);
+
+  // выбрать текущие (по значению из конфигурации)
+  const current = (currentListStr||'').split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+  const options = Array.from(sel.querySelectorAll('option'));
+  const present = new Set(options.map(o=>o.value));
+
+  // если есть нестандартные — добавим отдельной группой
+  for (const v of current) {
+    if (!present.has(v)) {
+      const og = sel.querySelector('optgroup[label="Текущие"]') || (()=>{const x=document.createElement('optgroup'); x.label='Текущие'; sel.prepend(x); return x;})();
+      const opt = document.createElement('option'); opt.value=v; opt.textContent=v;
+      og.appendChild(opt);
+    }
+  }
+
+  // отмечаем выбранные
+  for (const o of Array.from(sel.options)) {
+    if (current.includes(o.value)) o.selected = true;
+  }
+
+  // синхронизация скрытого поля (порядок — как в DOM, но выбираем только selected)
+  function syncHidden() {
+    const selected = Array.from(sel.options).filter(o=>o.selected).map(o=>o.value);
+    hid.value = selected.join(',');
+  }
+  syncHidden();
+  sel.addEventListener('change', syncHidden);
+}
+
+/* ——— Загрузка с API → фоллбек ——— */
+async function loadCiphersAndRender() {
+  const curCipher = (document.getElementById('Cipher')||{}).value || '{{ .Settings.Cipher }}';
+  const curNcp    = (document.getElementById('OVConfigNcpCiphers')||{}).value || '{{ .Settings.OVConfigNcpCiphers }}';
+
+  // 1) API
+  try {
+    const r = await fetch('/api/openvpn/ciphers', { credentials:'same-origin' });
+    if (r.ok) {
+      const data = await r.json(); // ожидаем [{name,keyBits,blockBits,mode,tlsOnly,stream,deprecated}]
+      const groups = groupCiphers(data);
+      fillCipherSelect(groups, curCipher);
+      fillNcpSelect(groups, curNcp);
+      return;
+    }
+  } catch(e){ /* no-op */ }
+
+  // 2) Fallback: парсим «сырой» текст
+  const parsed = parseOpenVpnCiphers(CIPHERS_FALLBACK_RAW);
+  const groups = groupCiphers(parsed);
+  fillCipherSelect(groups, curCipher);
+  fillNcpSelect(groups, curNcp);
+}
+
+window.addEventListener('load', loadCiphersAndRender);
+</script>
+
