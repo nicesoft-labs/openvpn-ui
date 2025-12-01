@@ -57,285 +57,294 @@
 
     <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
       <div class="row">
-        <!-- Базовые параметры -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header"><i class="fa fa-sliders mr-2"></i> Базовые параметры</div>
-            <div class="card-body">
-              <div class="form-group">
-                <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
-                <div class="input-icon">
-                  <i class="fa fa-random"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Device" id="Device" placeholder="tun" value="{{ .Settings.Device }}">
-                </div>
-                <small class="form-help">Тип виртуального интерфейса: <b>tun</b> — 3-й уровень (IP-маршрутизация), <b>tap</b> — 2-й уровень (мост).</small>
-              </div>
+        <!-- Базовые параметры + Криптография (одна колонка) -->
+<div class="col-12 p-0">
+  <!-- Базовые параметры -->
+  <div class="card">
+    <div class="card-header"><i class="fa fa-sliders mr-2"></i> Базовые параметры</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
+        <div class="input-icon">
+          <i class="fa fa-random"></i>
+          <input required pattern="^(tun|tap)$" title="Допустимо: tun или tap"
+                 type="text" selector="vformdata" class="form-control" name="Device" id="Device"
+                 placeholder="tun" value="{{ .Settings.Device }}">
+        </div>
+        <small class="form-help">Тип интерфейса: <b>tun</b> (L3), <b>tap</b> (L2).</small>
+        <div class="invalid-feedback">Укажите tun или tap.</div>
+      </div>
 
-              <div class="form-group">
-                <label for="Port">Port</label>
-                <div class="input-icon">
-                  <i class="fa fa-plug"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Port" id="Port" placeholder="1194" value="{{ .Settings.Port }}">
-                </div>
-                <small class="form-help">TCP/UDP-порт, на котором контейнер OpenVPN принимает соединения.</small>
-              </div>
+      <div class="form-group">
+        <label for="Port">Port</label>
+        <div class="input-icon">
+          <i class="fa fa-plug"></i>
+          <input required type="number" min="1" max="65535"
+                 selector="vformdata" class="form-control" name="Port" id="Port"
+                 placeholder="1194" value="{{ .Settings.Port }}">
+        </div>
+        <small class="form-help">Порт прослушивания.</small>
+        <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
+      </div>
 
-              <div class="form-group">
-                <label for="Proto">Proto</label>
-                <div class="input-icon">
-                  <i class="fa fa-exchange"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Proto" id="Proto" placeholder="udp" value="{{ .Settings.Proto }}">
-                </div>
-                <small class="form-help">Транспортный протокол сервера: <b>udp</b> (рекомендуется) или <b>tcp</b>.</small>
-              </div>
+      <div class="form-group">
+        <label for="Proto">Proto</label>
+        <div class="input-icon">
+          <i class="fa fa-exchange"></i>
+          <input required pattern="^(udp|tcp)$" title="Допустимо: udp или tcp"
+                 type="text" selector="vformdata" class="form-control" name="Proto" id="Proto"
+                 placeholder="udp" value="{{ .Settings.Proto }}">
+        </div>
+        <small class="form-help">Рекомендуется UDP.</small>
+        <div class="invalid-feedback">Разрешено: udp или tcp.</div>
+      </div>
 
-              <div class="form-group">
-                <label for="OVConfigTopology">Topology</label>
-                <div class="input-icon">
-                  <i class="fa fa-sitemap"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology" placeholder="subnet" value="{{ .Settings.OVConfigTopology }}">
-                </div>
-                <small class="form-help">Режим адресации клиентов. <b>subnet</b> — универсально; <b>net30</b>/<b>p2p</b> — для совместимости со старым клиентским ПО.</small>
-              </div>
+      <div class="form-group">
+        <label for="OVConfigTopology">Topology</label>
+        <div class="input-icon">
+          <i class="fa fa-sitemap"></i>
+          <input required pattern="^(subnet|net30|p2p)$" title="subnet, net30 или p2p"
+                 type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology"
+                 placeholder="subnet" value="{{ .Settings.OVConfigTopology }}">
+        </div>
+        <small class="form-help">Обычно <b>subnet</b>.</small>
+        <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
+      </div>
 
-              <div class="form-group">
-                <label for="Keepalive">Keepalive</label>
-                <div class="input-icon">
-                  <i class="fa fa-heartbeat"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive" placeholder="10 120" value="{{ .Settings.Keepalive }}">
-                </div>
-                <small class="form-help">Параметры <code>ping</code>/<code>ping-restart</code>, поддерживают живость канала.</small>
-              </div>
+      <div class="form-group">
+        <label for="Keepalive">Keepalive</label>
+        <div class="input-icon">
+          <i class="fa fa-heartbeat"></i>
+          <input required pattern="^\s*\d+\s+\d+\s*$" title="Два числа: &lt;ping&gt; &lt;ping-restart&gt;"
+                 type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
+                 placeholder="10 120" value="{{ .Settings.Keepalive }}">
+        </div>
+        <small class="form-help">Формат: <code>&lt;ping&gt; &lt;ping-restart&gt;</code>.</small>
+        <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
+      </div>
 
-              <div class="form-group">
-                <label for="MaxClients">MaxClients</label>
-                <div class="input-icon">
-                  <i class="fa fa-users"></i>
-                  <input type="text" class="form-control" name="MaxClients" id="MaxClients" placeholder="100" value="{{ .Settings.MaxClients }}">
-                </div>
-                <small class="form-help">Максимум одновременных подключений.</small>
-              </div>
+      <div class="form-group">
+        <label for="MaxClients">MaxClients</label>
+        <div class="input-icon">
+          <i class="fa fa-users"></i>
+          <input required type="number" min="1" max="65535"
+                 class="form-control" name="MaxClients" id="MaxClients" placeholder="100" value="{{ .Settings.MaxClients }}">
+        </div>
+        <small class="form-help">Ограничение одновременных подключений.</small>
+        <div class="invalid-feedback">Положительное число, не более 65535.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Криптография и TLS -->
+  <div class="card">
+    <div class="card-header"><i class="fa fa-shield mr-2"></i> Криптография и TLS</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label>User / Group</label>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-user"></i>
+              <input required pattern="^[a-z_][a-z0-9_-]*[$]?$" title="Системное имя пользователя"
+                     type="text" class="form-control" name="OVConfigUser" id="OVConfigUser"
+                     placeholder="nobody" value="{{ .Settings.OVConfigUser }}">
             </div>
+            <div class="invalid-feedback">Некорректное имя пользователя.</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-users"></i>
+              <input required pattern="^[a-z_][a-z0-9_-]*$" title="Системная группа"
+                     type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup"
+                     placeholder="nogroup" value="{{ .Settings.OVConfigGroup }}">
+            </div>
+            <div class="invalid-feedback">Некорректное имя группы.</div>
+          </div>
+        </div>
+        <small class="form-help">Понижение привилегий демона.</small>
+      </div>
+
+      <div class="form-group">
+        <label>PKI</label>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-certificate"></i>
+              <input required type="text" class="form-control" name="Ca" id="Ca"
+                     placeholder="pki/ca.crt" value="{{ .Settings.Ca }}">
+            </div>
+            <small class="form-help">CA.</small>
+          </div>
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-id-badge"></i>
+              <input required type="text" class="form-control" name="Cert" id="Cert"
+                     placeholder="pki/issued/server.crt" value="{{ .Settings.Cert }}">
+            </div>
+            <small class="form-help">Сертификат сервера.</small>
+          </div>
+        </div>
+        <div class="row mt-2">
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-key"></i>
+              <input required type="text" class="form-control" name="Key" id="Key"
+                     placeholder="pki/private/server.key" value="{{ .Settings.Key }}">
+            </div>
+            <small class="form-help">Приватный ключ.</small>
+          </div>
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-ban"></i>
+              <input type="text" class="form-control" name="Crl" id="Crl"
+                     placeholder="pki/crl.pem" value="{{ .Settings.Crl }}">
+            </div>
+            <small class="form-help">CRL — опционально.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>DH / TLS защита канала</label>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-lock"></i>
+              <input type="text" class="form-control" name="Dh" id="Dh"
+                     placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
+            </div>
+            <small class="form-help">Параметры Диффи–Хеллмана (если нужны).</small>
+          </div>
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-shield-alt"></i>
+              <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel"
+                     placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
+            </div>
+            <small class="form-help"><code>tls-crypt</code> предпочтительнее <code>tls-auth</code>.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="TLSMinVersion">TLS policy</label>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-level-up"></i>
+              <input required pattern="^tls-version-min\s+(1\.(2|3))$" title='Пример: "tls-version-min 1.2" или "tls-version-min 1.3"'
+                     type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion"
+                     placeholder="tls-version-min 1.2" value="{{ .Settings.TLSMinVersion }}">
+            </div>
+            <div class="invalid-feedback">Укажите: tls-version-min 1.2/1.3.</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="input-icon">
+              <i class="fa fa-check-circle"></i>
+              <input required pattern="^remote-cert-tls\s+(client|server)$" title='remote-cert-tls client|server'
+                     type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert"
+                     placeholder="remote-cert-tls client" value="{{ .Settings.TLSRemoteCert }}">
+            </div>
+            <div class="invalid-feedback">remote-cert-tls client|server.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="Cipher">Cipher / NCP / Auth</label>
+        <div class="row">
+          <!-- CIPHER (single) -->
+          <div class="col-sm-4">
+            <label for="CipherSelect">Cipher (data channel)</label>
+            <div class="input-icon">
+              <i class="fa fa-lock"></i>
+              <input required type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
+              <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help">
+                <option value="" disabled selected>Загрузка списка шифров…</option>
+              </select>
+            </div>
+            <small id="cipher-help" class="form-help">Шифр для дата-канала.</small>
+            <div class="invalid-feedback">Выберите шифр.</div>
+          </div>
+
+          <!-- NCP (multiple) -->
+          <div class="col-sm-4">
+            <label for="NcpSelect">NCP (data-ciphers)</label>
+            <div class="input-icon">
+              <i class="fa fa-list-ul"></i>
+              <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
+              <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help">
+                <option value="" disabled>Загрузка списка шифров…</option>
+              </select>
+            </div>
+            <small id="ncp-help" class="form-help">Список предпочтений для переговоров шифра.</small>
+          </div>
+
+          <!-- AUTH -->
+          <div class="col-sm-4">
+            <label for="AuthSelect">Auth (HMAC digest)</label>
+            <div class="input-icon">
+              <i class="fa fa-fingerprint"></i>
+              <input required type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
+              <select required class="form-control" id="AuthSelect" aria-describedby="auth-help">
+                <option value="" disabled selected>Загрузка списка алгоритмов…</option>
+              </select>
+            </div>
+            <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC.</small>
+            <div class="invalid-feedback">Выберите дайджест.</div>
           </div>
         </div>
 
-        <!-- Безопасность и криптография -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header"><i class="fa fa-shield mr-2"></i> Криптография и TLS</div>
-            <div class="card-body">
-              <div class="form-group">
-                <label for="OVConfigUser">User / Group</label>
-                <div class="row">
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-user"></i>
-                      <input type="text" class="form-control" name="OVConfigUser" id="OVConfigUser" placeholder="nobody" value="{{ .Settings.OVConfigUser }}">
-                    </div>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-users"></i>
-                      <input type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup" placeholder="nogroup" value="{{ .Settings.OVConfigGroup }}">
-                    </div>
-                  </div>
-                </div>
-                <small class="form-help">Пользователь и группа для демона OpenVPN на *nix после понижения привилегий.</small>
-              </div>
+        <!-- Подсказки по шифрам -->
+        <div class="mt-2">
+          <div class="kuz-note">
+            <b>Современные шифры:</b> <code>kuznyechik-cbc</code> (256/128), <code>kuznyechik-cfb</code> (TLS-only), <code>kuznyechik-ofb</code> (TLS-only).
+          </div>
+          <div class="deprecated mt-2">
+            <b>Устаревшие (блок &lt; 128):</b> <code>gost89</code>, <code>gost89-cbc</code>, <code>gost89-cnt</code>, <code>gost89-cnt-12</code>, <code>magma-cbc</code>.
+          </div>
+          <div class="mt-2">
+            <b>Дайджесты для <code>--auth</code>:</b> <code>id-tc26-gost3411-12-256</code>, <code>id-tc26-gost3411-12-512</code> (устар.: <code>id-GostR3411-94</code>).
+          </div>
+        </div>
+      </div>
 
-              <div class="form-group">
-                <label>PKI</label>
-                <div class="row">
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-certificate"></i>
-                      <input type="text" class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt" value="{{ .Settings.Ca }}">
-                    </div>
-                    <small class="form-help">Корневой сертификат CA.</small>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-id-badge"></i>
-                      <input type="text" class="form-control" name="Cert" id="Cert" placeholder="pki/issued/server.crt" value="{{ .Settings.Cert }}">
-                    </div>
-                    <small class="form-help">Сертификат сервера.</small>
-                  </div>
-                </div>
-                <div class="row mt-2">
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-key"></i>
-                      <input type="text" class="form-control" name="Key" id="Key" placeholder="pki/private/server.key" value="{{ .Settings.Key }}">
-                    </div>
-                    <small class="form-help">Приватный ключ сервера.</small>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-ban"></i>
-                      <input type="text" class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem" value="{{ .Settings.Crl }}">
-                    </div>
-                    <small class="form-help">CRL — список отозванных сертификатов.</small>
-                  </div>
-                </div>
-              </div>
+      <div class="form-group" id="auth-mode">
+        <label for="FuncMode">Режим аутентификации</label>
+        <div class="input-icon">
+          <i class="fa fa-shield"></i>
+          <select name="FuncMode" id="FuncMode" class="form-control" aria-describedby="auth-mode-help">
+            <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая (сертификат, опционально пароль)</option>
+            <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная (2FA)</option>
+          </select>
+        </div>
+        <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом.</small>
+      </div>
 
-              <div class="form-group">
-                <label for="Dh">DH / TLS защита канала</label>
-                <div class="row">
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-lock"></i>
-                      <input type="text" class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
-                    </div>
-                    <small class="form-help">Параметры Диффи–Хеллмана (для статич. ключевого обмена).</small>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-shield-alt"></i>
-                      <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel" placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
-                    </div>
-                    <small class="form-help">Защита управляющего канала: <code>tls-crypt</code> предпочтительнее <code>tls-auth</code>.</small>
-                  </div>
-                </div>
-              </div>
+      <div class="form-group" id="script-sec">
+        <label for="scriptsecurity">Script-security</label>
+        <div class="input-icon">
+          <i class="fa fa-code"></i>
+          <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity"
+                 placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
+        </div>
+        <small class="form-help">Для 2FA требуется <code>script-security 2</code>.</small>
+      </div>
 
-              <div class="form-group">
-                <label for="TLSMinVersion">TLS policy</label>
-                <div class="row">
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-level-up"></i>
-                      <input type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion" placeholder="tls-version-min 1.2" value="{{ .Settings.TLSMinVersion }}">
-                    </div>
-                    <small class="form-help">Минимальная версия TLS, напр. <code>tls-version-min 1.2</code> или <code>1.3</code>.</small>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="input-icon">
-                      <i class="fa fa-check-circle"></i>
-                      <input type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert" placeholder="remote-cert-tls client" value="{{ .Settings.TLSRemoteCert }}">
-                    </div>
-                    <small class="form-help">Проверка роли peer: <code>remote-cert-tls client|server</code>.</small>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="Cipher">Cipher / NCP / Auth</label>
-                <div class="row">
-  <!-- CIPHER (single) -->
-  <div class="col-sm-4">
-    <label for="CipherSelect">Cipher (data channel)</label>
-    <div class="input-icon">
-      <i class="fa fa-lock"></i>
-      <!-- скрытое реальное поле -->
-      <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
-      <!-- видимый селект -->
-      <select class="form-control" id="CipherSelect" aria-describedby="cipher-help">
-        <option value="" disabled selected>Загрузка списка шифров…</option>
-      </select>
+      <div class="form-group" id="auth-user-pass-verify">
+        <label for="userpassverify">Auth-user-pass-verify</label>
+        <div class="input-icon">
+          <i class="fa fa-terminal"></i>
+          <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify"
+                 placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
+        </div>
+        <small class="form-help"><code>via-file</code> безопаснее <code>via-env</code>.</small>
+      </div>
     </div>
-    <small id="cipher-help" class="form-help">
-      Шифр для дата-канала (<code>--cipher</code>). В статическом ключевом режиме разрешён только CBC.
-    </small>
-  </div>
-
-  <!-- NCP (multiple) -->
-  <div class="col-sm-4">
-    <label for="NcpSelect">NCP (data-ciphers, список предпочтений)</label>
-    <div class="input-icon">
-      <i class="fa fa-list-ul"></i>
-      <!-- скрытое реальное поле -->
-      <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
-      <!-- видимый multiple-селект -->
-      <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help">
-        <option value="" disabled>Загрузка списка шифров…</option>
-      </select>
-    </div>
-    <small id="ncp-help" class="form-help">
-      Перечень шифров для переговоров (<code>--data-ciphers</code>). Порядок важен: первым будет выбран при возможности.
-      NCP работает в TLS-режиме (client/server).
-    </small>
-  </div>
-
-  <!-- AUTH (как сделали ранее) -->
-  <div class="col-sm-4">
-    <label for="AuthSelect">Auth (HMAC digest)</label>
-    <div class="input-icon">
-      <i class="fa fa-fingerprint"></i>
-      <input type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
-      <select class="form-control" id="AuthSelect" aria-describedby="auth-help">
-        <option value="" disabled selected>Загрузка списка алгоритмов…</option>
-      </select>
-    </div>
-    <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC-аутентификации пакетов (<code>--auth</code>).</small>
   </div>
 </div>
 
-
-                <!-- Расширенные подсказки по криптографии -->
-                <div class="mt-2">
-                  <div class="kuz-note">
-                    <b>Поддерживаемые современные шифры (рекомендуемые):</b>
-                    <ul class="mb-1">
-                      <li><code>kuznyechik-cbc</code> — 256-битный ключ, 128-битный блок.</li>
-                      <li><code>kuznyechik-cfb</code> — 256-битный ключ, 128-битный блок, <i>только TLS client/server mode</i>.</li>
-                      <li><code>kuznyechik-ofb</code> — 256-битный ключ, 128-битный блок, <i>только TLS client/server mode</i>.</li>
-                    </ul>
-                  </div>
-                  <div class="deprecated mt-2">
-                    <b>Устаревшие (блок &lt; 128 бит) — не использовать без крайней необходимости:</b>
-                    <ul class="mb-1">
-                      <li><code>gost89</code> — 256-битный ключ, потоковый, <i>только TLS client/server mode</i>.</li>
-                      <li><code>gost89-cbc</code> — 256-битный ключ, 64-битный блок.</li>
-                      <li><code>gost89-cnt</code> — 256-битный ключ, 64-битный блок, <i>только TLS client/server mode</i>.</li>
-                      <li><code>gost89-cnt-12</code> — 256-битный ключ, потоковый, <i>только TLS client/server mode</i>.</li>
-                      <li><code>magma-cbc</code> — 256-битный ключ, 64-битный блок.</li>
-                    </ul>
-                    <small class="form-help">Малый размер блока повышает риск коллизий и атак при больших объёмах трафика.</small>
-                  </div>
-                  <div class="mt-2">
-                    <b>Хэш-функции для <code>--auth</code>:</b>
-                    <ul class="mb-0">
-                      <li><code>id-tc26-gost3411-12-256</code> — размер дайджеста 256 бит.</li>
-                      <li><code>id-tc26-gost3411-12-512</code> — размер дайджеста 512 бит.</li>
-                      <li><code>id-GostR3411-94</code> — размер дайджеста 256 бит (устаревшая).</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-group" id="auth-mode">
-                <label for="FuncMode">Режим аутентификации</label>
-                <div class="input-icon">
-                  <i class="fa fa-shield"></i>
-                  <select name="FuncMode" id="FuncMode" class="form-control" aria-describedby="auth-mode-help">
-                    <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая (сертификат, опционально пароль)</option>
-                    <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная (2FA)</option>
-                  </select>
-                </div>
-                <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом (OATH/TOTP) через скрипт-верификатор.</small>
-              </div>
-
-              <div class="form-group" id="script-sec">
-                <label for="scriptsecurity">Script-security</label>
-                <div class="input-icon">
-                  <i class="fa fa-code"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity" placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
-                </div>
-                <small class="form-help">Разрешение выполнения пользовательских скриптов. Для 2FA требуется <code>script-security 2</code>.</small>
-              </div>
-
-              <div class="form-group" id="auth-user-pass-verify">
-                <label for="userpassverify">Auth-user-pass-verify</label>
-                <div class="input-icon">
-                  <i class="fa fa-terminal"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify" placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
-                </div>
-                <small class="form-help">Подключение скрипта проверки логина/пароля и TOTP: <code>via-file</code> безопаснее <code>via-env</code>.</small>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Сети и маршрутизация -->
