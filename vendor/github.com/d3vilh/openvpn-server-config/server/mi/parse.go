@@ -102,7 +102,9 @@ func ParseStatus(input string) (*Status, error) {
 				Username:        fields[9],
 				ClientID:        fields[10],
 				PeerID:          fields[11],
-				//DataCipher:      fields[12],
+			}
+			if len(fields) > 12 {
+				item.DataCipher = fields[12]
 			}
 			s.ClientList = append(s.ClientList, item)
 		}

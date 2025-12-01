@@ -43,6 +43,9 @@ func main() {
 	models.CreateDefaultEasyRSAConfig(*configDir, defaultSettings.EasyRSAPath, defaultSettings.MIAddress, defaultSettings.MINetwork)
 	state.GlobalCfg = *defaultSettings
 
+	collector := lib.NewObservabilityCollector()
+	collector.Start()
+
 	routers.Init(*configDir)
 
 	lib.AddFuncMaps()

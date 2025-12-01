@@ -13,8 +13,8 @@ const metricsAlias = "metrics"
 // MetricRecord contains a single metric sample that was gathered from the OpenVPN management interface.
 type MetricRecord struct {
 	Id          int64
-	Category    string    `orm:"size(32)"`
-	Name        string    `orm:"size(128)"`
+	Category    string `orm:"size(32)"`
+	Name        string `orm:"size(128)"`
 	Value       float64
 	Unit        string    `orm:"size(64)"`
 	Description string    `orm:"size(256)"`
@@ -42,7 +42,14 @@ func InitMetricsDB() error {
 		return err
 	}
 
-	orm.RegisterModel(new(MetricRecord))
+	orm.RegisterModel(
+		new(MetricRecord),
+		new(MetricSample),
+		new(ClientSession),
+		new(ClientEvent),
+		new(RoutingCCD),
+		new(DaemonInfo),
+	)
 
 	// Create tables if not exist (no force, verbose logs on)
 	if err := orm.RunSyncdb(metricsAlias, false, true); err != nil {
