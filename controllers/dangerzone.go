@@ -18,10 +18,16 @@ func (c *DangerController) NestPrepare() {
 }
 
 func (c *DangerController) Get() {
+	status, err := lib.GetPKIStatus()
+	if err != nil {
+		logs.Error("failed to get PKI status: ", err)
+	}
+
 	c.TplName = "maintenance.html"
 	c.Data["breadcrumbs"] = &BreadCrumbs{
 		Title: "Maintenance",
 	}
+	c.Data["pkiStatus"] = status
 }
 
 // @router /pki/delete/:key [DeletePKI]
