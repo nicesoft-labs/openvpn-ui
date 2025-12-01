@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -250,7 +251,22 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	cfg.PersistTun = ovClientConfig.PersistTun
 	cfg.PersistKey = ovClientConfig.PersistKey
 	cfg.RemoteCertTLS = ovClientConfig.RemoteCertTLS
-	cfg.RedirectGateway = ovClientConfig.RedirectGateway
+	serverConfig := models.OVConfig{Profile: "default"}
+	_ = serverConfig.Read("Profile")
+
+	switch {
+	case serverConfig.SplitOnlyMode:
+		logs.Info("SplitOnlyMode is enabled: redirect-gateway will be omitted in client config")
+		cfg.RedirectGateway = ""
+	case serverConfig.ForceDefaultRoute:
+		redirectValue := strings.TrimSpace(serverConfig.RedirectGW)
+		if redirectValue == "" {
+			redirectValue = defaultRedirectGateway
+		}
+		cfg.RedirectGateway = redirectValue
+	default:
+		cfg.RedirectGateway = ovClientConfig.RedirectGateway
+	}
 	cfg.Proto = ovClientConfig.Proto   // this will be set from client instead of server config
 	cfg.Auth = ovClientConfig.Auth     // this will be set from client instead of server config
 	cfg.Cipher = ovClientConfig.Cipher // this will be set from client instead of server config
@@ -287,8 +303,6 @@ func (c *CertificatesController) saveClientConfig(keysPath string, name string) 
 	}
 	cfg.Key = string(key)
 
-	serverConfig := models.OVConfig{Profile: "default"}
-	_ = serverConfig.Read("Profile")
 	cfg.Port = serverConfig.Port
 	// cfg.Proto = serverConfig.Proto   //Now getting it from client config
 	// cfg.Auth = serverConfig.Auth     //Now getting it from client config

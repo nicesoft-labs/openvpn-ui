@@ -24,6 +24,8 @@ type OVConfigController struct {
 	ConfigDir string
 }
 
+const defaultRedirectGateway = "redirect-gateway def1 bypass-dhcp"
+
 func (c *OVConfigController) NestPrepare() {
 	if !c.IsLogin {
 		c.Ctx.Redirect(302, c.LoginPath())
@@ -78,10 +80,28 @@ func (c *OVConfigController) Post() {
 		return
 	}
 
-	// Нормализация полей split-tunnel
-	cfg.Config.PushRoute = strings.TrimSpace(cfg.Config.PushRoute)
-	cfg.Config.RedirectGW = strings.TrimSpace(cfg.Config.RedirectGW)
-	cfg.Config.PushRoutesExtra = normalizeLineEndings(strings.TrimSpace(cfg.Config.PushRoutesExtra))
+	normalizeStringFields(&cfg.Config)
+
+	redirectGW, err := normalizeRedirectGW(cfg.Config.RedirectGW)
+	if err != nil {
+		logs.Warning(err)
+		c.Ctx.Output.SetStatus(400)
+		_, _ = c.Ctx.ResponseWriter.Write([]byte(err.Error()))
+		return
+	}
+
+	if redirectGW != "" {
+		cfg.Config.ForceDefaultRoute = true
+	}
+	cfg.Config.RedirectGW = redirectGW
+
+	if cfg.Config.SplitOnlyMode && cfg.Config.ForceDefaultRoute {
+		msg := "ForceDefaultRoute cannot be used together with SplitOnlyMode"
+		logs.Warning(msg)
+		c.Ctx.Output.SetStatus(400)
+		_, _ = c.Ctx.ResponseWriter.Write([]byte(msg))
+		return
+	}
 
 	// Строим итоговый набор push "route ..."
 	pushRoutes, err := buildPushRoutes(cfg.Config.PushRoute, cfg.Config.PushRoutesExtra)
@@ -98,9 +118,20 @@ func (c *OVConfigController) Post() {
 		cfg.Config.PushRoute = pushRoutes[0]
 	}
 
-	// Режим split-only: не пушим redirect-gateway
-	if cfg.Config.SplitOnlyMode {
-		cfg.Config.RedirectGW = ""
+	renderCfg := cfg.Config
+	renderCfg.PushRoutes = strings.Join(pushRoutes, "\n")
+
+	if renderCfg.SplitOnlyMode {
+		renderCfg.RedirectGW = ""
+		logs.Info("SplitOnlyMode is enabled: skipping redirect-gateway push")
+	} else if renderCfg.ForceDefaultRoute {
+		redirectValue := renderCfg.RedirectGW
+		if redirectValue == "" {
+			redirectValue = defaultRedirectGateway
+		}
+		renderCfg.RedirectGW = fmt.Sprintf("push \"%s\"", redirectValue)
+	} else {
+		renderCfg.RedirectGW = ""
 	}
 
 	logs.Info("Post: Dumping configuration data")
@@ -116,7 +147,7 @@ func (c *OVConfigController) Post() {
 	tplPath := filepath.Join(c.ConfigDir, "openvpn-server-config.tpl")
 
 	// ВАЖНО: тут было `err :=` — заменено на обычное присваивание `err =`
-	err = config.SaveToFile(tplPath, cfg.Config, destPath)
+	err = config.SaveToFile(tplPath, renderCfg, destPath)
 	if err != nil {
 		logs.Warning(err)
 		flash.Error(err.Error())
@@ -191,8 +222,19 @@ func (c *OVConfigController) Edit() {
 }
 
 var (
-	pushRouteRx       = regexp.MustCompile(`^(?:push\s+"?route|route)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+(\d{1,3}(?:\.\d{1,3}){3})"?$`)
-	pushRoutesExtraRx = regexp.MustCompile(`^(\d{1,3}(?:\.\d{1,3}){3})\s+(\d{1,3}(?:\.\d{1,3}){3})$`)
+	pushRouteRx          = regexp.MustCompile(`^(?:push\s+"?route|route)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+(\d{1,3}(?:\.\d{1,3}){3})"?$`)
+	pushRoutesExtraRx    = regexp.MustCompile(`^(\d{1,3}(?:\.\d{1,3}){3})\s+(\d{1,3}(?:\.\d{1,3}){3})$`)
+	redirectGatewayRx    = regexp.MustCompile(`^(?:push\s+)?redirect-gateway(?:\s+([\w!\-\s]+))?$`)
+	redirectGatewayAllow = map[string]struct{}{
+		"def1":        {},
+		"bypass-dhcp": {},
+		"bypass-dns":  {},
+		"local":       {},
+		"autolocal":   {},
+		"block-local": {},
+		"ipv6":        {},
+		"!ipv4":       {},
+	}
 )
 
 func buildPushRoutes(pushRoute string, pushRoutesExtra string) ([]string, error) {
@@ -249,4 +291,54 @@ func normalizeLineEndings(value string) string {
 func isValidIPv4(value string) bool {
 	ip := net.ParseIP(value)
 	return ip != nil && ip.To4() != nil
+}
+
+func normalizeRedirectGW(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	matches := redirectGatewayRx.FindStringSubmatch(trimmed)
+	if len(matches) == 0 {
+		return "", fmt.Errorf("invalid RedirectGW value: %q, expected \"redirect-gateway [options]\".", value)
+	}
+
+	optionsRaw := ""
+	if len(matches) > 1 {
+		optionsRaw = strings.TrimSpace(matches[1])
+	}
+	if optionsRaw == "" {
+		return "redirect-gateway", nil
+	}
+
+	seen := make(map[string]struct{})
+	normalizedOpts := make([]string, 0)
+	for _, opt := range strings.Fields(optionsRaw) {
+		lowerOpt := strings.ToLower(opt)
+		if _, ok := redirectGatewayAllow[lowerOpt]; !ok {
+			return "", fmt.Errorf("invalid redirect-gateway option: %q", opt)
+		}
+		if _, exists := seen[lowerOpt]; !exists {
+			seen[lowerOpt] = struct{}{}
+			normalizedOpts = append(normalizedOpts, lowerOpt)
+		}
+	}
+
+	if len(normalizedOpts) == 0 {
+		return "redirect-gateway", nil
+	}
+
+	return fmt.Sprintf("redirect-gateway %s", strings.Join(normalizedOpts, " ")), nil
+}
+
+func normalizeStringFields(cfg *config.Config) {
+	cfg.PushRoute = strings.TrimSpace(cfg.PushRoute)
+	cfg.RedirectGW = strings.TrimSpace(cfg.RedirectGW)
+	cfg.PushRoutesExtra = normalizeLineEndings(strings.TrimSpace(cfg.PushRoutesExtra))
+	cfg.ScriptSecurity = strings.TrimSpace(cfg.ScriptSecurity)
+	cfg.UserPassVerify = strings.TrimSpace(cfg.UserPassVerify)
+	cfg.CustomOptOne = strings.TrimSpace(cfg.CustomOptOne)
+	cfg.CustomOptTwo = strings.TrimSpace(cfg.CustomOptTwo)
+	cfg.CustomOptThree = strings.TrimSpace(cfg.CustomOptThree)
 }
