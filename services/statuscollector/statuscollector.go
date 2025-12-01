@@ -15,13 +15,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/d3vilh/openvpn-ui/models"
 	"golang.org/x/sync/singleflight"
 )
 
 const (
-	defaultPollInterval       = 2 * time.Second
+	defaultPollInterval       = 60 * time.Second
 	defaultSessionHardTimeout = 1 * time.Second
 	defaultBackoffMax         = 10 * time.Second
 	maxScanBuffer             = 512 * 1024
@@ -104,13 +105,15 @@ type ClientBreakdown struct {
 }
 
 type collector struct {
-	cfg      Config
-	cache    atomic.Value
-	once     sync.Once
-	group    singleflight.Group
-	mu       sync.Mutex
-	backoff  time.Duration
-	lastStat fileStat
+	cfg                   Config
+	cache                 atomic.Value
+	once                  sync.Once
+	group                 singleflight.Group
+	mu                    sync.Mutex
+	backoff               time.Duration
+	lastStat              fileStat
+	lastUISnapshotPayload string
+	lastUISnapshotWrite   time.Time
 }
 
 type fileStat struct {
@@ -414,24 +417,26 @@ func (c *collector) persist(parsed *parsedSnapshot, snapshot *Snapshot, now time
 		return nil
 	}
 
-	samples := buildMetricSamples(parsed, now)
-	if err := models.SaveMetricSamples(samples); err != nil {
-		return err
+	recordedAt := time.Unix(parsed.timeUnix, 0).UTC()
+	if recordedAt.IsZero() {
+		recordedAt = now
 	}
+
+	samples := buildMetricSamples(parsed, recordedAt)
 
 	sessions := make([]*models.ClientSession, 0, len(parsed.clients))
 	routes := make([]models.RoutingCCD, 0, len(parsed.routes))
 	routeIndex := map[string]routeRow{}
 	for _, rt := range parsed.routes {
 		routeIndex[rt.virtAddress] = rt
-		routes = append(routes, models.RoutingCCD{Net: rt.virtAddress, CommonName: rt.commonName, SeenAt: now, Source: "statusfile"})
+		routes = append(routes, models.RoutingCCD{Net: rt.virtAddress, CommonName: rt.commonName, SeenAt: recordedAt, Source: "statusfile"})
 	}
 
 	ovVersion := extractVersion(parsed.title)
 
 	for _, cl := range parsed.clients {
 		lookup := models.MakeClientLookupKey(cl.clientID, cl.commonName, cl.realAddress, cl.virtAddress)
-		rt := routeIndex[cl.virtAddress]
+		rt, ok := routeIndex[cl.virtAddress]
 		session := &models.ClientSession{
 			LookupKey:      lookup,
 			ClientID:       cl.clientID,
@@ -441,30 +446,37 @@ func (c *collector) persist(parsed *parsedSnapshot, snapshot *Snapshot, now time
 			VirtAddr:       cl.virtAddress,
 			Username:       cl.username,
 			ConnectedSince: time.Unix(cl.connected, 0).UTC(),
-			LastRef:        time.Unix(rt.lastRef, 0).UTC(),
+			LastRef:        time.Time{},
 			BytesRxTotal:   cl.bytesRx,
 			BytesTxTotal:   cl.bytesTx,
 			DataCipher:     cl.dataCipher,
 			OVPNVersion:    ovVersion,
-			UpdatedAt:      now,
+			UpdatedAt:      recordedAt,
+		}
+		if ok {
+			session.LastRef = time.Unix(rt.lastRef, 0).UTC()
 		}
 		sessions = append(sessions, session)
 	}
 
-	for _, s := range sessions {
-		_ = models.UpsertClientSession(s)
-	}
-	if len(routes) > 0 {
-		_ = models.SaveRoutingCCD(routes)
-	}
-
-	daemon := models.DaemonInfo{Version: ovVersion, LastSeen: now}
-	_ = models.UpsertDaemonInfo(&daemon)
-
-	return nil
+	return models.WithMetricsTx(func(o orm.Ormer) error {
+		if err := models.SaveMetricSamplesWithOrm(o, samples); err != nil {
+			return err
+		}
+		for _, s := range sessions {
+			if err := models.UpsertClientSessionWithOrm(o, s); err != nil {
+				return err
+			}
+		}
+		if err := models.SaveRoutingCCDWithOrm(o, routes); err != nil {
+			return err
+		}
+		daemon := models.DaemonInfo{Version: ovVersion, LastSeen: recordedAt}
+		return models.UpsertDaemonInfoWithOrm(o, &daemon)
+	})
 }
 
-func buildMetricSamples(parsed *parsedSnapshot, now time.Time) []models.MetricSample {
+func buildMetricSamples(parsed *parsedSnapshot, recorded time.Time) []models.MetricSample {
 	totalIn := float64(0)
 	totalOut := float64(0)
 	for _, cl := range parsed.clients {
@@ -473,28 +485,29 @@ func buildMetricSamples(parsed *parsedSnapshot, now time.Time) []models.MetricSa
 	}
 
 	samples := []models.MetricSample{
-		{Name: "openvpn_server_connected_clients", Value: float64(len(parsed.clients)), Unit: "sessions", RecordedAt: now, Source: "statusfile", MetricType: "gauge"},
-		{Name: "openvpn_server_bytes_in_total", Value: totalIn, Unit: "bytes", RecordedAt: now, Source: "statusfile", MetricType: "counter"},
-		{Name: "openvpn_server_bytes_out_total", Value: totalOut, Unit: "bytes", RecordedAt: now, Source: "statusfile", MetricType: "counter"},
+		{Name: "openvpn_server_connected_clients", Value: float64(len(parsed.clients)), Unit: "sessions", RecordedAt: recorded, Source: "statusfile", MetricType: "gauge"},
+		{Name: "openvpn_server_bytes_in_total", Value: totalIn, Unit: "bytes", RecordedAt: recorded, Source: "statusfile", MetricType: "counter"},
+		{Name: "openvpn_server_bytes_out_total", Value: totalOut, Unit: "bytes", RecordedAt: recorded, Source: "statusfile", MetricType: "counter"},
 	}
 
 	version := extractVersion(parsed.title)
 	if version != "" {
-		samples = append(samples, models.MetricSample{Name: "openvpn_version_info", Value: 1, LabelsJSON: models.MarshalLabels(map[string]string{"version": version}), RecordedAt: now, Source: "statusfile", MetricType: "gauge"})
+		samples = append(samples, models.MetricSample{Name: "openvpn_version_info", Value: 1, LabelsJSON: models.MarshalLabels(map[string]string{"version": version}), RecordedAt: recorded, Source: "statusfile", MetricType: "gauge"})
 	}
 
 	if qlen, ok := parsed.global["max_bcast_mcast_queue_length"]; ok {
-		samples = append(samples, models.MetricSample{Name: "openvpn_global_max_bcast_mcast_queue_len", Value: qlen, Unit: "packets", RecordedAt: now, Source: "statusfile", MetricType: "gauge"})
+		samples = append(samples, models.MetricSample{Name: "openvpn_global_max_bcast_mcast_queue_len", Value: qlen, Unit: "packets", RecordedAt: recorded, Source: "statusfile", MetricType: "gauge"})
 	}
 	if qlen, ok := parsed.global["maxbcastmcastqueuelen"]; ok {
-		samples = append(samples, models.MetricSample{Name: "openvpn_global_max_bcast_mcast_queue_len", Value: qlen, Unit: "packets", RecordedAt: now, Source: "statusfile", MetricType: "gauge"})
+		samples = append(samples, models.MetricSample{Name: "openvpn_global_max_bcast_mcast_queue_len", Value: qlen, Unit: "packets", RecordedAt: recorded, Source: "statusfile", MetricType: "gauge"})
 	}
 
 	for _, cl := range parsed.clients {
 		labels := map[string]string{"common_name": cl.commonName, "real_addr": cl.realAddress, "virt_addr": cl.virtAddress}
 		samples = append(samples,
-			models.MetricSample{Name: "openvpn_client_cli_bytes_in", Value: float64(cl.bytesRx), Unit: "bytes", LabelsJSON: models.MarshalLabels(labels), RecordedAt: now, Source: "statusfile", MetricType: "counter"},
-			models.MetricSample{Name: "openvpn_client_cli_bytes_out", Value: float64(cl.bytesTx), Unit: "bytes", LabelsJSON: models.MarshalLabels(labels), RecordedAt: now, Source: "statusfile", MetricType: "counter"},
+			models.MetricSample{Name: "openvpn_client_bytes_in_total", Value: float64(cl.bytesRx), Unit: "bytes", LabelsJSON: models.MarshalLabels(labels), RecordedAt: recorded, Source: "statusfile", MetricType: "counter"},
+			models.MetricSample{Name: "openvpn_client_bytes_out_total", Value: float64(cl.bytesTx), Unit: "bytes", LabelsJSON: models.MarshalLabels(labels), RecordedAt: recorded, Source: "statusfile", MetricType: "counter"},
+			models.MetricSample{Name: "openvpn_client_connected", Value: 1, Unit: "sessions", LabelsJSON: models.MarshalLabels(labels), RecordedAt: recorded, Source: "statusfile", MetricType: "gauge"},
 		)
 	}
 
@@ -547,7 +560,21 @@ func (c *collector) persistUISnapshot(snapshot *Snapshot) error {
 	if err != nil {
 		return err
 	}
-	return models.SaveUISnapshot(payload, snapshot.TimeRead)
+
+	writeInterval := 15 * time.Second
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if payload == c.lastUISnapshotPayload && time.Since(c.lastUISnapshotWrite) < writeInterval {
+		return nil
+	}
+
+	if err := models.SaveUISnapshot(payload, snapshot.TimeRead); err != nil {
+		return err
+	}
+	c.lastUISnapshotPayload = payload
+	c.lastUISnapshotWrite = time.Now().UTC()
+	return nil
 }
 
 func sumMetricSince(name string, window time.Duration) (int64, error) {

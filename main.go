@@ -84,7 +84,7 @@ OpenVpnManagementPollInterval = "5s"
 OpenVpnManagementDialTimeout = "2s"
 OpenVpnManagementRWTimeout = "2s"
 OpenVpnStatusFilePath = "/var/log/status.log"
-OpenVpnStatusFilePollInterval = "2s"
+OpenVpnStatusFilePollInterval = "60s"
 OpenVpnStatusFileSessionHardTimeout = "1s"
 OpenVpnStatusFileBackoffMax = "10s"`
 
@@ -105,7 +105,7 @@ func ensureConfigFile(configDir, configFile string) error {
 func loadStatusCollectorConfig() statuscollector.Config {
 	return statuscollector.Config{
 		StatusFilePath:     web.AppConfig.DefaultString("OpenVpnStatusFilePath", "/var/log/status.log"),
-		PollInterval:       parseDurationConfig("OpenVpnStatusFilePollInterval", 2*time.Second),
+		PollInterval:       parseDurationConfig("OpenVpnStatusFilePollInterval", 60*time.Second),
 		SessionHardTimeout: parseDurationConfig("OpenVpnStatusFileSessionHardTimeout", 1*time.Second),
 		BackoffMax:         parseDurationConfig("OpenVpnStatusFileBackoffMax", 10*time.Second),
 	}

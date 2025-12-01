@@ -57,6 +57,7 @@ func InitMetricsDB() error {
 		return err
 	}
 
+	startMetricsRetention()
 	return nil
 }
 
@@ -80,4 +81,37 @@ func SaveMetrics(records []MetricRecord) error {
 		}
 	}
 	return nil
+}
+
+// WithMetricsTx executes fn inside a transaction on metrics DB.
+func WithMetricsTx(fn func(o orm.Ormer) error) error {
+	o := orm.NewOrmUsingDB(metricsAlias)
+	if err := o.Begin(); err != nil {
+		return err
+	}
+	if err := fn(o); err != nil {
+		_ = o.Rollback()
+		return err
+	}
+	return o.Commit()
+}
+
+func startMetricsRetention() {
+	retentionDays := web.AppConfig.DefaultInt("MetricsRetentionDays", 90)
+	intervalMinutes := web.AppConfig.DefaultInt("MetricsRetentionIntervalMinutes", 60)
+	retention := time.Duration(retentionDays) * 24 * time.Hour
+	interval := time.Duration(intervalMinutes) * time.Minute
+	if retention <= 0 || interval <= 0 {
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			cutoff := time.Now().Add(-retention)
+			o := orm.NewOrmUsingDB(metricsAlias)
+			_, _ = o.Raw("DELETE FROM metric_sample WHERE recorded_at < ?", cutoff).Exec()
+		}
+	}()
 }
