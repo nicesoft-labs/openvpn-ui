@@ -4,13 +4,16 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
+	"github.com/d3vilh/openvpn-ui/models"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -234,6 +237,7 @@ func (c *collector) collectOnce() error {
 
 	snapshot.Metrics = &metrics
 	c.storeSnapshot(snapshot)
+	c.persistUISnapshot(snapshot)
 
 	return nil
 }
@@ -338,6 +342,95 @@ func (c *collector) nextInterval() time.Duration {
 		return maxBackoff
 	}
 	return interval
+}
+
+func (c *collector) persistUISnapshot(snapshot *Snapshot) {
+	payload, err := buildUISnapshotPayload(snapshot)
+	if err != nil {
+		logs.Warn("build ui snapshot: %v", err)
+		return
+	}
+	if err := models.SaveUISnapshot(payload, snapshot.CollectedAt); err != nil {
+		logs.Warn("save ui snapshot: %v", err)
+	}
+}
+
+func buildUISnapshotPayload(snapshot *Snapshot) (string, error) {
+	if snapshot == nil {
+		return "", nil
+	}
+
+	resp := struct {
+		Ovstats  *OvStats  `json:"ovstats,omitempty"`
+		Ovstatus *OvStatus `json:"ovstatus,omitempty"`
+		Metrics  Metrics   `json:"metrics"`
+	}{}
+
+	resp.Ovstats = snapshot.OvStats
+	resp.Ovstatus = snapshot.OvStatus
+
+	metrics := Metrics{}
+	if snapshot.Metrics != nil {
+		metrics = *snapshot.Metrics
+	}
+
+	metrics.ClientBreakdown = convertClientBreakdown(snapshot.OvStatus)
+
+	if sec, err := sumMetricSince("openvpn_auth_fail_total", 24*time.Hour); err == nil {
+		metrics.Security24h.AuthFail = sec
+	}
+	if sec, err := sumMetricSince("openvpn_server_handshake_errors_total", 24*time.Hour); err == nil {
+		metrics.Security24h.HandshakeErrors = sec
+	}
+	if sec, err := sumMetricSince("openvpn_tls_verify_fail_total", 24*time.Hour); err == nil {
+		metrics.Security24h.TLSVerifyFail = sec
+	}
+	if sec, err := sumMetricSince("openvpn_crl_reject_total", 24*time.Hour); err == nil {
+		metrics.Security24h.CRLReject = sec
+	}
+	if sec, err := sumMetricSince("openvpn_keepalive_timeouts_total", 24*time.Hour); err == nil {
+		metrics.Security24h.KeepaliveTimeout = sec
+	}
+	if reconnects, err := sumMetricSince("openvpn_management_reconnects_total", 24*time.Hour); err == nil {
+		metrics.ManagementReconnects24h = reconnects
+	}
+
+	resp.Metrics = metrics
+
+	body, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+func convertClientBreakdown(status *OvStatus) []ClientBreakdown {
+	if status == nil {
+		return nil
+	}
+	breakdown := make([]ClientBreakdown, 0, len(status.ClientList))
+	for _, cl := range status.ClientList {
+		breakdown = append(breakdown, ClientBreakdown{
+			CommonName: cl.CommonName,
+			BytesIn:    cl.BytesReceived,
+			BytesOut:   cl.BytesSent,
+		})
+	}
+	return breakdown
+}
+
+func sumMetricSince(name string, window time.Duration) (int64, error) {
+	o := orm.NewOrmUsingDB("metrics")
+	since := time.Now().Add(-window)
+	samples := []models.MetricSample{}
+	if _, err := o.QueryTable(new(models.MetricSample)).Filter("Name", name).Filter("RecordedAt__gte", since).All(&samples, "Value"); err != nil {
+		return 0, err
+	}
+	var total int64
+	for i := range samples {
+		total += int64(samples[i].Value)
+	}
+	return total, nil
 }
 
 func convertStatus(status *mi.Status) *OvStatus {
