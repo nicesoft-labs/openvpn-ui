@@ -3,23 +3,23 @@
 {{define "head"}}
 <title>Настройки сервера</title>
 <style>
-  .form-help { font-size: .9rem; color:#6c757d; display:block; margin-top:.25rem; }
+  .form-help { font-size:.9rem; color:#6c757d; display:block; margin-top:.25rem; }
   .section-badge { font-size:.75rem; margin-left:.5rem }
   .input-icon { position: relative; }
-  .input-icon > i {
-    position:absolute; left:.75rem; top:50%; transform:translateY(-50%); pointer-events:none; opacity:.7;
-  }
+  .input-icon > i { position:absolute; left:.75rem; top:50%; transform:translateY(-50%); pointer-events:none; opacity:.7; }
   .input-icon > input, .input-icon > textarea, .input-icon > select { padding-left:2.2rem; }
   .card + .card { margin-top:1rem; }
-  .kuz-note { border-left:3px solid #28a745; padding-left:.5rem; }
-  .deprecated { border-left:3px solid #dc3545; padding-left:.5rem; }
+  .kuz-note { border-left:3px solid #28a745; padding:.25rem .5rem; background:#f8fff9; }
+  .deprecated { border-left:3px solid #dc3545; padding:.25rem .5rem; background:#fff8f8; }
   .input-group .input-group-text { background:#f8f9fa; }
   .input-group .form-control.is-invalid { border-left-color:#dc3545; }
+  .help-icon { margin-left:.35rem; cursor:help; opacity:.8; }
+  details.help-block { margin:.25rem 0 .5rem; }
+  details.help-block summary { cursor:pointer; user-select:none; color:#495057; }
 </style>
 {{end}}
 
 {{define "body"}}
-
 <!-- Верхняя панель действий -->
 <div class="card card-default">
   <div class="card-body">
@@ -55,318 +55,401 @@
   </div>
 
   <div class="card-body">
-    <p class="mb-3">Опции упорядочены так же, как будут сохранены в <code>server.conf</code>.</p>
+    <p class="mb-3">
+      Опции упорядочены так же, как будут сохранены в <code>server.conf</code>.
+      <i class="fa fa-question-circle help-icon" data-toggle="tooltip" title="Все значения проходят клиентскую валидацию и будут сохранены как строки в server.conf."></i>
+    </p>
 
-    <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
+    <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post" novalidate>
       <div class="row">
-        <!-- Базовые параметры + Криптография (одна колонка) -->
-<div class="col-12 p-0">
-  <!-- Базовые параметры -->
-  <div class="card">
-    <div class="card-header"><i class="fa fa-sliders mr-2"></i> Базовые параметры</div>
-    <div class="card-body">
-      <div class="form-group">
-        <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
-        <div class="input-icon">
-          <i class="fa fa-random"></i>
-          <input required pattern="^(tun|tap)$" title="Допустимо: tun или tap"
-                 type="text" selector="vformdata" class="form-control" name="Device" id="Device"
-                 placeholder="tun" value="{{ .Settings.Device }}">
-        </div>
-        <small class="form-help">Тип интерфейса: <b>tun</b> (L3), <b>tap</b> (L2).</small>
-        <div class="invalid-feedback">Укажите tun или tap.</div>
-      </div>
 
-      <div class="form-group">
-        <label for="Port">Port</label>
-        <div class="input-icon">
-          <i class="fa fa-plug"></i>
-          <input required type="number" min="1" max="65535"
-                 selector="vformdata" class="form-control" name="Port" id="Port"
-                 placeholder="1194" value="{{ .Settings.Port }}">
-        </div>
-        <small class="form-help">Порт прослушивания.</small>
-        <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
-      </div>
+        <!-- Базовые + Криптография -->
+        <div class="col-12 p-0">
 
-      <div class="form-group">
-        <label for="Proto">Proto</label>
-        <div class="input-icon">
-          <i class="fa fa-exchange"></i>
-          <input required pattern="^(udp|tcp)$" title="Допустимо: udp или tcp"
-                 type="text" selector="vformdata" class="form-control" name="Proto" id="Proto"
-                 placeholder="udp" value="{{ .Settings.Proto }}">
-        </div>
-        <small class="form-help">Рекомендуется UDP.</small>
-        <div class="invalid-feedback">Разрешено: udp или tcp.</div>
-      </div>
+          <!-- Базовые параметры -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fa fa-sliders mr-2"></i> Базовые параметры
+              <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+                 data-content="Базовые сетевые параметры OpenVPN: тип интерфейса, транспорт, порт, топология и базовые лимиты."></i>
+            </div>
+            <div class="card-body">
 
-      <div class="form-group">
-        <label for="OVConfigTopology">Topology</label>
-        <div class="input-icon">
-          <i class="fa fa-sitemap"></i>
-          <input required pattern="^(subnet|net30|p2p)$" title="subnet, net30 или p2p"
-                 type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology"
-                 placeholder="subnet" value="{{ .Settings.OVConfigTopology }}">
-        </div>
-        <small class="form-help">Обычно <b>subnet</b>.</small>
-        <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
-      </div>
-
-      <div class="form-group">
-        <label for="Keepalive">Keepalive</label>
-        <div class="input-icon">
-          <i class="fa fa-heartbeat"></i>
-          <input required pattern="^\s*\d+\s+\d+\s*$" title="Два числа: &lt;ping&gt; &lt;ping-restart&gt;"
-                 type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
-                 placeholder="10 120" value="{{ .Settings.Keepalive }}">
-        </div>
-        <small class="form-help">Формат: <code>&lt;ping&gt; &lt;ping-restart&gt;</code>.</small>
-        <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
-      </div>
-
-      <div class="form-group">
-        <label for="MaxClients">MaxClients</label>
-        <div class="input-icon">
-          <i class="fa fa-users"></i>
-          <input required type="number" min="1" max="65535"
-                 class="form-control" name="MaxClients" id="MaxClients" placeholder="100" value="{{ .Settings.MaxClients }}">
-        </div>
-        <small class="form-help">Ограничение одновременных подключений.</small>
-        <div class="invalid-feedback">Положительное число, не более 65535.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Криптография и TLS -->
-  <div class="card">
-    <div class="card-header"><i class="fa fa-shield mr-2"></i> Криптография и TLS</div>
-    <div class="card-body">
-      <div class="form-group">
-        <label>User / Group</label>
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-user"></i>
-              <input required pattern="^[a-z_][a-z0-9_-]*[$]?$" title="Системное имя пользователя"
-                     type="text" class="form-control" name="OVConfigUser" id="OVConfigUser"
-                     placeholder="nobody" value="{{ .Settings.OVConfigUser }}">
-            </div>
-            <div class="invalid-feedback">Некорректное имя пользователя.</div>
-          </div>
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-users"></i>
-              <input required pattern="^[a-z_][a-z0-9_-]*$" title="Системная группа"
-                     type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup"
-                     placeholder="nogroup" value="{{ .Settings.OVConfigGroup }}">
-            </div>
-            <div class="invalid-feedback">Некорректное имя группы.</div>
-          </div>
-        </div>
-        <small class="form-help">Понижение привилегий демона.</small>
-      </div>
-
-      <div class="form-group">
-        <label>PKI</label>
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-certificate"></i>
-              <input required type="text" class="form-control" name="Ca" id="Ca"
-                     placeholder="pki/ca.crt" value="{{ .Settings.Ca }}">
-            </div>
-            <small class="form-help">CA.</small>
-          </div>
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-id-badge"></i>
-              <input required type="text" class="form-control" name="Cert" id="Cert"
-                     placeholder="pki/issued/server.crt" value="{{ .Settings.Cert }}">
-            </div>
-            <small class="form-help">Сертификат сервера.</small>
-          </div>
-        </div>
-        <div class="row mt-2">
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-key"></i>
-              <input required type="text" class="form-control" name="Key" id="Key"
-                     placeholder="pki/private/server.key" value="{{ .Settings.Key }}">
-            </div>
-            <small class="form-help">Приватный ключ.</small>
-          </div>
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-ban"></i>
-              <input type="text" class="form-control" name="Crl" id="Crl"
-                     placeholder="pki/crl.pem" value="{{ .Settings.Crl }}">
-            </div>
-            <small class="form-help">CRL — опционально.</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>DH / TLS защита канала</label>
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-lock"></i>
-              <input type="text" class="form-control" name="Dh" id="Dh"
-                     placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
-            </div>
-            <small class="form-help">Параметры Диффи–Хеллмана (если нужны).</small>
-          </div>
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-shield-alt"></i>
-              <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel"
-                     placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
-            </div>
-            <small class="form-help"><code>tls-crypt</code> предпочтительнее <code>tls-auth</code>.</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="TLSMinVersion">TLS policy</label>
-        <div class="row">
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-level-up"></i>
-              <input required pattern="^tls-version-min\s+(1\.(2|3))$" title='Пример: "tls-version-min 1.2" или "tls-version-min 1.3"'
-                     type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion"
-                     placeholder="tls-version-min 1.2" value="{{ .Settings.TLSMinVersion }}">
-            </div>
-            <div class="invalid-feedback">Укажите: tls-version-min 1.2/1.3.</div>
-          </div>
-          <div class="col-sm-6">
-            <div class="input-icon">
-              <i class="fa fa-check-circle"></i>
-              <input required pattern="^remote-cert-tls\s+(client|server)$" title='remote-cert-tls client|server'
-                     type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert"
-                     placeholder="remote-cert-tls client" value="{{ .Settings.TLSRemoteCert }}">
-            </div>
-            <div class="invalid-feedback">remote-cert-tls client|server.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="Cipher">Cipher / NCP / Auth</label>
-        <div class="row">
-          <!-- CIPHER (single) -->
-          <div class="col-sm-4">
-            <label for="CipherSelect">Cipher (data channel)</label>
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text"><i class="fa fa-lock"></i></span>
+              <div class="form-group">
+                <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
+                <div class="input-icon">
+                  <i class="fa fa-random"></i>
+                  <input required pattern="^(tun|tap)$" title="Допустимо: tun или tap"
+                         type="text" selector="vformdata" class="form-control" name="Device" id="Device"
+                         placeholder="tun" value="{{ .Settings.Device }}" aria-describedby="DeviceHelp">
+                </div>
+                <small id="DeviceHelp" class="form-help">
+                  <b>tun</b> — L3 (IP-туннель, чаще всего), <b>tap</b> — L2 (бридж/эмуляция Ethernet).
+                </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>• <b>tun</b>: экономит MTU, проще маршрутизация, не тащит широковещательные кадры.<br>
+                       • <b>tap</b>: нужен, если требуется L2 (например, DHCP/NetBIOS/мультикаст на клиенте).</div>
+                </details>
+                <div class="invalid-feedback">Укажите tun или tap.</div>
               </div>
-              <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help"></select>
-              <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
-            </div>
-            <small id="cipher-help" class="form-help">Шифр для дата-канала.</small>
-            <div class="invalid-feedback">Выберите шифр.</div>
-          </div>
 
-          <!-- NCP (multiple) -->
-          <div class="col-sm-4">
-            <label for="NcpSelect">NCP (data-ciphers)</label>
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text"><i class="fa fa-list-ul"></i></span>
+              <div class="form-group">
+                <label for="Port">Port</label>
+                <div class="input-icon">
+                  <i class="fa fa-plug"></i>
+                  <input required type="number" min="1" max="65535"
+                         selector="vformdata" class="form-control" name="Port" id="Port"
+                         placeholder="1194" value="{{ .Settings.Port }}" aria-describedby="PortHelp">
+                </div>
+                <small id="PortHelp" class="form-help">
+                  Порт прослушивания сервера. Часто: <code>1194/udp</code> или любой свободный.
+                </small>
+                <div class="invalid-feedback">Диапазон порта: 1–65535.</div>
               </div>
-              <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help"></select>
-              <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
-            </div>
-            <small id="ncp-help" class="form-help">Список предпочтений для переговоров шифра.</small>
-          </div>
 
-          <!-- AUTH -->
-          <div class="col-sm-4">
-            <label for="AuthSelect">Auth (HMAC digest)</label>
-            <div class="input-group">
-              <div class="input-group-prepend">
-                <span class="input-group-text"><i class="fa fa-fingerprint"></i></span>
+              <div class="form-group">
+                <label for="Proto">Proto</label>
+                <div class="input-icon">
+                  <i class="fa fa-exchange"></i>
+                  <input required pattern="^(udp|tcp)$" title="Допустимо: udp или tcp"
+                         type="text" selector="vformdata" class="form-control" name="Proto" id="Proto"
+                         placeholder="udp" value="{{ .Settings.Proto }}" aria-describedby="ProtoHelp">
+                </div>
+                <small id="ProtoHelp" class="form-help">Рекомендуется <b>UDP</b> (меньше задержки, лучше для VPN).</small>
+                <div class="invalid-feedback">Разрешено: udp или tcp.</div>
               </div>
-              <select required class="form-control" id="AuthSelect" aria-describedby="cipher-help"></select>
-              <input required type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
+
+              <div class="form-group">
+                <label for="OVConfigTopology">Topology</label>
+                <div class="input-icon">
+                  <i class="fa fa-sitemap"></i>
+                  <input required pattern="^(subnet|net30|p2p)$" title="subnet, net30 или p2p"
+                         type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology"
+                         placeholder="subnet" value="{{ .Settings.OVConfigTopology }}" aria-describedby="TopoHelp">
+                </div>
+                <small id="TopoHelp" class="form-help">
+                  Обычно <b>subnet</b> (современный режим адресации клиентов).
+                </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>• <b>subnet</b>: /30 не выдаются, адреса берутся из пула; проще маршрутизация.<br>
+                       • <b>net30</b>: старый режим, выделяет клиенту /30; почти не нужен.<br>
+                       • <b>p2p</b>: point-to-point для специфических сценариев.</div>
+                </details>
+                <div class="invalid-feedback">Допустимо: subnet, net30, p2p.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="Keepalive">Keepalive</label>
+                <div class="input-icon">
+                  <i class="fa fa-heartbeat"></i>
+                  <input required pattern="^\s*\d+\s+\d+\s*$" title="Два числа: <ping> <ping-restart>"
+                         type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive"
+                         placeholder="10 120" value="{{ .Settings.Keepalive }}" aria-describedby="KeepaliveHelp">
+                </div>
+                <small id="KeepaliveHelp" class="form-help">
+                  Формат: <code>&lt;ping&gt; &lt;ping-restart&gt;</code>. Например: <code>10 120</code>.
+                </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>• Первое число — период пинга в секундах; второе — таймаут рестарта при отсутствии пингов.</div>
+                </details>
+                <div class="invalid-feedback">Укажите два числа, например: 10 120.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="MaxClients">MaxClients</label>
+                <div class="input-icon">
+                  <i class="fa fa-users"></i>
+                  <input required type="number" min="1" max="65535"
+                         class="form-control" name="MaxClients" id="MaxClients"
+                         placeholder="100" value="{{ .Settings.MaxClients }}" aria-describedby="MaxClientsHelp">
+                </div>
+                <small id="MaxClientsHelp" class="form-help">
+                  Ограничение одновременных подключений (пул адресов должен соответствовать).
+                </small>
+                <div class="invalid-feedback">Положительное число, не более 65535.</div>
+              </div>
             </div>
-            <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC.</small>
-            <div class="invalid-feedback">Выберите дайджест.</div>
+          </div>
+
+          <!-- Криптография и TLS -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fa fa-shield mr-2"></i> Криптография и TLS
+              <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+                 data-content="Настройки сертификатов, ключей, параметров DH и политики TLS."></i>
+            </div>
+            <div class="card-body">
+
+              <div class="form-group">
+                <label>User / Group</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-user"></i>
+                      <input required pattern="^[a-z_][a-z0-9_-]*[$]?$" title="Системное имя пользователя"
+                             type="text" class="form-control" name="OVConfigUser" id="OVConfigUser"
+                             placeholder="nobody" value="{{ .Settings.OVConfigUser }}" aria-describedby="UGHelp">
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-users"></i>
+                      <input required pattern="^[a-z_][a-z0-9_-]*$" title="Системная группа"
+                             type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup"
+                             placeholder="nogroup" value="{{ .Settings.OVConfigGroup }}">
+                    </div>
+                  </div>
+                </div>
+                <small id="UGHelp" class="form-help">Понижение привилегий демона после старта.</small>
+              </div>
+
+              <div class="form-group">
+                <label>PKI</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-certificate"></i>
+                      <input required pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу" type="text"
+                             class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt"
+                             value="{{ .Settings.Ca }}" aria-describedby="PKIHelp">
+                    </div>
+                    <small class="form-help">CA-сертификат удостоверяющего центра.</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-id-badge"></i>
+                      <input required pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу" type="text"
+                             class="form-control" name="Cert" id="Cert" placeholder="pki/issued/server.crt"
+                             value="{{ .Settings.Cert }}">
+                    </div>
+                    <small class="form-help">Сертификат сервера.</small>
+                  </div>
+                </div>
+                <div class="row mt-2">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-key"></i>
+                      <input required pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу" type="text"
+                             class="form-control" name="Key" id="Key" placeholder="pki/private/server.key"
+                             value="{{ .Settings.Key }}">
+                    </div>
+                    <small class="form-help">Приватный ключ сервера.</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-ban"></i>
+                      <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу (опционально)" type="text"
+                             class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem"
+                             value="{{ .Settings.Crl }}">
+                    </div>
+                    <small class="form-help">CRL (список отозванных) — опционально.</small>
+                  </div>
+                </div>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>Стандартный набор: <code>ca</code>, <code>cert</code>, <code>key</code>, при необходимости — <code>crl-verify</code>.</div>
+                </details>
+              </div>
+
+              <div class="form-group">
+                <label>DH / TLS защита канала</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-lock"></i>
+                      <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу (опционально)" type="text"
+                             class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
+                    </div>
+                    <small class="form-help">Параметры Диффи–Хеллмана (для legacy-конфигураций).</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-shield"></i>
+                      <input pattern="^(tls-crypt|tls-auth)\s+[a-zA-Z0-9_/.-]+$" title="tls-crypt или tls-auth с путём"
+                             type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel"
+                             placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
+                    </div>
+                    <small class="form-help"><code>tls-crypt</code> предпочтительнее <code>tls-auth</code> (скрывает трафик рукопожатия).</small>
+                  </div>
+                </div>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>• <code>tls-crypt</code> шифрует и аутентифицирует управляющий канал; <code>tls-auth</code> — только HMAC.<br>
+                       • DH нужен в старых связках; при современных TLS-настройках часто не требуется.</div>
+                </details>
+              </div>
+
+              <div class="form-group">
+                <label for="TLSMinVersion">TLS policy</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-level-up"></i>
+                      <input required pattern="^tls-version-min\s+(1\.(2|3))$"
+                             title='Пример: "tls-version-min 1.2" или "tls-version-min 1.3"'
+                             type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion"
+                             placeholder="tls-version-min 1.2" value="{{ .Settings.TLSMinVersion }}" aria-describedby="TLSHelp">
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-check-circle"></i>
+                      <input required pattern="^remote-cert-tls\s+(client|server)$" title='remote-cert-tls client|server'
+                             type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert"
+                             placeholder="remote-cert-tls client" value="{{ .Settings.TLSRemoteCert }}">
+                    </div>
+                  </div>
+                </div>
+                <small id="TLSHelp" class="form-help">Минимальная версия и проверка типа удалённого сертификата.</small>
+              </div>
+
+              <div class="form-group">
+                <label for="Cipher">Cipher / NCP / Auth</label>
+                <div class="row">
+
+                  <!-- CIPHER (single) -->
+                  <div class="col-sm-4">
+                    <label for="CipherSelect">Cipher (data channel)
+                      <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+                         title="Шифр для канала данных; для TLS-основанных режимов доступны AEAD (GCM, CHACHA20-POLY1305)."></i>
+                    </label>
+                    <div class="input-group">
+                      <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-lock"></i></span>
+                      </div>
+                      <select required class="form-control" id="CipherSelect" aria-describedby="cipher-help"></select>
+                      <input type="hidden" name="Cipher" id="Cipher" value="{{ .Settings.Cipher }}">
+                    </div>
+                    <small id="cipher-help" class="form-help">Выберите основной шифр для сервера.</small>
+                    <div class="invalid-feedback">Выберите шифр.</div>
+                  </div>
+
+                  <!-- NCP (multiple) -->
+                  <div class="col-sm-4">
+                    <label for="NcpSelect">NCP (data-ciphers)
+                      <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+                         title="Negotiable Crypto Parameters: список предпочтений для согласования шифров с клиентом."></i>
+                    </label>
+                    <div class="input-group">
+                      <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-list-ul"></i></span>
+                      </div>
+                      <select class="form-control" id="NcpSelect" multiple size="8" aria-describedby="ncp-help"></select>
+                      <input type="hidden" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" value="{{ .Settings.OVConfigNcpCiphers }}">
+                    </div>
+                    <small id="ncp-help" class="form-help">Список предпочтений для переговоров шифра.</small>
+                    <div class="invalid-feedback">Выберите хотя бы один шифр для NCP.</div>
+                  </div>
+
+                  <!-- AUTH -->
+                  <div class="col-sm-4">
+                    <label for="AuthSelect">Auth (HMAC digest)
+                      <i class="fa fa-question-circle help-icon" data-toggle="tooltip"
+                         title="Алгоритм дайджеста для HMAC/подписи; при AEAD-шифрах значение может игнорироваться для данных."></i>
+                    </label>
+                    <div class="input-group">
+                      <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fingerprint"></i></span>
+                      </div>
+                      <select required class="form-control" id="AuthSelect" aria-describedby="auth-help"></select>
+                      <input required type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
+                    </div>
+                    <small id="auth-help" class="form-help">Алгоритм дайджеста для HMAC.</small>
+                    <div class="invalid-feedback">Выберите дайджест.</div>
+                  </div>
+                </div>
+
+                <!-- Подсказки по шифрам -->
+                <div class="mt-2">
+                  <div class="kuz-note">
+                    <b>Современные шифры:</b> <code>kuznyechik-cbc</code> (256/128), <code>kuznyechik-cfb</code> (TLS-only), <code>kuznyechik-ofb</code> (TLS-only).
+                  </div>
+                  <div class="deprecated mt-2">
+                    <b>Устаревшие (блок &lt; 128):</b> <code>gost89</code>, <code>gost89-cbc</code>, <code>gost89-cnt</code>, <code>gost89-cnt-12</code>, <code>magma-cbc</code>.
+                  </div>
+                  <div class="mt-2">
+                    <b>Дайджесты для <code>--auth</code>:</b> <code>id-tc26-gost3411-12-256</code>, <code>id-tc26-gost3411-12-512</code> (устар.: <code>id-GostR3411-94</code>).
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" id="auth-mode">
+                <label for="FuncMode">Режим аутентификации</label>
+                <div class="input-icon">
+                  <i class="fa fa-shield"></i>
+                  <select name="FuncMode" id="FuncMode" class="form-control" aria-describedby="auth-mode-help">
+                    <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая (сертификат, опционально пароль)</option>
+                    <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная (2FA)</option>
+                  </select>
+                </div>
+                <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом (TOTP/HOTP).</small>
+                <div class="invalid-feedback">Выберите режим аутентификации.</div>
+              </div>
+
+              <div class="form-group" id="script-sec">
+                <label for="scriptsecurity">Script-security</label>
+                <div class="input-icon">
+                  <i class="fa fa-code"></i>
+                  <input required pattern="^script-security\s+[0-3]$" title="script-security 0-3"
+                         type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity"
+                         placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}"
+                         aria-describedby="ScriptHelp">
+                </div>
+                <small id="ScriptHelp" class="form-help">
+                  Для запуска внешних скриптов верификации требуется <code>script-security 2</code> или выше.
+                </small>
+                <div class="invalid-feedback">Укажите script-security 0-3.</div>
+              </div>
+
+              <div class="form-group" id="auth-user-pass-verify">
+                <label for="userpassverify">Auth-user-pass-verify</label>
+                <div class="input-icon">
+                  <i class="fa fa-terminal"></i>
+                  <input required pattern="^auth-user-pass-verify\s+[a-zA-Z0-9_/.-]+\s+via-(file|env)$"
+                         title="auth-user-pass-verify <script> via-file/via-env"
+                         type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify"
+                         placeholder="Конфигурация 2FA"
+                         value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}"
+                         aria-describedby="UPVHelp">
+                </div>
+                <small id="UPVHelp" class="form-help">
+                  <code>via-file</code> предпочтительнее (<i>stdin</i>), <code>via-env</code> — через переменные окружения.
+                </small>
+                <div class="invalid-feedback">Укажите auth-user-pass-verify с скриптом и via-file/via-env.</div>
+              </div>
+
+            </div>
           </div>
         </div>
-
-        <!-- Подсказки по шифрам -->
-        <div class="mt-2">
-          <div class="kuz-note">
-            <b>Современные шифры:</b> <code>kuznyechik-cbc</code> (256/128), <code>kuznyechik-cfb</code> (TLS-only), <code>kuznyechik-ofb</code> (TLS-only).
-          </div>
-          <div class="deprecated mt-2">
-            <b>Устаревшие (блок &lt; 128):</b> <code>gost89</code>, <code>gost89-cbc</code>, <code>gost89-cnt</code>, <code>gost89-cnt-12</code>, <code>magma-cbc</code>.
-          </div>
-          <div class="mt-2">
-            <b>Дайджесты для <code>--auth</code>:</b> <code>id-tc26-gost3411-12-256</code>, <code>id-tc26-gost3411-12-512</code> (устар.: <code>id-GostR3411-94</code>).
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group" id="auth-mode">
-        <label for="FuncMode">Режим аутентификации</label>
-        <div class="input-icon">
-          <i class="fa fa-shield"></i>
-          <select name="FuncMode" id="FuncMode" class="form-control" aria-describedby="auth-mode-help">
-            <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая (сертификат, опционально пароль)</option>
-            <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная (2FA)</option>
-          </select>
-        </div>
-        <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом.</small>
-      </div>
-
-      <div class="form-group" id="script-sec">
-        <label for="scriptsecurity">Script-security</label>
-        <div class="input-icon">
-          <i class="fa fa-code"></i>
-          <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity"
-                 placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
-        </div>
-        <small class="form-help">Для 2FA требуется <code>script-security 2</code>.</small>
-      </div>
-
-      <div class="form-group" id="auth-user-pass-verify">
-        <label for="userpassverify">Auth-user-pass-verify</label>
-        <div class="input-icon">
-          <i class="fa fa-terminal"></i>
-          <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify"
-                 placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
-        </div>
-        <small class="form-help"><code>via-file</code> безопаснее <code>via-env</code>.</small>
-      </div>
-    </div>
-  </div>
-</div>
-
       </div>
 
       <!-- Сети и маршрутизация -->
       <div class="card">
-        <div class="card-header"><i class="fa fa-network-wired mr-2"></i> Сети и маршруты</div>
+        <div class="card-header">
+          <i class="fa fa-network-wired mr-2"></i> Сети и маршруты
+          <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+             data-content="Адресное пространство VPN, маршруты для серверной стороны и push-маршруты для клиентов."></i>
+        </div>
         <div class="card-body">
+
           <div class="row">
             <div class="col-md-4">
               <div class="form-group">
                 <label for="Server">Server (доверенная VPN-подсеть)</label>
                 <div class="input-icon">
                   <i class="fa fa-home"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Server" id="Server" placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}">
+                  <input required
+                         pattern="^server\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+                         title="server <IP> <MASK>"
+                         type="text" selector="vformdata" class="form-control" name="Server" id="Server"
+                         placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}" aria-describedby="ServerHelp">
                 </div>
-                <small class="form-help">
-                  Выделяет VPN-подсеть для клиентов (пул адресов «доверенной» зоны). Не должен пересекаться с сетями клиентов.
-                  Пример: <code>server 10.0.70.0 255.255.255.0</code> → сервер 10.0.70.1, клиенты 10.0.70.2–254.
-                  Это не добавляет маршруты к вашим LAN — только создаёт адресное пространство VPN.
-                  Для <b>tap</b> можно использовать <code>server-bridge</code>
+                <small id="ServerHelp" class="form-help">
+                  Выделяет VPN-подсеть для клиентов. Пример: <code>server 10.0.70.0 255.255.255.0</code>.
                 </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>• Не должен пересекаться с LAN клиента.<br>
+                       • Для <b>tap</b> вместо этого можно применять <code>server-bridge</code>.</div>
+                </details>
+                <div class="invalid-feedback">Формат: server &lt;IP&gt; &lt;MASK&gt;.</div>
               </div>
             </div>
 
@@ -375,79 +458,86 @@
                 <label for="Route">Route (гостевая VPN-подсеть)</label>
                 <div class="input-icon">
                   <i class="fa fa-route"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="Route" id="Route" placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}">
+                  <input pattern="^route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"
+                         title="route <IP> <MASK>" type="text" selector="vformdata"
+                         class="form-control" name="Route" id="Route"
+                         placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}" aria-describedby="RouteHelp">
                 </div>
-                <small class="form-help">
-                  Добавляет маршрут на стороне сервера и делает подсеть достижимой через туннель. Клиентам НЕ рассылается.
-                  Полезно для дополнительной VPN-подсети/сегмента (напр., «гости»).
-                  Для site-to-site используйте с <code>client-config-dir</code> + <code>iroute</code> (привязка подсети к клиенту).
-                  Пример: <code>route 10.0.71.0 255.255.255.0</code>.
+                <small id="RouteHelp" class="form-help">
+                  Добавляет маршрут на стороне сервера; клиентам <u>не</u> рассылается.
                 </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>Для site-to-site используйте <code>client-config-dir</code> + <code>iroute</code> для привязки подсети к конкретному клиенту.</div>
+                </details>
+                <div class="invalid-feedback">Формат: route &lt;IP&gt; &lt;MASK&gt;.</div>
               </div>
             </div>
 
-          
             <div class="col-md-4">
-
-
               <div class="form-group">
-  <div class="custom-control custom-switch">
-    <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
-      {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
-    <label class="custom-control-label" for="SplitOnlyMode">
-      Режим split-tunnel (не пушить default-route)
-    </label>
-  </div>
-  <small class="form-help">Если включено — игнорировать поле «redirect-gateway» при генерации конфигурации.</small>
-</div>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="SplitOnlyMode" name="SplitOnlyMode"
+                         {{ if .Settings.SplitOnlyMode }}checked{{ end }}>
+                  <label class="custom-control-label" for="SplitOnlyMode">
+                    Режим split-tunnel (не пушить default-route)
+                  </label>
+                </div>
+                <small class="form-help">
+                  При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов.
+                </small>
+              </div>
 
-              
               <div class="form-group">
                 <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
                 <div class="input-icon">
                   <i class="fa fa-share-square-o"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder='push "route 10.0.60.0 255.255.255.0"' value="{{ .Settings.PushRoute }}">
+                  <input pattern='^push\s+"route\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                         title='push "route <IP> <MASK>"'
+                         type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute"
+                         placeholder='push "route 10.0.60.0 255.255.255.0"'
+                         value="{{ .Settings.PushRoute }}" aria-describedby="PushRouteHelp">
                 </div>
-                <small class="form-help">
-                  Рассылает всем клиентам маршрут к вашей LAN (split-tunnel). Нужен, чтобы клиенты видели домашнюю/офисную сеть через VPN.
-                  Сервер должен уметь доставлять ответы (статический обратный маршрут или NAT).
-                  Пример: <code>push "route 10.0.60.0 255.255.255.0"</code>. Для «весь трафик через VPN» — <code>push "redirect-gateway def1 bypass-dhcp"</code>.
+                <small id="PushRouteHelp" class="form-help">
+                  Рассылает клиентам маршрут к вашей LAN (split-tunnel). Сервер должен уметь доставлять ответы (обратный маршрут или NAT).
                 </small>
+                <div class="invalid-feedback">Формат: push "route &lt;IP&gt; &lt;MASK&gt;".</div>
               </div>
             </div>
           </div>
 
-          
-<div class="row">
-  <div class="col-md-6">
-    <div class="form-group">
-      <label for="PushRoutesExtra">Пушить только эти сети (split-tunnel)</label>
-      <div class="input-icon">
-        <i class="fa fa-share-alt"></i>
-        <textarea class="form-control" name="PushRoutesExtra" id="PushRoutesExtra" rows="4"
-          placeholder="Каждая строка: 10.10.0.0 255.255.0.0&#10;172.16.100.0 255.255.255.0">{{ .Settings.PushRoutesExtra }}</textarea>
-      </div>
-      <small class="form-help">
-        Сервер отправит клиентам <code>push "route &lt;NET&gt; &lt;MASK&gt;"</code> для каждой строки. 
-        Если это поле заполнено — <b>не используйте</b> <code>redirect-gateway</code>, чтобы трафик по умолчанию шёл мимо VPN.
-      </small>
-    </div>
-  </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="PushRoutesExtra">Пушить только эти сети (split-tunnel)</label>
+                <div class="input-icon">
+                  <i class="fa fa-share-alt"></i>
+                  <textarea class="form-control" name="PushRoutesExtra" id="PushRoutesExtra" rows="4"
+                            placeholder="Каждая строка: 10.10.0.0 255.255.0.0&#10;172.16.100.0 255.255.255.0"
+                            aria-describedby="PREHelp">{{ .Settings.PushRoutesExtra }}</textarea>
+                </div>
+                <small id="PREHelp" class="form-help">
+                  На каждую строку будет сгенерирован <code>push "route &lt;NET&gt; &lt;MASK&gt;"</code>.
+                </small>
+                <details class="help-block"><summary>Справка</summary>
+                  <div>Если используете этот список — не пушьте <code>redirect-gateway</code>, иначе трафик по умолчанию уйдёт в VPN.</div>
+                </details>
+                <div class="invalid-feedback">Каждая строка в формате &lt;IP&gt; &lt;MASK&gt;.</div>
+              </div>
+            </div>
 
-  <div class="col-md-6">
-    <div class="form-group">
-      <label for="DocSplitTunnel">Памятка по split-tunnel</label>
-      <div class="alert alert-secondary" id="DocSplitTunnel" role="alert" style="margin:0">
-        <ul class="mb-0 pl-3">
-          <li>Для «только выбранные сети» — <b>не</b> пушьте <code>redirect-gateway</code>, укажите список сетей слева.</li>
-          <li>Для маршрутизации ответов убедитесь в наличии обратного маршрута/маскарадинга на сервере.</li>
-          <li>Если клиенту нельзя принимать вообще никаких пушей — он может использовать
-            <code>route-nopull</code> в своём <i>.ovpn</i> и добавить нужные <code>route</code> локально.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="DocSplitTunnel">Памятка по split-tunnel</label>
+                <div class="alert alert-secondary" id="DocSplitTunnel" role="alert" style="margin:0">
+                  <ul class="mb-0 pl-3">
+                    <li>Для «только выбранные сети» — <b>не</b> пушьте <code>redirect-gateway</code>, укажите список сетей слева.</li>
+                    <li>Обратные маршруты/NAT обязателены на серверной стороне.</li>
+                    <li>Клиент может игнорировать пуши через <code>route-nopull</code> и прописать локальные <code>route</code>.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div class="row">
             <div class="col-md-3">
@@ -455,29 +545,46 @@
                 <label for="DNSServer1">Push DHCP (DNS #1)</label>
                 <div class="input-icon">
                   <i class="fa fa-globe"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1" placeholder='push "dhcp-option DNS 8.8.8.8"' value="{{ .Settings.DNSServer1 }}">
+                  <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                         title='push "dhcp-option DNS <IP>"'
+                         type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1"
+                         placeholder='push "dhcp-option DNS 8.8.8.8"' value="{{ .Settings.DNSServer1 }}">
                 </div>
-                <small class="form-help">Прокидывает основной DNS клиентам.</small>
+                <small class="form-help">Основной DNS для клиентов.</small>
+                <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
               </div>
             </div>
+
             <div class="col-md-3">
               <div class="form-group">
                 <label for="DNSServer2">Push DHCP (DNS #2)</label>
                 <div class="input-icon">
                   <i class="fa fa-globe"></i>
-                  <input type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2" placeholder='push "dhcp-option DNS 1.0.0.1"' value="{{ .Settings.DNSServer2 }}">
+                  <input pattern='^push\s+"dhcp-option\s+DNS\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"$'
+                         title='push "dhcp-option DNS <IP>"'
+                         type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2"
+                         placeholder='push "dhcp-option DNS 1.0.0.1"' value="{{ .Settings.DNSServer2 }}">
                 </div>
                 <small class="form-help">Резервный DNS.</small>
+                <div class="invalid-feedback">Формат: push "dhcp-option DNS &lt;IP&gt;".</div>
               </div>
             </div>
+
             <div class="col-md-6">
               <div class="form-group">
                 <label for="RedirectGW">Push redirect-gateway</label>
                 <div class="input-icon">
                   <i class="fa fa-location-arrow"></i>
-                  <input type="text" class="form-control" name="RedirectGW" id="RedirectGW" placeholder='push "redirect-gateway def1 bypass-dhcp"' value="{{ .Settings.RedirectGW }}">
+                  <input pattern='^push\s+"redirect-gateway\s+(def1\s+bypass-dhcp|autolocal|local|def1|bypass-dhcp|bypass-dns|block-local|ipv6|!ipv4)?"$'
+                         title='push "redirect-gateway [options]"'
+                         type="text" class="form-control" name="RedirectGW" id="RedirectGW"
+                         placeholder='push "redirect-gateway def1 bypass-dhcp"' value="{{ .Settings.RedirectGW }}"
+                         aria-describedby="RGWHelp">
                 </div>
-                <small class="form-help">Маршрут по умолчанию через VPN для всего клиентского трафика.</small>
+                <small id="RGWHelp" class="form-help">
+                  Принудительный default-route через VPN. Нельзя сочетать со strict split-tunnel.
+                </small>
+                <div class="invalid-feedback">Формат: push "redirect-gateway [options]".</div>
               </div>
             </div>
           </div>
@@ -486,55 +593,84 @@
             <label for="OVConfigClientConfigDir">Client-Config-Dir</label>
             <div class="input-icon">
               <i class="fa fa-folder-open"></i>
-              <input type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir" placeholder="/etc/openvpn/staticclients" value="{{ .Settings.OVConfigClientConfigDir }}">
+              <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к директории"
+                     type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir"
+                     placeholder="/etc/openvpn/staticclients" value="{{ .Settings.OVConfigClientConfigDir }}"
+                     aria-describedby="CCDHelp">
             </div>
-            <small class="form-help">Каталог для клиентских статических настроек (<code>ccd</code>).</small>
+            <small id="CCDHelp" class="form-help">
+              Каталог для статических настроек клиентов (<code>ccd</code>), применяется с <code>client-config-dir</code>.
+            </small>
+            <div class="invalid-feedback">Укажите валидный путь к директории.</div>
           </div>
 
           <div class="form-group">
             <label for="IfconfigPoolPersist">Ifconfig-Pool-Persist</label>
             <div class="input-icon">
               <i class="fa fa-address-book"></i>
-              <input type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist" placeholder="pki/ipp.txt" value="{{ .Settings.IfconfigPoolPersist }}">
+              <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу"
+                     type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist"
+                     placeholder="pki/ipp.txt" value="{{ .Settings.IfconfigPoolPersist }}"
+                     aria-describedby="IPPHelp">
             </div>
-            <small class="form-help">Сопоставление клиент ↔ IP (удобно для статических адресов).</small>
+            <small id="IPPHelp" class="form-help">
+              Хранение сопоставления клиент ↔ IP, удобно для статических адресов.
+            </small>
+            <div class="invalid-feedback">Укажите валидный путь к файлу.</div>
           </div>
+
         </div>
       </div>
 
-      <!-- Логи и наблюдаемость -->
+      <!-- Логи и статус -->
       <div class="card">
-        <div class="card-header"><i class="fa fa-file-text-o mr-2"></i> Логи и статус</div>
+        <div class="card-header">
+          <i class="fa fa-file-text-o mr-2"></i> Логи и статус
+          <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+             data-content="Файл лога, уровень подробности, файл статуса (для экспортёров/мониторинга)."></i>
+        </div>
         <div class="card-body">
+
           <div class="row">
             <div class="col-md-4">
               <div class="form-group">
                 <label for="OVConfigLogfile">Logfile</label>
                 <div class="input-icon">
                   <i class="fa fa-file-o"></i>
-                  <input type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile" placeholder="/var/log/openvpn/openvpn.log" value="{{ .Settings.OVConfigLogfile }}">
+                  <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу"
+                         type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile"
+                         placeholder="/var/log/openvpn/openvpn.log" value="{{ .Settings.OVConfigLogfile }}">
                 </div>
-                <small class="form-help">Файл журнала OpenVPN.</small>
+                <small class="form-help">Путь к файлу журнала OpenVPN.</small>
+                <div class="invalid-feedback">Укажите валидный путь к файлу лога.</div>
               </div>
             </div>
+
             <div class="col-md-4">
               <div class="form-group">
                 <label for="OVConfigLogVerbose">Verb</label>
                 <div class="input-icon">
                   <i class="fa fa-bullhorn"></i>
-                  <input type="text" class="form-control" id="OVConfigLogVerbose" name="OVConfigLogVerbose" placeholder="3" value="{{ .Settings.OVConfigLogVerbose }}">
+                  <input type="number" min="0" max="9" class="form-control"
+                         id="OVConfigLogVerbose" name="OVConfigLogVerbose"
+                         placeholder="3" value="{{ .Settings.OVConfigLogVerbose }}" aria-describedby="VerbHelp">
                 </div>
-                <small class="form-help">Уровень подробности (0–4). Для прод — 3.</small>
+                <small id="VerbHelp" class="form-help">Уровень подробности (0–9). Для прод — 3.</small>
+                <div class="invalid-feedback">Уровень 0–9.</div>
               </div>
             </div>
+
             <div class="col-md-4">
               <div class="form-group">
                 <label for="OVConfigStatusLog">Status file</label>
                 <div class="input-icon">
                   <i class="fa fa-info-circle"></i>
-                  <input type="text" class="form-control" name="OVConfigStatusLog" id="OVConfigStatusLog" placeholder="/var/log/openvpn/openvpn-status.log" value="{{ .Settings.OVConfigStatusLog }}">
+                  <input pattern="^[a-zA-Z0-9_/.-]+$" title="Валидный путь к файлу"
+                         type="text" class="form-control" name="OVConfigStatusLog" id="OVConfigStatusLog"
+                         placeholder="/var/log/openvpn/openvpn-status.log" value="{{ .Settings.OVConfigStatusLog }}">
                 </div>
-                <small class="form-help">Статус для экспортеров/мониторинга.</small>
+                <small class="form-help">Файл статуса для экспортёров/мониторинга.</small>
+                <div class="invalid-feedback">Укажите валидный путь к файлу статуса.</div>
               </div>
             </div>
           </div>
@@ -543,39 +679,47 @@
             <label for="OVConfigStatusLogVersion">Status file version</label>
             <div class="input-icon">
               <i class="fa fa-hashtag"></i>
-              <input type="text" class="form-control" name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion" placeholder="2" value="{{ .Settings.OVConfigStatusLogVersion }}">
+              <input type="number" min="1" max="3" class="form-control"
+                     name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion"
+                     placeholder="2" value="{{ .Settings.OVConfigStatusLogVersion }}" aria-describedby="SVerHelp">
             </div>
-            <small class="form-help">Версия формата файла статуса (нужна некоторым экспортерам OpenVPN).</small>
+            <small id="SVerHelp" class="form-help">Версия формата файла статуса (1–3), нужна некоторым экспортёрам OpenVPN.</small>
+            <div class="invalid-feedback">Версия 1–3.</div>
           </div>
         </div>
       </div>
 
       <!-- Произвольные опции -->
       <div class="card">
-        <div class="card-header"><i class="fa fa-wrench mr-2"></i> Произвольные опции</div>
+        <div class="card-header">
+          <i class="fa fa-wrench mr-2"></i> Произвольные опции
+          <i class="fa fa-info-circle help-icon" data-toggle="popover" data-placement="right"
+             data-content="Любые дополнительные строки конфигурации. Строки, начинающиеся с #, считаются комментариями."></i>
+        </div>
         <div class="card-body">
           <div class="form-group">
             <label for="CustomOptOne">Произвольная опция №1</label>
             <div class="input-icon">
               <i class="fa fa-tag"></i>
-              <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne" placeholder="#Custom Option One" value="{{ .Settings.CustomOptOne }}">
+              <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne"
+                     placeholder="#Custom Option One" value="{{ .Settings.CustomOptOne }}">
             </div>
-            <small class="form-help">Любая строка в формате OpenVPN. Для отключения — начните с <code>#</code>.</small>
+            <small class="form-help">Введите строку в синтаксисе OpenVPN. Для отключения — начните с <code>#</code>.</small>
           </div>
-
           <div class="form-group">
             <label for="CustomOptTwo">Произвольная опция №2</label>
             <div class="input-icon">
               <i class="fa fa-tags"></i>
-              <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo" rows="2" placeholder="#Custom Option Two">{{ .Settings.CustomOptTwo }}</textarea>
+              <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo"
+                        rows="2" placeholder="#Custom Option Two">{{ .Settings.CustomOptTwo }}</textarea>
             </div>
           </div>
-
           <div class="form-group">
             <label for="CustomOptThree">Произвольная опция №3</label>
             <div class="input-icon">
               <i class="fa fa-tags"></i>
-              <textarea class="form-control" name="CustomOptThree" id="CustomOptThree" rows="3" placeholder="#Custom Option Three">{{ .Settings.CustomOptThree }}</textarea>
+              <textarea class="form-control" name="CustomOptThree" id="CustomOptThree"
+                        rows="3" placeholder="#Custom Option Three">{{ .Settings.CustomOptThree }}</textarea>
             </div>
           </div>
         </div>
@@ -584,7 +728,7 @@
       {{ .xsrfdata }}
       <div class="d-flex justify-content-end">
         <button type="submit" class="btn btn-primary"
-          onclick="return confirm('Вы уверены, что хотите сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">
+                onclick="return confirm('Вы уверены, что хотите сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">
           <i class="fa fa-save mr-1"></i> Сохранить конфиг
         </button>
       </div>
@@ -596,21 +740,24 @@
 <div class="modal fade" id="config-view-modal" tabindex="-1" role="dialog" aria-labelledby="configViewTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
+
       <div class="modal-header">
         <h4 id="configViewTitle" class="modal-title">
           <i class="fa fa-file-code-o mr-2" aria-hidden="true"></i>{{ .BeeSettings.OVConfigPath }}/server.conf
         </h4>
         <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть"><span aria-hidden="true">&times;</span></button>
       </div>
+
       <div class="modal-body">
         {{template "common/alert.html" .}}
         <form role="server-config" action="{{urlfor "OVConfigController.Edit"}}" method="post">
           <div class="card-body">
+
             <div class="card-group" id="accordion">
               <span>
                 <a data-toggle="collapse" data-parent="#accordion" href="#collapseNotice" aria-expanded="false" class="collapsed">
-                  <i class="fa fa-fw fa-info-circle" style="color: #f39c12;"></i>
-                  <b style="color: #f39c12;">Обратите внимание</b>
+                  <i class="fa fa-fw fa-info-circle" style="color:#f39c12;"></i>
+                  <b style="color:#f39c12;">Обратите внимание</b>
                 </a>
               </span>
               <div id="collapseNotice" class="panel-collapse collapse" aria-expanded="false">
@@ -621,26 +768,41 @@
               </div>
             </div>
 
-            <textarea class="form-control my-textarea" name="ServerConfig" id="ServerConfig" spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
+            <textarea class="form-control my-textarea" name="ServerConfig" id="ServerConfig"
+                      spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
             {{ .xsrfdata }}
           </div>
+
           <div class="card-footer d-flex justify-content-between">
-            <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times mr-1"></i> Закрыть</button>
+            <button type="button" class="btn btn-default" data-dismiss="modal">
+              <i class="fa fa-times mr-1"></i> Закрыть
+            </button>
             <button type="submit" class="btn btn-primary"
-              onclick="return confirm('Вы уверены, что хотите сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!'); window.location.reload();">
+                    onclick="return confirm('Вы уверены, что хотите сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!');">
               <i class="fa fa-save mr-1"></i> Сохранить
             </button>
           </div>
         </form>
+
         <span class="text-muted">{{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
       </div>
+
     </div>
   </div>
 </div>
-
 {{end}}
 
+<!-- Вспомогательные данные от контроллера (опционально) -->
+<script type="application/json" id="OpenVpnDigestsJSON">{{ .OpenVpnDigestsJSON }}</script>
+
 <script>
+  // Инициализация Bootstrap tooltips/popovers
+  window.addEventListener('load', function(){
+    if (window.$ && $.fn.tooltip) { $('[data-toggle="tooltip"]').tooltip(); }
+    if (window.$ && $.fn.popover) { $('[data-toggle="popover"]').popover({ trigger:'hover' }); }
+  });
+
+  // Переключение режима аутентификации (показываем/прячем 2FA поля)
   const funcModeSelect = document.getElementById('FuncMode');
   const scriptSecurityDiv = document.getElementById('script-sec');
   const userPassVerifyDiv = document.getElementById('auth-user-pass-verify');
@@ -661,9 +823,8 @@
       userPassVerifyInput.value = 'auth-user-pass-verify /opt/app/bin/oath.sh via-file';
     }
   }
-  if (funcModeSelect) {
-    funcModeSelect.addEventListener('change', checkFuncMode);
-  }
+
+  if (funcModeSelect) { funcModeSelect.addEventListener('change', checkFuncMode); }
 
   window.addEventListener('load', () => {
     checkFuncMode();
@@ -674,23 +835,17 @@
     }
   });
 </script>
+
+<!-- AUTH digests -->
 <script>
-/** ——— Конфиг категоризации ——— */
-const DEPRECATED = new Set([
-  'MD5', 'MD5-SHA1', 'SHA1', 'id-GostR3411-94', 'NULL'
-]);
-
+const DEPRECATED = new Set(['MD5','MD5-SHA1','SHA1','id-GostR3411-94','NULL']);
 const RECOMMENDED = new Set([
-  'SHA256','SHA384','SHA512',
-  'SHA3-256','SHA3-384','SHA3-512',
-  'BLAKE2s256','BLAKE2b512',
-  'SM3',
+  'SHA256','SHA384','SHA512','SHA3-256','SHA3-384','SHA3-512',
+  'BLAKE2s256','BLAKE2b512','SM3',
   'id-tc26-gost3411-12-256','id-tc26-gost3411-12-512',
-  'SHA512-256','SHA512-224','SHA224','SHA3-224',
-  'SHA2-256/192' // присутствует в выводе openvpn некоторых сборок
+  'SHA512-256','SHA512-224','SHA224','SHA3-224','SHA2-256/192'
 ]);
 
-/** ——— Резервный «сырой» список из твоего сообщения ——— */
 const DIGESTS_FALLBACK_RAW = `
 SHA3-512 512 bit digest size
 SHA512-256 256 bit digest size
@@ -724,9 +879,6 @@ id-tc26-gost3411-12-512 512 bit digest size
 id-GostR3411-94 256 bit digest size
 `;
 
-/** ——— Парсер строк openvpn ———
- * Матчит как обычные, так и «SHAKE/NULL/KECCAK-KMAC» варианты
- */
 function parseOpenVpnDigests(raw) {
   const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
   const out = [];
@@ -735,54 +887,36 @@ function parseOpenVpnDigests(raw) {
     const m = line.match(rx);
     if (!m) continue;
     const name = m[1];
-    // для SHAKE/NULL может быть 0 бит — оставляем как есть; если не нашли число — считаем null
     const bits = m[2] ? parseInt(m[2], 10) : (/\b0\s*bit\b/i.test(line) ? 0 : null);
     out.push({ name, bits });
   }
-  // Уникализация по имени
   const uniq = new Map();
   for (const d of out) if (!uniq.has(d.name)) uniq.set(d.name, d);
   return Array.from(uniq.values());
 }
 
-/** ——— Группировка на 3 optgroup ——— */
 function groupDigests(digests) {
-  const groups = {
-    recommended: [],
-    modern: [],
-    legacy: []
-  };
+  const groups = { recommended:[], modern:[], legacy:[] };
   for (const d of digests) {
-    if (DEPRECATED.has(d.name)) {
-      groups.legacy.push(d);
-    } else if (RECOMMENDED.has(d.name)) {
-      groups.recommended.push(d);
-    } else {
-      groups.modern.push(d);
-    }
+    if (DEPRECATED.has(d.name)) groups.legacy.push(d);
+    else if (RECOMMENDED.has(d.name)) groups.recommended.push(d);
+    else groups.modern.push(d);
   }
-  // Сортируем внутри групп «красиво»
-  const byBitsDesc = (a,b) => (b.bits ?? -1) - (a.bits ?? -1) || a.name.localeCompare(b.name);
+  const byBitsDesc = (a,b)=> (b.bits ?? -1) - (a.bits ?? -1) || a.name.localeCompare(b.name);
   groups.recommended.sort(byBitsDesc);
   groups.modern.sort(byBitsDesc);
   groups.legacy.sort((a,b)=>a.name.localeCompare(b.name));
   return groups;
 }
 
-/** ------------------------------
- *  AUTH: заполнение селекта дайджестов
- * ------------------------------ */
 function fillAuthSelect(groups, current) {
   const sel = document.getElementById('AuthSelect');
   const hidden = document.getElementById('Auth');
   if (!sel || !hidden) return;
-
   sel.innerHTML = '';
-
   function appendGroup(label, arr) {
     if (!arr.length) return;
-    const og = document.createElement('optgroup');
-    og.label = label;
+    const og = document.createElement('optgroup'); og.label = label;
     for (const d of arr) {
       const opt = document.createElement('option');
       opt.value = d.name;
@@ -791,231 +925,171 @@ function fillAuthSelect(groups, current) {
     }
     sel.appendChild(og);
   }
-
   appendGroup('Рекомендуемые', groups.recommended);
   appendGroup('Современные', groups.modern);
   appendGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
-  // Текущее значение (может прийти как "auth X")
   const cur = String(current || '').trim().replace(/^auth\s+/i,'');
   const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
   if (cur && !found) {
-    const og = document.createElement('optgroup');
-    og.label = 'Текущее значение';
-    const opt = document.createElement('option');
-    opt.value = cur;
-    opt.textContent = cur;
-    og.appendChild(opt);
+    const og = document.createElement('optgroup'); og.label = 'Текущее значение';
+    const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur; og.appendChild(opt);
     sel.prepend(og);
   }
-
-  // Выбор значения
-  sel.value =
-    cur ||
-    sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value ||
-    sel.querySelector('option')?.value ||
-    '';
-
+  sel.value = cur || sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value || sel.querySelector('option')?.value || '';
   hidden.value = sel.value;
-
-  // Маркируем селект как «готов»
   sel.dataset.ready = '1';
-
-  sel.addEventListener('change', () => {
-    hidden.value = sel.value;
-  });
+  sel.addEventListener('change', ()=> hidden.value = sel.value);
 }
 
-
-/** ——— Загрузка источника: .DigestsJSON → fetch → fallback ——— */
 async function loadDigestsAndRender() {
   const current = (document.getElementById('Auth') || {}).value || '{{ .Settings.Auth }}';
-  // 1) Попытаться взять вшитый JSON (если прокинешь с контроллера)
   try {
     const embedded = document.getElementById('OpenVpnDigestsJSON');
     if (embedded && embedded.textContent.trim()) {
       const dig = JSON.parse(embedded.textContent);
-      const groups = groupDigests(dig);
-      fillAuthSelect(groups, current);
-      return;
+      const groups = groupDigests(dig); fillAuthSelect(groups, current); return;
     }
-  } catch (e) { /* no-op */ }
-
-  // 2) Попытаться достать по API
+  } catch(e){}
   try {
     const r = await fetch('/api/openvpn/digests', { credentials: 'same-origin' });
-    if (r.ok) {
-      const dig = await r.json(); // ожидаем [{name:"SHA256", bits:256}, ...]
-      const groups = groupDigests(dig);
-      fillAuthSelect(groups, current);
-      return;
-    }
-  } catch (e) { /* no-op */ }
-
-  // 3) Фоллбек: парсим «сырой» текст
+    if (r.ok) { const dig = await r.json(); const groups = groupDigests(dig); fillAuthSelect(groups, current); return; }
+  } catch(e){}
   const dig = parseOpenVpnDigests(DIGESTS_FALLBACK_RAW);
   const groups = groupDigests(dig);
   fillAuthSelect(groups, current);
 }
-
 window.addEventListener('load', loadDigestsAndRender);
 </script>
+
+<!-- CIPHERS / NCP -->
 <script>
-/* ——— Рекомендации и «устаревшие» ——— */
 const CIPHER_DEPRECATED_SET = new Set([
-  'DES-EDE-CBC','DES-EDE-CFB','DES-EDE-OFB',
-  'DES-EDE3-CBC','DES-EDE3-CFB','DES-EDE3-CFB1','DES-EDE3-CFB8','DES-EDE3-OFB',
+  'DES-EDE-CBC','DES-EDE-CFB','DES-EDE-OFB','DES-EDE3-CBC','DES-EDE3-CFB','DES-EDE3-CFB1','DES-EDE3-CFB8','DES-EDE3-OFB',
   'gost89','gost89-cbc','gost89-cnt','gost89-cnt-12','magma-cbc'
 ]);
-
 const CIPHER_RECOMMENDED_SET = new Set([
   'AES-256-GCM','AES-128-GCM','CHACHA20-POLY1305',
   'kuznyechik-cbc','kuznyechik-cfb','kuznyechik-ofb',
   'SM4-GCM','ARIA-256-GCM','ARIA-128-GCM'
 ]);
 
-/* ——— Фоллбек «сырой» вывод ——— */
 const CIPHERS_FALLBACK_RAW = `
-AES-128-CBC  (128 bit key, 128 bit block)
-AES-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
-AES-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
-AES-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
-AES-128-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
-AES-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
-AES-192-CBC  (192 bit key, 128 bit block)
-AES-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
-AES-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
-AES-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
-AES-192-GCM  (192 bit key, 128 bit block, TLS client/server mode only)
-AES-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
-AES-256-CBC  (256 bit key, 128 bit block)
-AES-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
-AES-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
-AES-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
-AES-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
-AES-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
-ARIA-128-CBC  (128 bit key, 128 bit block)
-ARIA-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
-ARIA-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
-ARIA-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
-ARIA-128-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
-ARIA-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
-ARIA-192-CBC  (192 bit key, 128 bit block)
-ARIA-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
-ARIA-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
-ARIA-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
-ARIA-192-GCM  (192 bit key, 128 bit block, TLS client/server mode only)
-ARIA-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
-ARIA-256-CBC  (256 bit key, 128 bit block)
-ARIA-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
-ARIA-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
-ARIA-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
-ARIA-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
-ARIA-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-128-CBC  (128 bit key, 128 bit block)
-CAMELLIA-128-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-128-CFB1  (128 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-128-CFB8  (128 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-128-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-192-CBC  (192 bit key, 128 bit block)
-CAMELLIA-192-CFB  (192 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-192-CFB1  (192 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-192-CFB8  (192 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-192-OFB  (192 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-256-CBC  (256 bit key, 128 bit block)
-CAMELLIA-256-CFB  (256 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-256-CFB1  (256 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-256-CFB8  (256 bit key, 128 bit block, TLS client/server mode only)
-CAMELLIA-256-OFB  (256 bit key, 128 bit block, TLS client/server mode only)
-CHACHA20-POLY1305  (256 bit key, stream cipher, TLS client/server mode only)
-SM4-CBC  (128 bit key, 128 bit block)
-SM4-CFB  (128 bit key, 128 bit block, TLS client/server mode only)
-SM4-GCM  (128 bit key, 128 bit block, TLS client/server mode only)
-SM4-OFB  (128 bit key, 128 bit block, TLS client/server mode only)
-kuznyechik-cbc  (256 bit key, 128 bit block)
-kuznyechik-cfb  (256 bit key, 128 bit block, TLS client/server mode only)
-kuznyechik-ofb  (256 bit key, 128 bit block, TLS client/server mode only)
-
-The following ciphers have a block size of less than 128 bits, 
-and are therefore deprecated.  Do not use unless you have to.
-
-DES-EDE-CBC  (128 bit key, 64 bit block)
-DES-EDE-CFB  (128 bit key, 64 bit block, TLS client/server mode only)
-DES-EDE-OFB  (128 bit key, 64 bit block, TLS client/server mode only)
-DES-EDE3-CBC  (192 bit key, 64 bit block)
-DES-EDE3-CFB  (192 bit key, 64 bit block, TLS client/server mode only)
-DES-EDE3-CFB1  (192 bit key, 64 bit block, TLS client/server mode only)
-DES-EDE3-CFB8  (192 bit key, 64 bit block, TLS client/server mode only)
-DES-EDE3-OFB  (192 bit key, 64 bit block, TLS client/server mode only)
-gost89  (256 bit key, stream cipher, TLS client/server mode only)
-gost89-cbc  (256 bit key, 64 bit block)
-gost89-cnt  (256 bit key, 64 bit block, TLS client/server mode only)
-gost89-cnt-12  (256 bit key, stream cipher, TLS client/server mode only)
-magma-cbc  (256 bit key, 64 bit block)
+AES-128-CBC (128 bit key, 128 bit block)
+AES-128-CFB (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-CFB1 (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-CFB8 (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-GCM (128 bit key, 128 bit block, TLS client/server mode only)
+AES-128-OFB (128 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CBC (192 bit key, 128 bit block)
+AES-192-CFB (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CFB1 (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-CFB8 (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-GCM (192 bit key, 128 bit block, TLS client/server mode only)
+AES-192-OFB (192 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CBC (256 bit key, 128 bit block)
+AES-256-CFB (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CFB1 (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-CFB8 (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-GCM (256 bit key, 128 bit block, TLS client/server mode only)
+AES-256-OFB (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CBC (128 bit key, 128 bit block)
+ARIA-128-CFB (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CFB1 (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-CFB8 (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-GCM (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-128-OFB (128 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CBC (192 bit key, 128 bit block)
+ARIA-192-CFB (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CFB1 (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-CFB8 (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-GCM (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-192-OFB (192 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CBC (256 bit key, 128 bit block)
+ARIA-256-CFB (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CFB1 (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-CFB8 (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-GCM (256 bit key, 128 bit block, TLS client/server mode only)
+ARIA-256-OFB (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CBC (128 bit key, 128 bit block)
+CAMELLIA-128-CFB (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CFB1 (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-CFB8 (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-128-OFB (128 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CBC (192 bit key, 128 bit block)
+CAMELLIA-192-CFB (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CFB1 (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-CFB8 (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-192-OFB (192 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CBC (256 bit key, 128 bit block)
+CAMELLIA-256-CFB (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CFB1 (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-CFB8 (256 bit key, 128 bit block, TLS client/server mode only)
+CAMELLIA-256-OFB (256 bit key, 128 bit block, TLS client/server mode only)
+CHACHA20-POLY1305 (256 bit key, stream cipher, TLS client/server mode only)
+SM4-CBC (128 bit key, 128 bit block)
+SM4-CFB (128 bit key, 128 bit block, TLS client/server mode only)
+SM4-GCM (128 bit key, 128 bit block, TLS client/server mode only)
+SM4-OFB (128 bit key, 128 bit block, TLS client/server mode only)
+kuznyechik-cbc (256 bit key, 128 bit block)
+kuznyechik-cfb (256 bit key, 128 bit block, TLS client/server mode only)
+kuznyechik-ofb (256 bit key, 128 bit block, TLS client/server mode only)
+The following ciphers have a block size of less than 128 bits,
+and are therefore deprecated. Do not use unless you have to.
+DES-EDE-CBC (128 bit key, 64 bit block)
+DES-EDE-CFB (128 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE-OFB (128 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CBC (192 bit key, 64 bit block)
+DES-EDE3-CFB (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CFB1 (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-CFB8 (192 bit key, 64 bit block, TLS client/server mode only)
+DES-EDE3-OFB (192 bit key, 64 bit block, TLS client/server mode only)
+gost89 (256 bit key, stream cipher, TLS client/server mode only)
+gost89-cbc (256 bit key, 64 bit block)
+gost89-cnt (256 bit key, 64 bit block, TLS client/server mode only)
+gost89-cnt-12 (256 bit key, stream cipher, TLS client/server mode only)
+magma-cbc (256 bit key, 64 bit block)
 `;
 
-/* ——— Парсер ——— */
 function parseOpenVpnCiphers(raw) {
   const res = [];
   const lines = raw.split('\n').map(s => s.trim());
   let deprecated = false;
-
   const depStart = /^The following ciphers have a block size of less than 128 bits/i;
-
-  // пример строки: AES-256-GCM  (256 bit key, 128 bit block, TLS client/server mode only)
   const rx = /^([A-Za-z0-9][A-Za-z0-9_\-]+)\s+\(([^)]+)\)\s*$/;
-
   for (const ln of lines) {
     if (!ln) continue;
     if (depStart.test(ln)) { deprecated = true; continue; }
-    if (/^and are therefore deprecated/i.test(ln)) continue; // вторая строка заголовка
+    if (/^and are therefore deprecated/i.test(ln)) continue;
     const m = ln.match(rx);
     if (!m) continue;
-
-    const name = m[1];
-    const meta = m[2];
-
-    // ключевые признаки
+    const name = m[1], meta = m[2];
     const keyBitsM = meta.match(/(\d+)\s*bit\s*key/i);
     const blockBitsM = meta.match(/(\d+)\s*bit\s*block/i);
     const tlsOnly = /TLS client\/server mode only/i.test(meta);
     const stream = /stream cipher/i.test(meta);
     const modeM = name.match(/-(CBC|CFB1?|CFB8|OFB|GCM|POLY1305)$/i);
     const mode = modeM ? modeM[1].toUpperCase() : (name === 'CHACHA20-POLY1305' ? 'CHACHA20-POLY1305' : null);
-
     const keyBits = keyBitsM ? parseInt(keyBitsM[1],10) : null;
     const blockBits = stream ? null : (blockBitsM ? parseInt(blockBitsM[1],10) : null);
-
-    res.push({
-      name, keyBits, blockBits, mode, tlsOnly, stream,
-      deprecated: deprecated || CIPHER_DEPRECATED_SET.has(name)
-    });
+    res.push({ name, keyBits, blockBits, mode, tlsOnly, stream, deprecated: deprecated || CIPHER_DEPRECATED_SET.has(name) });
   }
-
-  // Уникализация по имени и сортировка
-  const uniq = new Map();
-  for (const c of res) if (!uniq.has(c.name)) uniq.set(c.name, c);
+  const uniq = new Map(); for (const c of res) if (!uniq.has(c.name)) uniq.set(c.name, c);
   const out = Array.from(uniq.values());
-
   out.sort((a,b)=>{
-    // сперва по deprecated, затем по «уровню» (GCM/CHACHA выше), затем по keyBits, затем по имени
     const ra = (CIPHER_RECOMMENDED_SET.has(a.name)?0:1) + (a.deprecated?2:0);
     const rb = (CIPHER_RECOMMENDED_SET.has(b.name)?0:1) + (b.deprecated?2:0);
     if (ra !== rb) return ra - rb;
     const mprio = n => (n.mode==='GCM'||n.mode==='CHACHA20-POLY1305')?0:(n.mode==='CBC'?1:2);
-    const pa = mprio(a), pb = mprio(b);
-    if (pa !== pb) return pa - pb;
-    const ka = a.keyBits ?? -1, kb = b.keyBits ?? -1;
-    if (ka !== kb) return kb - ka;
+    const pa = mprio(a), pb = mprio(b); if (pa !== pb) return pa - pb;
+    const ka = a.keyBits ?? -1, kb = b.keyBits ?? -1; if (ka !== kb) return kb - ka;
     return a.name.localeCompare(b.name);
   });
-
   return out;
 }
 
-/* ——— Группировка ——— */
 function groupCiphers(items) {
-  const groups = { recommended: [], modern: [], legacy: [] };
+  const groups = { recommended:[], modern:[], legacy:[] };
   for (const c of items) {
     if (c.deprecated) groups.legacy.push(c);
     else if (CIPHER_RECOMMENDED_SET.has(c.name)) groups.recommended.push(c);
@@ -1024,20 +1098,14 @@ function groupCiphers(items) {
   return groups;
 }
 
-/** ------------------------------
- *  CIPHER (single): заполнение селекта шифров
- * ------------------------------ */
 function fillCipherSelect(groups, current) {
   const sel = document.getElementById('CipherSelect');
   const hid = document.getElementById('Cipher');
   if (!sel || !hid) return;
-
   sel.innerHTML = '';
-
   function addGroup(label, arr) {
     if (!arr.length) return;
-    const og = document.createElement('optgroup');
-    og.label = label;
+    const og = document.createElement('optgroup'); og.label = label;
     for (const c of arr) {
       const opt = document.createElement('option');
       const bits = c.keyBits ? `${c.keyBits}-bit` : '';
@@ -1049,54 +1117,31 @@ function fillCipherSelect(groups, current) {
     }
     sel.appendChild(og);
   }
-
   addGroup('Рекомендуемые', groups.recommended);
-  addGroup('Современные',   groups.modern);
+  addGroup('Современные', groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
   const cur = (current || '').trim();
   const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
   if (cur && !found) {
-    const og = document.createElement('optgroup');
-    og.label = 'Текущее значение';
-    const opt = document.createElement('option');
-    opt.value = cur;
-    opt.textContent = cur;
-    og.appendChild(opt);
+    const og = document.createElement('optgroup'); og.label = 'Текущее значение';
+    const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur; og.appendChild(opt);
     sel.prepend(og);
   }
-
-  sel.value =
-    cur ||
-    sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value ||
-    sel.querySelector('option')?.value ||
-    '';
-
+  sel.value = cur || sel.querySelector('optgroup[label="Рекомендуемые"] option')?.value || sel.querySelector('option')?.value || '';
   hid.value = sel.value;
-
-  // Маркируем селект как «готов»
   sel.dataset.ready = '1';
-
-  sel.addEventListener('change', () => {
-    hid.value = sel.value;
-  });
+  sel.addEventListener('change', ()=> { hid.value = sel.value; });
 }
 
-
-/** ------------------------------
- *  NCP (multiple): заполнение селекта списка предпочтений
- * ------------------------------ */
 function fillNcpSelect(groups, currentListStr) {
   const sel = document.getElementById('NcpSelect');
   const hid = document.getElementById('OVConfigNcpCiphers');
   if (!sel || !hid) return;
-
   sel.innerHTML = '';
-
   function addGroup(label, arr) {
     if (!arr.length) return;
-    const og = document.createElement('optgroup');
-    og.label = label;
+    const og = document.createElement('optgroup'); og.label = label;
     for (const c of arr) {
       const opt = document.createElement('option');
       const bits = c.keyBits ? `${c.keyBits}-bit` : '';
@@ -1109,74 +1154,54 @@ function fillNcpSelect(groups, currentListStr) {
     }
     sel.appendChild(og);
   }
-
   addGroup('Рекомендуемые', groups.recommended);
-  addGroup('Современные',   groups.modern);
+  addGroup('Современные', groups.modern);
   addGroup('Устаревшие (не рекомендованы)', groups.legacy);
 
-  // Текущие значения из конфигурации
-  const current = (currentListStr || '')
-    .split(/[,\s]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-
+  const current = (currentListStr || '').split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
   const options = Array.from(sel.querySelectorAll('option'));
   const present = new Set(options.map(o => o.value));
   for (const v of current) {
     if (!present.has(v)) {
-      const og = sel.querySelector('optgroup[label="Текущие"]') ||
-                 (() => { const x = document.createElement('optgroup'); x.label = 'Текущие'; sel.prepend(x); return x; })();
-      const opt = document.createElement('option');
-      opt.value = v;
-      opt.textContent = v;
-      og.appendChild(opt);
+      const og = sel.querySelector('optgroup[label="Текущие"]') || (() => {
+        const x = document.createElement('optgroup'); x.label = 'Текущие'; sel.prepend(x); return x;
+      })();
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v; og.appendChild(opt);
     }
   }
-
-  // Выделяем выбранные
-  for (const o of Array.from(sel.options)) {
-    if (current.includes(o.value)) o.selected = true;
-  }
+  for (const o of Array.from(sel.options)) if (current.includes(o.value)) o.selected = true;
 
   function syncHidden() {
     const selected = Array.from(sel.options).filter(o => o.selected).map(o => o.value);
     hid.value = selected.join(',');
   }
   syncHidden();
-
-  // Маркируем селект как «готов»
   sel.dataset.ready = '1';
-
   sel.addEventListener('change', syncHidden);
 }
 
-
-/* ——— Загрузка с API → фоллбек ——— */
 async function loadCiphersAndRender() {
   const curCipher = (document.getElementById('Cipher')||{}).value || '{{ .Settings.Cipher }}';
-  const curNcp    = (document.getElementById('OVConfigNcpCiphers')||{}).value || '{{ .Settings.OVConfigNcpCiphers }}';
-
-  // 1) API
+  const curNcp = (document.getElementById('OVConfigNcpCiphers')||{}).value || '{{ .Settings.OVConfigNcpCiphers }}';
   try {
     const r = await fetch('/api/openvpn/ciphers', { credentials:'same-origin' });
     if (r.ok) {
-      const data = await r.json(); // ожидаем [{name,keyBits,blockBits,mode,tlsOnly,stream,deprecated}]
+      const data = await r.json();
       const groups = groupCiphers(data);
       fillCipherSelect(groups, curCipher);
       fillNcpSelect(groups, curNcp);
       return;
     }
-  } catch(e){ /* no-op */ }
-
-  // 2) Fallback: парсим «сырой» текст
+  } catch(e){}
   const parsed = parseOpenVpnCiphers(CIPHERS_FALLBACK_RAW);
   const groups = groupCiphers(parsed);
   fillCipherSelect(groups, curCipher);
   fillNcpSelect(groups, curNcp);
 }
-
 window.addEventListener('load', loadCiphersAndRender);
 </script>
+
+<!-- Клиентская валидация формы -->
 <script>
 (function(){
   const form = document.getElementById('expert-form');
@@ -1185,10 +1210,14 @@ window.addEventListener('load', loadCiphersAndRender);
   // Утилиты
   const ipRx = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
   const maskRx = ipRx;
+  const pathRx = /^[a-zA-Z0-9_/.-]+$/;
   const serverLineRx = /^server\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
-  const routeLineRx  = /^route\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
-  const pushRouteRx  = /^push\s+"route\s+([0-9.]+)\s+([0-9.]+)"\s*$/i;
-  const pushDnsRx    = /^push\s+"dhcp-option\s+DNS\s+([0-9.]+)"\s*$/i;
+  const routeLineRx = /^route\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
+  const pushRouteRx = /^push\s+"route\s+([0-9.]+)\s+([0-9.]+)"\s*$/i;
+  const pushDnsRx = /^push\s+"dhcp-option\s+DNS\s+([0-9.]+)"\s*$/i;
+  const redirectGwRx = /^push\s+"redirect-gateway\s+(def1\s+bypass-dhcp|autolocal|local|def1|bypass-dhcp|bypass-dns|block-local|ipv6|!ipv4)?"$/i;
+  const scriptSecRx = /^script-security\s+[0-3]$/;
+  const userPassVerifyRx = /^auth-user-pass-verify\s+[a-zA-Z0-9_/.-]+\s+via-(file|env)$/i;
 
   function setValidity(el, ok, msg) {
     if (!el) return true;
@@ -1211,20 +1240,43 @@ window.addEventListener('load', loadCiphersAndRender);
   const Keepalive = document.getElementById('Keepalive');
   const MaxClients = document.getElementById('MaxClients');
 
+  const OVConfigUser = document.getElementById('OVConfigUser');
+  const OVConfigGroup = document.getElementById('OVConfigGroup');
   const Ca = document.getElementById('Ca');
   const Cert = document.getElementById('Cert');
   const Key = document.getElementById('Key');
+  const Crl = document.getElementById('Crl');
+  const Dh = document.getElementById('Dh');
+  const TLSControlChannel = document.getElementById('TLSControlChannel');
   const TLSMinVersion = document.getElementById('TLSMinVersion');
   const TLSRemoteCert = document.getElementById('TLSRemoteCert');
 
   const CipherSel = document.getElementById('CipherSelect');
+  const NcpSel = document.getElementById('NcpSelect');
   const AuthSel = document.getElementById('AuthSelect');
 
+  const FuncMode = document.getElementById('FuncMode');
+  const ScriptSecurity = document.getElementById('scriptsecurity');
+  const UserPassVerify = document.getElementById('userpassverify');
+
   const Server = document.getElementById('Server');
-  const Route  = document.getElementById('Route');
+  const Route = document.getElementById('Route');
   const PushRoute = document.getElementById('PushRoute');
+  const PushRoutesExtra = document.getElementById('PushRoutesExtra');
   const DNSServer1 = document.getElementById('DNSServer1');
   const DNSServer2 = document.getElementById('DNSServer2');
+  const RedirectGW = document.getElementById('RedirectGW');
+  const OVConfigClientConfigDir = document.getElementById('OVConfigClientConfigDir');
+  const IfconfigPoolPersist = document.getElementById('IfconfigPoolPersist');
+
+  const OVConfigLogfile = document.getElementById('OVConfigLogfile');
+  const OVConfigLogVerbose = document.getElementById('OVConfigLogVerbose');
+  const OVConfigStatusLog = document.getElementById('OVConfigStatusLog');
+  const OVConfigStatusLogVersion = document.getElementById('OVConfigStatusLogVersion');
+
+  const CustomOptOne = document.getElementById('CustomOptOne');
+  const CustomOptTwo = document.getElementById('CustomOptTwo');
+  const CustomOptThree = document.getElementById('CustomOptThree');
 
   function validateBasics(){
     let ok = true;
@@ -1237,56 +1289,38 @@ window.addEventListener('load', loadCiphersAndRender);
     return !!ok;
   }
 
-/** ------------------------------
- *  Валидация TLS-блока с учётом «готовности» селектов
- * ------------------------------ */
-function validateTLS() {
-  let ok = true;
-
-  const Ca            = document.getElementById('Ca');
-  const Cert          = document.getElementById('Cert');
-  const Key           = document.getElementById('Key');
-  const TLSMinVersion = document.getElementById('TLSMinVersion');
-  const TLSRemoteCert = document.getElementById('TLSRemoteCert');
-  const CipherSel     = document.getElementById('CipherSelect');
-  const AuthSel       = document.getElementById('AuthSelect');
-
-  ok = setValidity(Ca,  !!Ca?.value?.trim(),  'Укажите путь к CA') && ok;
-  ok = setValidity(Cert,!!Cert?.value?.trim(),'Укажите путь к сертификату сервера') && ok;
-  ok = setValidity(Key, !!Key?.value?.trim(), 'Укажите путь к приватному ключу') && ok;
-
-  ok = setValidity(
-        TLSMinVersion,
-        /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion?.value || ''),
-        'tls-version-min 1.2/1.3'
-      ) && ok;
-
-  ok = setValidity(
-        TLSRemoteCert,
-        /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert?.value || ''),
-        'remote-cert-tls client|server'
-      ) && ok;
-
-  // Селекты валидируем только когда они помечены как «готовые»
-  if (CipherSel?.dataset.ready === '1') {
-    ok = setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр') && ok;
-  } else {
-    setValidity(CipherSel, true);
+  function validateCrypto() {
+    let ok = true;
+    ok &= setValidity(OVConfigUser, /^[a-z_][a-z0-9_-]*[$]?$/.test(OVConfigUser.value), 'Некорректное имя пользователя');
+    ok &= setValidity(OVConfigGroup, /^[a-z_][a-z0-9_-]*$/.test(OVConfigGroup.value), 'Некорректное имя группы');
+    ok &= setValidity(Ca, pathRx.test(Ca.value) && !!Ca.value.trim(), 'Укажите валидный путь к CA');
+    ok &= setValidity(Cert, pathRx.test(Cert.value) && !!Cert.value.trim(), 'Укажите валидный путь к сертификату сервера');
+    ok &= setValidity(Key, pathRx.test(Key.value) && !!Key.value.trim(), 'Укажите валидный путь к приватному ключу');
+    ok &= setValidity(Crl, !Crl.value || pathRx.test(Crl.value), 'Укажите валидный путь к CRL');
+    ok &= setValidity(Dh, !Dh.value || pathRx.test(Dh.value), 'Укажите валидный путь к DH');
+    ok &= setValidity(TLSControlChannel, !TLSControlChannel.value || /^(tls-crypt|tls-auth)\s+[a-zA-Z0-9_/.-]+$/.test(TLSControlChannel.value), 'tls-crypt или tls-auth с валидным путём');
+    return !!ok;
   }
 
-  if (AuthSel?.dataset.ready === '1') {
-    ok = setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест') && ok;
-  } else {
-    setValidity(AuthSel, true);
+  function validateTLS() {
+    let ok = true;
+    ok &= setValidity(TLSMinVersion, /^tls-version-min\s+(1\.(2|3))$/i.test(TLSMinVersion?.value || ''), 'tls-version-min 1.2/1.3');
+    ok &= setValidity(TLSRemoteCert, /^remote-cert-tls\s+(client|server)$/i.test(TLSRemoteCert?.value || ''), 'remote-cert-tls client|server');
+
+    if (CipherSel?.dataset.ready === '1') { ok &= setValidity(CipherSel, !!CipherSel.value, 'Выберите шифр'); } else { setValidity(CipherSel, true); }
+    if (NcpSel?.dataset.ready === '1') { ok &= setValidity(NcpSel, NcpSel.selectedOptions.length > 0, 'Выберите хотя бы один шифр для NCP'); } else { setValidity(NcpSel, true); }
+    if (AuthSel?.dataset.ready === '1') { ok &= setValidity(AuthSel, !!AuthSel.value, 'Выберите дайджест'); } else { setValidity(AuthSel, true); }
+
+    ok &= setValidity(FuncMode, ['0','1'].includes(FuncMode.value), 'Выберите режим аутентификации');
+    if (FuncMode.value === '1') {
+      ok &= setValidity(ScriptSecurity, scriptSecRx.test(ScriptSecurity.value), 'script-security 0–3');
+      ok &= setValidity(UserPassVerify, userPassVerifyRx.test(UserPassVerify.value), 'auth-user-pass-verify <script> via-file/via-env');
+    }
+    return !!ok;
   }
-
-  return !!ok;
-}
-
 
   function validateNet(){
     let ok = true;
-    // server 10.0.70.0 255.255.255.0
     if (Server.value.trim()) {
       const m = Server.value.trim().match(serverLineRx);
       ok &= setValidity(Server, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: server <IP> <MASK>');
@@ -1299,6 +1333,14 @@ function validateTLS() {
       const m = PushRoute.value.trim().match(pushRouteRx);
       ok &= setValidity(PushRoute, !!m && ipRx.test(m?.[1]||'') && maskRx.test(m?.[2]||''), 'Формат: push "route <IP> <MASK>"');
     }
+    if (PushRoutesExtra.value.trim()) {
+      const lines = PushRoutesExtra.value.split(/\n/).map(l => l.trim()).filter(Boolean);
+      const allValid = lines.every(line => {
+        const parts = line.split(/\s+/);
+        return parts.length === 2 && ipRx.test(parts[0]) && maskRx.test(parts[1]);
+      });
+      ok &= setValidity(PushRoutesExtra, allValid, 'Каждая строка: <IP> <MASK>');
+    }
     if (DNSServer1.value.trim()) {
       const m = DNSServer1.value.trim().match(pushDnsRx);
       ok &= setValidity(DNSServer1, !!m && ipRx.test(m?.[1]||''), 'Формат: push "dhcp-option DNS <IP>"');
@@ -1307,26 +1349,45 @@ function validateTLS() {
       const m = DNSServer2.value.trim().match(pushDnsRx);
       ok &= setValidity(DNSServer2, !!m && ipRx.test(m?.[1]||''), 'Формат: push "dhcp-option DNS <IP>"');
     }
+    if (RedirectGW.value.trim()) {
+      ok &= setValidity(RedirectGW, redirectGwRx.test(RedirectGW.value), 'Формат: push "redirect-gateway [options]"');
+    }
+    ok &= setValidity(OVConfigClientConfigDir, !OVConfigClientConfigDir.value || pathRx.test(OVConfigClientConfigDir.value), 'Валидный путь к директории');
+    ok &= setValidity(IfconfigPoolPersist, !IfconfigPoolPersist.value || pathRx.test(IfconfigPoolPersist.value), 'Валидный путь к файлу');
     return !!ok;
   }
+
+  function validateLogs() {
+    let ok = true;
+    ok &= setValidity(OVConfigLogfile, !OVConfigLogfile.value || pathRx.test(OVConfigLogfile.value), 'Валидный путь к файлу лога');
+    ok &= setValidity(OVConfigLogVerbose, +OVConfigLogVerbose.value >=0 && +OVConfigLogVerbose.value <=9, 'Уровень 0–9');
+    ok &= setValidity(OVConfigStatusLog, !OVConfigStatusLog.value || pathRx.test(OVConfigStatusLog.value), 'Валидный путь к файлу статуса');
+    ok &= setValidity(OVConfigStatusLogVersion, +OVConfigStatusLogVersion.value >=1 && +OVConfigStatusLogVersion.value <=3, 'Версия 1–3');
+    return !!ok;
+  }
+
+  function validateCustom() { return true; }
 
   // live-валидация
   [
     Device, Port, Proto, Topology, Keepalive, MaxClients,
-    Ca, Cert, Key, TLSMinVersion, TLSRemoteCert, CipherSel, AuthSel,
-    Server, Route, PushRoute, DNSServer1, DNSServer2
+    OVConfigUser, OVConfigGroup, Ca, Cert, Key, Crl, Dh, TLSControlChannel,
+    TLSMinVersion, TLSRemoteCert, CipherSel, NcpSel, AuthSel, FuncMode, ScriptSecurity, UserPassVerify,
+    Server, Route, PushRoute, PushRoutesExtra, DNSServer1, DNSServer2, RedirectGW,
+    OVConfigClientConfigDir, IfconfigPoolPersist,
+    OVConfigLogfile, OVConfigLogVerbose, OVConfigStatusLog, OVConfigStatusLogVersion,
+    CustomOptOne, CustomOptTwo, CustomOptThree
   ].filter(Boolean).forEach(el=>{
     el.addEventListener('input', ()=> {
-      validateBasics(); validateTLS(); validateNet();
+      validateBasics(); validateCrypto(); validateTLS(); validateNet(); validateLogs(); validateCustom();
     });
     el.addEventListener('change', ()=> {
-      validateBasics(); validateTLS(); validateNet();
+      validateBasics(); validateCrypto(); validateTLS(); validateNet(); validateLogs(); validateCustom();
     });
   });
 
-  // при отправке — проверяем и скроллим к первому ошибочному
   form.addEventListener('submit', (e)=>{
-    const ok = validateBasics() & validateTLS() & validateNet();
+    const ok = validateBasics() && validateCrypto() && validateTLS() && validateNet() && validateLogs() && validateCustom();
     if (!ok) {
       e.preventDefault();
       const firstBad = form.querySelector('.is-invalid');
@@ -1336,15 +1397,9 @@ function validateTLS() {
 
   // первичная проверка
   window.addEventListener('load', async () => {
-    validateBasics();
-    validateNet();
-    // грузим списки и только потом валидируем TLS
-    await Promise.all([
-      loadCiphersAndRender(),
-      loadDigestsAndRender()
-    ].map(p => p?.catch?.(()=>{}))); // не уронить при фоллбэке
+    validateBasics(); validateCrypto(); validateNet(); validateLogs(); validateCustom();
+    await Promise.all([ loadCiphersAndRender(), loadDigestsAndRender() ].map(p => p?.catch?.(()=>{})));
     validateTLS();
   });
 })();
 </script>
-
