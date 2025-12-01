@@ -1,431 +1,557 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>Server Settings</title>
+<title>Настройки сервера</title>
+<style>
+  .form-help { font-size: .9rem; color:#6c757d; display:block; margin-top:.25rem; }
+  .section-badge { font-size:.75rem; margin-left:.5rem }
+  .input-icon { position: relative; }
+  .input-icon > i {
+    position:absolute; left:.75rem; top:50%; transform:translateY(-50%); pointer-events:none; opacity:.7;
+  }
+  .input-icon > input, .input-icon > textarea, .input-icon > select { padding-left:2.2rem; }
+  .card + .card { margin-top:1rem; }
+  .kuz-note { border-left:3px solid #28a745; padding-left:.5rem; }
+  .deprecated { border-left:3px solid #dc3545; padding-left:.5rem; }
+</style>
 {{end}}
 
 {{define "body"}}
 
-<!-- /.card-body -->
+<!-- Верхняя панель действий -->
 <div class="card card-default">
-
   <div class="card-body">
-  <!-- /.card-body -->
-  <!-- /.card-header -->
-  <!-- form start -->
-  <form role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
-    {{ .xsrfdata }}
-    <div class="card-boddy">
-      <button type="button" style="width: 135px;" class="btn btn-primary" data-toggle="modal" data-target="#config-view-modal">Edit config</button> &nbsp; &nbsp;
-      <a href="javascript:$.MyAPP.Restart('SIGUSR1')" class="btn btn-warning btn-primary" style="width: 135px;" title="Conditional Restart (SIGUSR1)">Restart Server</a>
-      <span style="color:grey;"> &nbsp; OpenVPN Server Conditional Restart will apply new configuration and re-initiate all active clients sessions.</span> 
-    </div>
-      <!-- /.card-body -->
-  </form>
-  </div>  
+    <form role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
+      {{ .xsrfdata }}
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#config-view-modal">
+          <i class="fa fa-edit mr-1"></i> Редактировать конфиг
+        </button>
+        <a href="javascript:$.MyAPP.Restart('SIGUSR1')" class="btn btn-warning" title="Условный перезапуск (SIGUSR1)">
+          <i class="fa fa-refresh mr-1"></i> Перезапустить сервер
+        </a>
+        <span class="text-muted ml-2">
+          Условный перезапуск применит новую конфигурацию и переинициализирует активные клиентские сессии.
+        </span>
+      </div>
+    </form>
+  </div>
 </div>
 
+<!-- Шаблон конфигурации -->
 <div class="card card-primary">
-  <div class="card-header with-border">
-    <h3 class="card-title">Configuration Template
+  <div class="card-header with-border d-flex align-items-center justify-content-between">
+    <h3 class="card-title">
+      <i class="fa fa-cogs mr-2"></i> Шаблон конфигурации
+      <span class="badge badge-light section-badge">server.conf</span>
     </h3>
-    <div class="pull-right card-tools">
-      <button type="button" class="btn btn-tool" data-card-widget="collapse">
-      <i class="fa fa-minus"></i></button>
+    <div class="card-tools">
+      <button type="button" class="btn btn-tool" data-card-widget="collapse" aria-label="Свернуть">
+        <i class="fa fa-minus"></i>
+      </button>
     </div>
   </div>
-  <!-- /.card-header -->
-  <!-- form start -->
+
   <div class="card-body">
-    <p>All options are in the same order as will be saved into the server.conf file.</p>
-  <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
-    <div class="card-body">
+    <p class="mb-3">Опции упорядочены так же, как будут сохранены в <code>server.conf</code>.</p>
 
-      <!-- Commented for now as not used
-      <div class="form-group">
-       <label for="name">Management</label>
-       <input type="text" class="form-control" name="Management" id="Management" placeholder="0.0.0.0 2080"
-         value="{{ .Settings.Management }}">
-       <span id="helpBlock" class="text-muted"></span>
-      </div>
-      -->
+    <form id="expert-form" role="form" action="{{urlfor "OVConfigController.Post"}}" method="post">
+      <div class="row">
+        <!-- Базовые параметры -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-sliders mr-2"></i> Базовые параметры</div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="Device">Dev <span class="text-muted">(tun/tap)</span></label>
+                <div class="input-icon">
+                  <i class="fa fa-random"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Device" id="Device" placeholder="tun" value="{{ .Settings.Device }}">
+                </div>
+                <small class="form-help">Тип виртуального интерфейса: <b>tun</b> — 3-й уровень (IP-маршрутизация), <b>tap</b> — 2-й уровень (мост).</small>
+              </div>
 
-      <div class="form-group">
-         <label for="name">Dev</label>
-         <input type="text" selector="vformdata" class="form-control" name="Device" id="Device" placeholder="tun"
-          value="{{ .Settings.Device }}">
-         <span class="text-muted"> Which tunnel(tun) or bridge(tap) should OpenVPN use. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
-         </span>
-      </div>
-             
-      <div class="form-group">
-        <label for="name">Port</label>
-        <input type="text" selector="vformdata" class="form-control" name="Port" id="Port" placeholder="1194"
-          value="{{ .Settings.Port }}">
-        <span class="text-muted"> Which TCP/UDP port should local OpenVPN Server container listen on. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
-       </span>
-      </div>
-                    
-      <div class="form-group">
-        <label for="name">Proto</label>
-        <input type="text" selector="vformdata" class="form-control" name="Proto" id="Proto" placeholder="udp"
-          value="{{ .Settings.Proto }}">
-        <span class="text-muted"> TCP or UDP server. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Editingtheserverconfigurationfile" target="_blank">Info</a>
-       </span>
-      </div>
-                        
-      <div class="form-group">
-        <label for="name">Topology</label> <!-- <strong><span style="color:#337ab7" title="New format in this version">!</span></strong> -->
-        <input type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology" placeholder="subnet"
-         value="{{ .Settings.OVConfigTopology }}">
-        <span class="text-muted"> OpenVPN Topology. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Topology" target="_blank">Info</a>
-        </span>
-      </div>
-              
-      <div class="form-group">
-        <label for="name">Keepalive</label>
-        <input type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive" placeholder="10 120"
-         value="{{ .Settings.Keepalive }}">
-        <span id="helpBlock" class="text-muted"> The keepalive directive causes ping-like messages to be sent back and forth over
-         the link so that each side knows when the other side has gone down. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-        </span>
-      </div>
-              
-      <div class="form-group">
-        <label for="name">MaxClients</label>
-        <input type="text" class="form-control" name="MaxClients" id="MaxClients" placeholder="100"
-         value="{{ .Settings.MaxClients }}">
-        <span id="helpBlock" class="text-muted"> The maximum allowed number of concurrently connected clients</span>
-      </div>
+              <div class="form-group">
+                <label for="Port">Port</label>
+                <div class="input-icon">
+                  <i class="fa fa-plug"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Port" id="Port" placeholder="1194" value="{{ .Settings.Port }}">
+                </div>
+                <small class="form-help">TCP/UDP-порт, на котором контейнер OpenVPN принимает соединения.</small>
+              </div>
 
-      <div class="form-group">
-        <label for="name">User</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="OVConfigUser" id="OVConfigUser" placeholder="nobody"
-         value="{{ .Settings.OVConfigUser }}">
-        <span id="helpBlock" class="text-muted"> User OpenVPN Server will use (non-Windows only). 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Info</a></span>
-     </div>
+              <div class="form-group">
+                <label for="Proto">Proto</label>
+                <div class="input-icon">
+                  <i class="fa fa-exchange"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Proto" id="Proto" placeholder="udp" value="{{ .Settings.Proto }}">
+                </div>
+                <small class="form-help">Транспортный протокол сервера: <b>udp</b> (рекомендуется) или <b>tcp</b>.</small>
+              </div>
 
-     <div class="form-group">
-        <label for="name">Group</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup" placeholder="nogroup"
-         value="{{ .Settings.OVConfigGroup }}">
-        <span id="helpBlock" class="text-muted"> Group OpenVPN Server will use (non-Windows only). 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#usergroupnon-Windowsonly" target="_blank">Info</a></span>
-     </div>
+              <div class="form-group">
+                <label for="OVConfigTopology">Topology</label>
+                <div class="input-icon">
+                  <i class="fa fa-sitemap"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="OVConfigTopology" id="OVConfigTopology" placeholder="subnet" value="{{ .Settings.OVConfigTopology }}">
+                </div>
+                <small class="form-help">Режим адресации клиентов. <b>subnet</b> — универсально; <b>net30</b>/<b>p2p</b> — для совместимости со старым клиентским ПО.</small>
+              </div>
 
-     <div class="form-group">
-      <label for="name">Client-Config-Dir</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-      <input type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir" placeholder="/etc/openvpn/staticclients"
-       value="{{ .Settings.OVConfigClientConfigDir }}">
-      <span id="helpBlock" class="text-muted"> Directory, which the OpenVPN server will scan on every incoming connection, searching for a client-specific configuration file. 
-       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Info</a>
-      </span>
-    </div>
-                
-    <div class="form-group">
-       <label for="name">Ifconfig-Pool-Persist</label>
-       <input type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist" placeholder="pki/ipp.txt"
-        value="{{ .Settings.IfconfigPoolPersist }}">
-       <span id="helpBlock" class="text-muted"> Maintains a record of client <-> virtual IP address associations. Used for Client static IP configuration. 
-         <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-       </span>
-    </div>
-                
-      <div class="form-group">
-         <label for="name">CA</label>
-         <input type="text" class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt"
-          value="{{ .Settings.Ca }}">
-         <span class="text-muted"> The master Certificate Authority (CA) certificate. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#SettingupyourownCertificateAuthorityCAandgeneratingcertificatesandkeysforanOpenVPNserverandmultipleclients" target="_blank">Info</a>
-         </span>
-      </div>
-                   
-      <div class="form-group">
-        <label for="name">Cert</label>
-        <input type="text" class="form-control" name="Cert" id="Cert" placeholder="pki/issued/server.crt"
-          value="{{ .Settings.Cert }}">
-        <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> The Server Certificate. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Info</a>
-        </span>
-      </div>
-                     
-      <div class="form-group">
-        <label for="name">Key</label>
-        <input type="text" class="form-control" name="Key" id="Key" placeholder="pki/private/server.key"
-          value="{{ .Settings.Key }}">
-        <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> The Server Key. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Generatecertificatekeyforserver" target="_blank">Info</a>
-        </span>
-      </div>
-                  
-      <div class="form-group">
-       <label for="name">Crl-verify</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-       <input type="text" class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem"
-        value="{{ .Settings.Crl }}">
-       <span id="helpBlock" class="text-muted"> Certificate Revocation List file. 
-       <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Modifyingaliveserverconfiguration" target="_blank">Info</a>
-       </span>
-      </div>       
-                 
-      <div class="form-group">
-        <label for="name">Dh</label>
-        <input type="text" class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem"
-          value="{{ .Settings.Dh }}">
-        <span id="helpBlock" class="text-muted"></span>
-        <span class="text-muted"> Diffie Hellman file. 
-        <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#GenerateDiffieHellmanparameters" target="_blank">Info</a>
-        </span>
-      </div>
-               
-      <div class="form-group">
-        <label for="name">TLS-Crypt</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel" placeholder="tls-crypt pki/ta.key"
-         value="{{ .Settings.TLSControlChannel }}">
-        <span id="helpBlock" class="text-muted"> Key for TLS authentication and session encryption. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-        </span>
-      </div>
-                
-      <div class="form-group">
-        <label for="name">TLS-Version-Min</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion" placeholder="tls-version-min 1.2"
-         value="{{ .Settings.TLSMinVersion }}">
-        <span id="helpBlock" class="text-muted"> Sets the minimum TLS version to accept from the peer. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-        </span>
-      </div>
-                 
-      <div class="form-group">
-        <label for="name">Remote-Cert-TLS</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert" placeholder="remote-cert-tls client"
-         value="{{ .Settings.TLSRemoteCert }}">
-        <span id="helpBlock" class="text-muted"> Security option for clients, to ensure that the host they connect to is a designated server. Full format option (to disable - comment with #). 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-        </span>
-      </div>      
-                   
-      <div class="form-group">
-         <label for="name">Cipher</label>
-         <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="AES-256-CBC"
-          value="{{ .Settings.Cipher }}">
-         <span id="helpBlock" class="text-muted">Encrypt data channel packets with this cipher algorithm. 
-           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-         </span>
-      </div>
-                
-      <div class="form-group">
-        <label for="name">Ncp-Ciphers</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="AES-256-GCM:AES-192-GCM:AES-128-GCM"
-         value="{{ .Settings.OVConfigNcpCiphers }}">
-        <span id="helpBlock" class="text-muted"> The list of ciphers that the client can use. 
-         <a href="https://github.com/OpenVPN/openvpn/blob/master/doc/man-sections/cipher-negotiation.rst" target="_blank">Info</a>
-        </span>
-      </div>
-                  
-      <div class="form-group">
-         <label for="name">Auth</label>
-         <input type="text" class="form-control" name="Auth" id="Auth" placeholder="SHA512"
-          value="{{ .Settings.Auth }}">
-         <span id="helpBlock" class="text-muted"></span>
-      </div>
+              <div class="form-group">
+                <label for="Keepalive">Keepalive</label>
+                <div class="input-icon">
+                  <i class="fa fa-heartbeat"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Keepalive" id="Keepalive" placeholder="10 120" value="{{ .Settings.Keepalive }}">
+                </div>
+                <small class="form-help">Параметры <code>ping</code>/<code>ping-restart</code>, поддерживают живость канала.</small>
+              </div>
 
-      <div class="form-group">
-        <label for="name" title="New format in this version">Server (Trusted VPN Subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" selector="vformdata" class="form-control" name="Server" id="Server" placeholder="server 10.0.70.0 255.255.255.0"
-         value="{{ .Settings.Server }}">
-        <span id="helpBlock" class="text-muted"> In Server mode supplys a Trusted VPN subnet for OpenVPN clients 
-         to draw &quot;VLAN1&quot; addresses from. You can ser server-bridge configuration here for tap mode.
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Info</a> 
-         </span>
-     </div>
+              <div class="form-group">
+                <label for="MaxClients">MaxClients</label>
+                <div class="input-icon">
+                  <i class="fa fa-users"></i>
+                  <input type="text" class="form-control" name="MaxClients" id="MaxClients" placeholder="100" value="{{ .Settings.MaxClients }}">
+                </div>
+                <small class="form-help">Максимум одновременных подключений.</small>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div class="form-group">
-        <label for="name">Route (Guest VPN subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" selector="vformdata" class="form-control" name="Route" id="Route" placeholder="route 10.0.71.0 255.255.255.0"
-          value="{{ .Settings.Route }}">
-        <span id="helpBlock" class="text-muted">Used to route (&quot;route [Guest subnet]&quot;) for Guest Network to for &quot;VLAN2&quot; (Guest Users) subnet clients. 
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Configuringclient-specificrulesandaccesspolicies" target="_blank">Info</a> 
-          </span>
-      </div>
+        <!-- Безопасность и криптография -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-shield mr-2"></i> Криптография и TLS</div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="OVConfigUser">User / Group</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-user"></i>
+                      <input type="text" class="form-control" name="OVConfigUser" id="OVConfigUser" placeholder="nobody" value="{{ .Settings.OVConfigUser }}">
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-users"></i>
+                      <input type="text" class="form-control" name="OVConfigGroup" id="OVConfigGroup" placeholder="nogroup" value="{{ .Settings.OVConfigGroup }}">
+                    </div>
+                  </div>
+                </div>
+                <small class="form-help">Пользователь и группа для демона OpenVPN на *nix после понижения привилегий.</small>
+              </div>
 
-      <div class="form-group">
-        <label for="name">Push Route (Your Home subnet)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder="push &quot;route 10.0.60.0 255.255.255.0&quot;"
-          value="{{ .Settings.PushRoute }}">
-        <span id="helpBlock" class="text-muted">Used to push route for Home Network to &quot;VLAN1&quot; (Trusted VPN) subnet clients.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#ExpandingthescopeoftheVPNtoincludeadditionalmachinesoneithertheclientorserversubnet" target="_blank">Info</a>
-        </span>
-      </div>
+              <div class="form-group">
+                <label>PKI</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-certificate"></i>
+                      <input type="text" class="form-control" name="Ca" id="Ca" placeholder="pki/ca.crt" value="{{ .Settings.Ca }}">
+                    </div>
+                    <small class="form-help">Корневой сертификат CA.</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-id-badge"></i>
+                      <input type="text" class="form-control" name="Cert" id="Cert" placeholder="pki/issued/server.crt" value="{{ .Settings.Cert }}">
+                    </div>
+                    <small class="form-help">Сертификат сервера.</small>
+                  </div>
+                </div>
+                <div class="row mt-2">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-key"></i>
+                      <input type="text" class="form-control" name="Key" id="Key" placeholder="pki/private/server.key" value="{{ .Settings.Key }}">
+                    </div>
+                    <small class="form-help">Приватный ключ сервера.</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-ban"></i>
+                      <input type="text" class="form-control" name="Crl" id="Crl" placeholder="pki/crl.pem" value="{{ .Settings.Crl }}">
+                    </div>
+                    <small class="form-help">CRL — список отозванных сертификатов.</small>
+                  </div>
+                </div>
+              </div>
 
-      <div class="form-group">
-        <label for="name">Push DHCP (DNS Server 1)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1" placeholder="push &quot;dhcp-option DNS 8.8.8.8&quot;"
-          value="{{ .Settings.DNSServer1 }}">
-        <span class="text-muted">DNS Server 1 configuration for connected Clients. For 'push "dhcp-option DNS [IP of DNS Server]"' configuration.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Info</a>
-        </span>
-      </div>
+              <div class="form-group">
+                <label for="Dh">DH / TLS защита канала</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-lock"></i>
+                      <input type="text" class="form-control" name="Dh" id="Dh" placeholder="pki/dh.pem" value="{{ .Settings.Dh }}">
+                    </div>
+                    <small class="form-help">Параметры Диффи–Хеллмана (для статич. ключевого обмена).</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-shield-alt"></i>
+                      <input type="text" class="form-control" name="TLSControlChannel" id="TLSControlChannel" placeholder="tls-crypt pki/ta.key" value="{{ .Settings.TLSControlChannel }}">
+                    </div>
+                    <small class="form-help">Защита управляющего канала: <code>tls-crypt</code> предпочтительнее <code>tls-auth</code>.</small>
+                  </div>
+                </div>
+              </div>
 
-      <div class="form-group">
-        <label for="name">Push DHCP (DNS Server 2)</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2" placeholder="push &quot;dhcp-option DNS 1.0.0.1&quot;"
-          value="{{ .Settings.DNSServer2 }}">
-        <span class="text-muted">DNS Server 2 configuration for connected Clients. For 'push "dhcp-option DNS [IP of DNS Server]"' configuration.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#PushingDHCPoptionstoclients" target="_blank">Info</a>
-        </span>
-      </div>
+              <div class="form-group">
+                <label for="TLSMinVersion">TLS policy</label>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-level-up"></i>
+                      <input type="text" class="form-control" name="TLSMinVersion" id="TLSMinVersion" placeholder="tls-version-min 1.2" value="{{ .Settings.TLSMinVersion }}">
+                    </div>
+                    <small class="form-help">Минимальная версия TLS, напр. <code>tls-version-min 1.2</code> или <code>1.3</code>.</small>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="input-icon">
+                      <i class="fa fa-check-circle"></i>
+                      <input type="text" class="form-control" name="TLSRemoteCert" id="TLSRemoteCert" placeholder="remote-cert-tls client" value="{{ .Settings.TLSRemoteCert }}">
+                    </div>
+                    <small class="form-help">Проверка роли peer: <code>remote-cert-tls client|server</code>.</small>
+                  </div>
+                </div>
+              </div>
 
-      <div class="form-group">
-        <label for="name">Push Redirect-gateway</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-        <input type="text" class="form-control" name="RedirectGW" id="RedirectGW" placeholder="push &quot;redirect-gateway def1 bypass-dhcp&quot;"
-          value="{{ .Settings.RedirectGW }}">
-        <span class="text-muted"> When this option uncommented, the OpenVPN server push a default route to the client, which tells client to 
-         route all Internet traffic through the VPN tunnel. 
-         <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#Routingallclienttrafficincludingweb-trafficthroughtheVPN" target="_blank">Info</a> </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">OpenVPN Server Logfile</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <input type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile" placeholder="/var/log/openvpn/openvpn.log"
-          value="{{ .Settings.OVConfigLogfile }}">
-        <span id="helpBlock" class="text-muted"> This option is used to define the file where OpenVPN Server will save log messages. 
-        <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-        </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">OpenVPN Server Logging verbose level</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <input type="text" class="form-control" id="OVConfigLogVerbose" name="OVConfigLogVerbose" placeholder="3"
-          value="{{ .Settings.OVConfigLogVerbose }}">
-          <span id="helpBlock" class="text-muted"> This option is used to set the verbosity level of log messages generated by the OpenVPN server (0 to 4)
-           <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-          </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">OpenVPN Server Status Log file</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <input type="text" class="form-control" name="OVConfigStatusLog" id="OVConfigStatusLog" placeholder="/var/log/openvpn/openvpn-status.log"
-          value="{{ .Settings.OVConfigStatusLog }}">
-         <span id="helpBlock" class="text-muted"> This option is used to set the file where OpenVPN Server will report status.
-          <a href="https://community.openvpn.net/openvpn/wiki/HOWTO#StatusFile" target="_blank">Info</a></span>
-        </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">OpenVPN Server Status Logging version</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <input type="text" class="form-control" name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion" placeholder="2"
-          value="{{ .Settings.OVConfigStatusLogVersion }}">
-         <span id="helpBlock" class="text-muted"> This option is used to set the version of OpenVPN Status report file. Used for openvpn-exporters. 
-          <a href="https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage" target="_blank">Info</a>
-         </span>
-      </div>
-
-      <div class="form-group" id="auth-mode">
-        <label>Authentication Mode</label>
-        <select name="FuncMode" id="FuncMode" class="form-control">
-          <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Classic Authentication (Certificate and optional password)</option>
-          <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Two Factor Authentication (2FA)</option>
-        </select>
-      </div>
-
-      <div class="form-group" id="script-sec">
-        <label for="ScriptSecurity">Script-security</label>
-        <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity" placeholder="2FA configuration" 
-        value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
-      </div>
-
-      <div class="form-group" id="auth-user-pass-verify">
-        <label for="UserPassVerify">Auth-user-pass-verify</label>
-        <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify" placeholder="2FA configuration"
-        value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
-      </div>
-
-      <div class="form-group">
-         <label for="name">Custom Option One</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne" placeholder="#Custom Option One"
-          value="{{ .Settings.CustomOptOne }}">
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">Custom Option Two</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo" placeholder="#Custom Option Two" 
-         rows="2">{{ .Settings.CustomOptTwo }}</textarea>
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
-      </div>
-
-      <div class="form-group">
-         <label for="name">Custom Option Three</label> <!-- strong><span style="color:#337ab7" title="New format in this version">!</span></strong -->
-         <textarea class="form-control" name="CustomOptThree" id="CustomOptThree" placeholder="#Custom Option Three" 
-         rows="3">{{ .Settings.CustomOptThree }}</textarea>
-         <span id="helpBlock" class="text-muted"> Custom Option for Server.conf. Literally anything. Full format option (to disable - comment with #) </span>
-      </div>
-
-     {{ .xsrfdata }}
-
-      <button type="submit" style="width: 135px;" class="btn btn-primary" onclick="return confirm('Are you sure you want to Save new configuration file?\nCurrent configuration will be overwritten!');">Save Config</button>
-    </div>
-    
-      <!-- /.card-body -->
- </form>
-</div>
+              <div class="form-group">
+                <label for="Cipher">Cipher / NCP / Auth</label>
+                <div class="row">
+                  <div class="col-sm-4">
+                    <div class="input-icon">
+                      <i class="fa fa-lock"></i>
+                      <input type="text" class="form-control" name="Cipher" id="Cipher" placeholder="kuznyechik-cbc" value="{{ .Settings.Cipher }}">
+                    </div>
+                    <small class="form-help">Шифр дата-канала (<code>--cipher</code>).</small>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="input-icon">
+                      <i class="fa fa-list-ul"></i>
+                      <input type="text" class="form-control" name="OVConfigNcpCiphers" id="OVConfigNcpCiphers" placeholder="kuznyechik-cbc" value="{{ .Settings.OVConfigNcpCiphers }}">
+                    </div>
+                    <small class="form-help">Список для NCP (<code>--ncp-ciphers</code>).</small>
+                  </div>
+                 <div class="col-sm-4">
+  <label for="AuthSelect">Auth (HMAC digest)</label>
+  <div class="input-icon">
+    <i class="fa fa-fingerprint"></i>
+    <!-- Скрытое поле, которое реально уходит в форму -->
+    <input type="hidden" name="Auth" id="Auth" value="{{ .Settings.Auth }}">
+    <!-- Видимый селект -->
+    <select class="form-control" id="AuthSelect" aria-describedby="auth-help">
+      <option value="" disabled selected>Загрузка списка алгоритмов…</option>
+    </select>
+  </div>
+  <small id="auth-help" class="form-help">
+    Алгоритм дайджеста для HMAC-аутентификации пакетов (<code>--auth</code>).
+  </small>
+  <small class="form-help">
+    Современные и рекомендуемые: <b>SHA2-256/192</b>, <b>SHA256</b>, <b>SHA384</b>, <b>SHA512</b>, <b>SHA3-256/384/512</b>, <b>BLAKE2s256</b>, <b>BLAKE2b512</b>, <b>SM3</b>, <b>id-tc26-gost3411-12-256/512</b>.
+    Устаревшие: <b>MD5</b>, <b>MD5-SHA1</b>, <b>SHA1</b>, <b>id-GostR3411-94</b>, <b>NULL</b>.
+  </small>
 </div>
 
-<div class="modal fade" id="config-view-modal">
+                </div>
+
+                <!-- Расширенные подсказки по криптографии -->
+                <div class="mt-2">
+                  <div class="kuz-note">
+                    <b>Поддерживаемые современные шифры (рекомендуемые):</b>
+                    <ul class="mb-1">
+                      <li><code>kuznyechik-cbc</code> — 256-битный ключ, 128-битный блок.</li>
+                      <li><code>kuznyechik-cfb</code> — 256-битный ключ, 128-битный блок, <i>только TLS client/server mode</i>.</li>
+                      <li><code>kuznyechik-ofb</code> — 256-битный ключ, 128-битный блок, <i>только TLS client/server mode</i>.</li>
+                    </ul>
+                  </div>
+                  <div class="deprecated mt-2">
+                    <b>Устаревшие (блок &lt; 128 бит) — не использовать без крайней необходимости:</b>
+                    <ul class="mb-1">
+                      <li><code>gost89</code> — 256-битный ключ, потоковый, <i>только TLS client/server mode</i>.</li>
+                      <li><code>gost89-cbc</code> — 256-битный ключ, 64-битный блок.</li>
+                      <li><code>gost89-cnt</code> — 256-битный ключ, 64-битный блок, <i>только TLS client/server mode</i>.</li>
+                      <li><code>gost89-cnt-12</code> — 256-битный ключ, потоковый, <i>только TLS client/server mode</i>.</li>
+                      <li><code>magma-cbc</code> — 256-битный ключ, 64-битный блок.</li>
+                    </ul>
+                    <small class="form-help">Малый размер блока повышает риск коллизий и атак при больших объёмах трафика.</small>
+                  </div>
+                  <div class="mt-2">
+                    <b>Хэш-функции для <code>--auth</code>:</b>
+                    <ul class="mb-0">
+                      <li><code>id-tc26-gost3411-12-256</code> — размер дайджеста 256 бит.</li>
+                      <li><code>id-tc26-gost3411-12-512</code> — размер дайджеста 512 бит.</li>
+                      <li><code>id-GostR3411-94</code> — размер дайджеста 256 бит (устаревшая).</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" id="auth-mode">
+                <label for="FuncMode">Режим аутентификации</label>
+                <div class="input-icon">
+                  <i class="fa fa-shield"></i>
+                  <select name="FuncMode" id="FuncMode" class="form-control" aria-describedby="auth-mode-help">
+                    <option value="0" {{if eq .Settings.FuncMode 0}}selected{{end}}>Классическая (сертификат, опционально пароль)</option>
+                    <option value="1" {{if eq .Settings.FuncMode 1}}selected{{end}}>Двухфакторная (2FA)</option>
+                  </select>
+                </div>
+                <small id="auth-mode-help" class="form-help">2FA добавляет проверку одноразовым кодом (OATH/TOTP) через скрипт-верификатор.</small>
+              </div>
+
+              <div class="form-group" id="script-sec">
+                <label for="scriptsecurity">Script-security</label>
+                <div class="input-icon">
+                  <i class="fa fa-code"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="ScriptSecurity" id="scriptsecurity" placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}script-security 2{{ end }}">
+                </div>
+                <small class="form-help">Разрешение выполнения пользовательских скриптов. Для 2FA требуется <code>script-security 2</code>.</small>
+              </div>
+
+              <div class="form-group" id="auth-user-pass-verify">
+                <label for="userpassverify">Auth-user-pass-verify</label>
+                <div class="input-icon">
+                  <i class="fa fa-terminal"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="UserPassVerify" id="userpassverify" placeholder="Конфигурация 2FA" value="{{if eq .Settings.FuncMode 0}} {{else}}auth-user-pass-verify /opt/app/bin/oath.sh via-file{{ end }}">
+                </div>
+                <small class="form-help">Подключение скрипта проверки логина/пароля и TOTP: <code>via-file</code> безопаснее <code>via-env</code>.</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Сети и маршрутизация -->
+      <div class="card">
+        <div class="card-header"><i class="fa fa-network-wired mr-2"></i> Сети и маршруты</div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="Server">Server (доверенная VPN-подсеть)</label>
+                <div class="input-icon">
+                  <i class="fa fa-home"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Server" id="Server" placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}">
+                </div>
+                <small class="form-help">Пул адресов для VLAN1; для <b>tap</b> можно использовать <code>server-bridge</code>.</small>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="Route">Route (гостевая VPN-подсеть)</label>
+                <div class="input-icon">
+                  <i class="fa fa-route"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="Route" id="Route" placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}">
+                </div>
+                <small class="form-help">Маршрут до гостевой VLAN2, распространяется с сервера.</small>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="PushRoute">Push Route (домашняя подсеть)</label>
+                <div class="input-icon">
+                  <i class="fa fa-share-square-o"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder='push "route 10.0.60.0 255.255.255.0"' value="{{ .Settings.PushRoute }}">
+                </div>
+                <small class="form-help">Пушит маршрут к домашней сети для VLAN1.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-3">
+              <div class="form-group">
+                <label for="DNSServer1">Push DHCP (DNS #1)</label>
+                <div class="input-icon">
+                  <i class="fa fa-globe"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="DNSServer1" id="DNSServer1" placeholder='push "dhcp-option DNS 8.8.8.8"' value="{{ .Settings.DNSServer1 }}">
+                </div>
+                <small class="form-help">Прокидывает основной DNS клиентам.</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group">
+                <label for="DNSServer2">Push DHCP (DNS #2)</label>
+                <div class="input-icon">
+                  <i class="fa fa-globe"></i>
+                  <input type="text" selector="vformdata" class="form-control" name="DNSServer2" id="DNSServer2" placeholder='push "dhcp-option DNS 1.0.0.1"' value="{{ .Settings.DNSServer2 }}">
+                </div>
+                <small class="form-help">Резервный DNS.</small>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="RedirectGW">Push redirect-gateway</label>
+                <div class="input-icon">
+                  <i class="fa fa-location-arrow"></i>
+                  <input type="text" class="form-control" name="RedirectGW" id="RedirectGW" placeholder='push "redirect-gateway def1 bypass-dhcp"' value="{{ .Settings.RedirectGW }}">
+                </div>
+                <small class="form-help">Маршрут по умолчанию через VPN для всего клиентского трафика.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="OVConfigClientConfigDir">Client-Config-Dir</label>
+            <div class="input-icon">
+              <i class="fa fa-folder-open"></i>
+              <input type="text" class="form-control" name="OVConfigClientConfigDir" id="OVConfigClientConfigDir" placeholder="/etc/openvpn/staticclients" value="{{ .Settings.OVConfigClientConfigDir }}">
+            </div>
+            <small class="form-help">Каталог для клиентских статических настроек (<code>ccd</code>).</small>
+          </div>
+
+          <div class="form-group">
+            <label for="IfconfigPoolPersist">Ifconfig-Pool-Persist</label>
+            <div class="input-icon">
+              <i class="fa fa-address-book"></i>
+              <input type="text" class="form-control" name="IfconfigPoolPersist" id="IfconfigPoolPersist" placeholder="pki/ipp.txt" value="{{ .Settings.IfconfigPoolPersist }}">
+            </div>
+            <small class="form-help">Сопоставление клиент ↔ IP (удобно для статических адресов).</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Логи и наблюдаемость -->
+      <div class="card">
+        <div class="card-header"><i class="fa fa-file-text-o mr-2"></i> Логи и статус</div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="OVConfigLogfile">Logfile</label>
+                <div class="input-icon">
+                  <i class="fa fa-file-o"></i>
+                  <input type="text" class="form-control" name="OVConfigLogfile" id="OVConfigLogfile" placeholder="/var/log/openvpn/openvpn.log" value="{{ .Settings.OVConfigLogfile }}">
+                </div>
+                <small class="form-help">Файл журнала OpenVPN.</small>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="OVConfigLogVerbose">Verb</label>
+                <div class="input-icon">
+                  <i class="fa fa-bullhorn"></i>
+                  <input type="text" class="form-control" id="OVConfigLogVerbose" name="OVConfigLogVerbose" placeholder="3" value="{{ .Settings.OVConfigLogVerbose }}">
+                </div>
+                <small class="form-help">Уровень подробности (0–4). Для прод — 3.</small>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="OVConfigStatusLog">Status file</label>
+                <div class="input-icon">
+                  <i class="fa fa-info-circle"></i>
+                  <input type="text" class="form-control" name="OVConfigStatusLog" id="OVConfigStatusLog" placeholder="/var/log/openvpn/openvpn-status.log" value="{{ .Settings.OVConfigStatusLog }}">
+                </div>
+                <small class="form-help">Статус для экспортеров/мониторинга.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group col-md-4 p-0">
+            <label for="OVConfigStatusLogVersion">Status file version</label>
+            <div class="input-icon">
+              <i class="fa fa-hashtag"></i>
+              <input type="text" class="form-control" name="OVConfigStatusLogVersion" id="OVConfigStatusLogVersion" placeholder="2" value="{{ .Settings.OVConfigStatusLogVersion }}">
+            </div>
+            <small class="form-help">Версия формата файла статуса (нужна некоторым экспортерам OpenVPN).</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Произвольные опции -->
+      <div class="card">
+        <div class="card-header"><i class="fa fa-wrench mr-2"></i> Произвольные опции</div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="CustomOptOne">Произвольная опция №1</label>
+            <div class="input-icon">
+              <i class="fa fa-tag"></i>
+              <input type="text" class="form-control" name="CustomOptOne" id="CustomOptOne" placeholder="#Custom Option One" value="{{ .Settings.CustomOptOne }}">
+            </div>
+            <small class="form-help">Любая строка в формате OpenVPN. Для отключения — начните с <code>#</code>.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="CustomOptTwo">Произвольная опция №2</label>
+            <div class="input-icon">
+              <i class="fa fa-tags"></i>
+              <textarea class="form-control" name="CustomOptTwo" id="CustomOptTwo" rows="2" placeholder="#Custom Option Two">{{ .Settings.CustomOptTwo }}</textarea>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="CustomOptThree">Произвольная опция №3</label>
+            <div class="input-icon">
+              <i class="fa fa-tags"></i>
+              <textarea class="form-control" name="CustomOptThree" id="CustomOptThree" rows="3" placeholder="#Custom Option Three">{{ .Settings.CustomOptThree }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{ .xsrfdata }}
+      <div class="d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary"
+          onclick="return confirm('Вы уверены, что хотите сохранить новый конфигурационный файл?\nТекущая конфигурация будет перезаписана!');">
+          <i class="fa fa-save mr-1"></i> Сохранить конфиг
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Модальное окно: прямое редактирование server.conf -->
+<div class="modal fade" id="config-view-modal" tabindex="-1" role="dialog" aria-labelledby="configViewTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">{{ .BeeSettings.OVConfigPath }}/server.conf</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span></button>
+        <h4 id="configViewTitle" class="modal-title">
+          <i class="fa fa-file-code-o mr-2" aria-hidden="true"></i>{{ .BeeSettings.OVConfigPath }}/server.conf
+        </h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
-           <!-- /.card-header -->
-            <!-- form start -->
-           {{template "common/alert.html" .}}
-            <form role="server-config" role="form" action="{{urlfor "OVConfigController.Edit"}}" method="post">
-              <div class="card-body">
-              
-                <div class="form-group">
-                    <div class="card-group" id="accordion">
-                      <span >
-                        <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false" class="collapsed">
-                          <i class="fa fa-fw fa-info-circle" style="color: #f39c12; font-size: 15px;"></i> <b style="color: #f39c12;">Please note</b>
-                        </a>
-                      </span>
-                    </div>
-                    <div id="collapseOne" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-                      <div class="card-body">
-                        <span class="text-muted">Manual configuration will not push new changes into OpenVPN UI templates DB.</span><br>
-                        <span class="text-muted">Best practice is update Server configuration with Configuration template.</span><br>
-                      </div>
-                    </div>
-                    <br><textarea type="text" class="form-control my-textarea" name="ServerConfig" id="ServerConfig" spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
+        {{template "common/alert.html" .}}
+        <form role="server-config" action="{{urlfor "OVConfigController.Edit"}}" method="post">
+          <div class="card-body">
+            <div class="card-group" id="accordion">
+              <span>
+                <a data-toggle="collapse" data-parent="#accordion" href="#collapseNotice" aria-expanded="false" class="collapsed">
+                  <i class="fa fa-fw fa-info-circle" style="color: #f39c12;"></i>
+                  <b style="color: #f39c12;">Обратите внимание</b>
+                </a>
+              </span>
+              <div id="collapseNotice" class="panel-collapse collapse" aria-expanded="false">
+                <div class="card-body">
+                  <span class="text-muted d-block">Ручные правки не обновляют шаблоны в базе OpenVPN UI.</span>
+                  <span class="text-muted d-block">Рекомендуется менять параметры через шаблон конфигурации.</span>
                 </div>
-                
-                {{ .xsrfdata }}
               </div>
-              <div class="card-footer">
-                <button type="button" class="btn btn-default pull-left" style="width: 135px;" data-dismiss="modal">Close</button> &nbsp; &nbsp;
-                <button type="submit" class="btn btn-primary" style="width: 135px;" onclick="return confirm('Are you sure you want to Save manually added configuration file?\nTemplate will not be updated!'); window.location.reload();">Save</button>
-              </div>
-                 <!-- /.card-body -->
-            </form>
-            <span class="text-muted"> {{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
+            </div>
+
+            <textarea class="form-control my-textarea" name="ServerConfig" id="ServerConfig" spellcheck="false" rows="15">{{ .ServerConfig }}</textarea>
+            {{ .xsrfdata }}
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+            <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times mr-1"></i> Закрыть</button>
+            <button type="submit" class="btn btn-primary"
+              onclick="return confirm('Вы уверены, что хотите сохранить вручную изменённый конфигурационный файл?\nШаблон обновлён не будет!'); window.location.reload();">
+              <i class="fa fa-save mr-1"></i> Сохранить
+            </button>
+          </div>
+        </form>
+        <span class="text-muted">{{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
       </div>
     </div>
   </div>
 </div>
 
-<!-- /.card -->
 {{end}}
 
 <script>
@@ -436,6 +562,7 @@
   const userPassVerifyInput = document.getElementById('userpassverify');
 
   function checkFuncMode() {
+    if (!funcModeSelect) return;
     if (funcModeSelect.value === '0') {
       scriptSecurityDiv.style.display = 'none';
       userPassVerifyDiv.style.display = 'none';
@@ -448,14 +575,197 @@
       userPassVerifyInput.value = 'auth-user-pass-verify /opt/app/bin/oath.sh via-file';
     }
   }
-  funcModeSelect.addEventListener('change', checkFuncMode);
-
-window.addEventListener('load', () => {
-  checkFuncMode();
-  if (localStorage.getItem("theme") === "dark") {
-    createEditor("ServerConfig", "550px", "clouds_midnight", "ovpn", false);
-  } else {
-    createEditor("ServerConfig", "550px", "clouds", "ovpn", false);
+  if (funcModeSelect) {
+    funcModeSelect.addEventListener('change', checkFuncMode);
   }
-});
+
+  window.addEventListener('load', () => {
+    checkFuncMode();
+    if (localStorage.getItem("theme") === "dark") {
+      createEditor("ServerConfig", "550px", "clouds_midnight", "ovpn", false);
+    } else {
+      createEditor("ServerConfig", "550px", "clouds", "ovpn", false);
+    }
+  });
+</script>
+<script>
+/** ——— Конфиг категоризации ——— */
+const DEPRECATED = new Set([
+  'MD5', 'MD5-SHA1', 'SHA1', 'id-GostR3411-94', 'NULL'
+]);
+
+const RECOMMENDED = new Set([
+  'SHA256','SHA384','SHA512',
+  'SHA3-256','SHA3-384','SHA3-512',
+  'BLAKE2s256','BLAKE2b512',
+  'SM3',
+  'id-tc26-gost3411-12-256','id-tc26-gost3411-12-512',
+  'SHA512-256','SHA512-224','SHA224','SHA3-224',
+  'SHA2-256/192' // присутствует в выводе openvpn некоторых сборок
+]);
+
+/** ——— Резервный «сырой» список из твоего сообщения ——— */
+const DIGESTS_FALLBACK_RAW = `
+SHA3-512 512 bit digest size
+SHA512-256 256 bit digest size
+SHA224 224 bit digest size
+SHA1 160 bit digest size
+SHA3-224 224 bit digest size
+SHA3-384 384 bit digest size
+RIPEMD160 160 bit digest size
+SHA512 512 bit digest size
+SHA512-224 224 bit digest size
+SHAKE256 0 bit digest size
+SHA384 384 bit digest size
+SM3 256 bit digest size
+SHA3-256 256 bit digest size
+MD5 128 bit digest size
+BLAKE2s256 256 bit digest size
+SHA256 256 bit digest size
+BLAKE2b512 512 bit digest size
+MD5-SHA1 288 bit digest size
+SHAKE128 0 bit digest size
+SHA2-256/192 192 bit digest size
+KECCAK-224 224 bit digest size
+KECCAK-256 256 bit digest size
+KECCAK-384 384 bit digest size
+KECCAK-512 512 bit digest size
+KECCAK-KMAC-128 256 bit digest size
+KECCAK-KMAC-256 512 bit digest size
+NULL 0 bit digest size
+id-tc26-gost3411-12-256 256 bit digest size
+id-tc26-gost3411-12-512 512 bit digest size
+id-GostR3411-94 256 bit digest size
+`;
+
+/** ——— Парсер строк openvpn ———
+ * Матчит как обычные, так и «SHAKE/NULL/KECCAK-KMAC» варианты
+ */
+function parseOpenVpnDigests(raw) {
+  const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const out = [];
+  const rx = /^([A-Za-z0-9][A-Za-z0-9_\-\/]*)(?:\s+(\d+)\s+bit\s+digest\s+size|.*)$/i;
+  for (const line of lines) {
+    const m = line.match(rx);
+    if (!m) continue;
+    const name = m[1];
+    // для SHAKE/NULL может быть 0 бит — оставляем как есть; если не нашли число — считаем null
+    const bits = m[2] ? parseInt(m[2], 10) : (/\b0\s*bit\b/i.test(line) ? 0 : null);
+    out.push({ name, bits });
+  }
+  // Уникализация по имени
+  const uniq = new Map();
+  for (const d of out) if (!uniq.has(d.name)) uniq.set(d.name, d);
+  return Array.from(uniq.values());
+}
+
+/** ——— Группировка на 3 optgroup ——— */
+function groupDigests(digests) {
+  const groups = {
+    recommended: [],
+    modern: [],
+    legacy: []
+  };
+  for (const d of digests) {
+    if (DEPRECATED.has(d.name)) {
+      groups.legacy.push(d);
+    } else if (RECOMMENDED.has(d.name)) {
+      groups.recommended.push(d);
+    } else {
+      groups.modern.push(d);
+    }
+  }
+  // Сортируем внутри групп «красиво»
+  const byBitsDesc = (a,b) => (b.bits ?? -1) - (a.bits ?? -1) || a.name.localeCompare(b.name);
+  groups.recommended.sort(byBitsDesc);
+  groups.modern.sort(byBitsDesc);
+  groups.legacy.sort((a,b)=>a.name.localeCompare(b.name));
+  return groups;
+}
+
+/** ——— Рендер селекта ——— */
+function fillAuthSelect(groups, current) {
+  const sel = document.getElementById('AuthSelect');
+  const hidden = document.getElementById('Auth');
+  if (!sel || !hidden) return;
+
+  sel.innerHTML = ''; // очистка
+
+  function appendGroup(label, arr) {
+    if (!arr.length) return;
+    const og = document.createElement('optgroup');
+    og.label = label;
+    for (const d of arr) {
+      const opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.bits != null ? `${d.name} (${d.bits}-bit)` : d.name;
+      og.appendChild(opt);
+    }
+    sel.appendChild(og);
+  }
+
+  appendGroup('Рекомендуемые', groups.recommended);
+  appendGroup('Современные', groups.modern);
+  appendGroup('Устаревшие (не рекомендованы)', groups.legacy);
+
+  // Выставляем текущее значение
+  if (current) {
+    // если пришло в формате "auth X", оставим только алгоритм
+    const cur = String(current).trim().replace(/^auth\s+/i,'');
+    const found = Array.from(sel.querySelectorAll('option')).some(o => o.value === cur);
+    if (!found && cur) {
+      // подмешаем кастомный (на случай нестандартной сборки)
+      const og = document.createElement('optgroup'); og.label = 'Текущее значение';
+      const opt = document.createElement('option'); opt.value = cur; opt.textContent = cur;
+      og.appendChild(opt); sel.prepend(og);
+    }
+    sel.value = cur;
+    hidden.value = cur;
+  } else {
+    // выберем первый рекомендуемый, если есть
+    const first = sel.querySelector('optgroup[label="Рекомендуемые"] option')
+              || sel.querySelector('option');
+    if (first) {
+      sel.value = first.value;
+      hidden.value = first.value;
+    }
+  }
+
+  sel.addEventListener('change', () => {
+    hidden.value = sel.value;
+  });
+}
+
+/** ——— Загрузка источника: .DigestsJSON → fetch → fallback ——— */
+async function loadDigestsAndRender() {
+  const current = (document.getElementById('Auth') || {}).value || '{{ .Settings.Auth }}';
+  // 1) Попытаться взять вшитый JSON (если прокинешь с контроллера)
+  try {
+    const embedded = document.getElementById('OpenVpnDigestsJSON');
+    if (embedded && embedded.textContent.trim()) {
+      const dig = JSON.parse(embedded.textContent);
+      const groups = groupDigests(dig);
+      fillAuthSelect(groups, current);
+      return;
+    }
+  } catch (e) { /* no-op */ }
+
+  // 2) Попытаться достать по API
+  try {
+    const r = await fetch('/api/openvpn/digests', { credentials: 'same-origin' });
+    if (r.ok) {
+      const dig = await r.json(); // ожидаем [{name:"SHA256", bits:256}, ...]
+      const groups = groupDigests(dig);
+      fillAuthSelect(groups, current);
+      return;
+    }
+  } catch (e) { /* no-op */ }
+
+  // 3) Фоллбек: парсим «сырой» текст
+  const dig = parseOpenVpnDigests(DIGESTS_FALLBACK_RAW);
+  const groups = groupDigests(dig);
+  fillAuthSelect(groups, current);
+}
+
+window.addEventListener('load', loadDigestsAndRender);
 </script>
