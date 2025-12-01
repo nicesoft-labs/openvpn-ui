@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	configDir := flag.String("config", "conf", "Path to config dir")
+	configDir := flag.String("config", "/etc/nicevpn", "Path to config dir")
 	flag.Parse()
 
 	configFile := filepath.Join(*configDir, "app.conf")
@@ -52,28 +52,26 @@ func main() {
 	web.Run()
 }
 
-const defaultAppConfig = `; we use this when building the app.
-appname = openvpn-ui
-httpport = 8080
-runmode = prod
+const defaultAppConfig = `AppName = openvpn-ui
+HttpPort = 8080
+RunMode = dev
 EnableGzip = true
-EnableAdmin = false
-sessionon = true
+EnableAdmin = true
+SessionOn = true
 CopyRequestBody = true
+DbPath = "/srv/nicevpn/db/data.db"
+MetricsDbPath = "/srv/nicevpn/db/metrics.db"
 AuthType = "password"
-DbPath = "./db/data.db"
-MetricsDbPath = "./db/metrics.db"
-EasyRsaPath = "/usr/share/easy-rsa"
-OpenVpnPath = "/etc/openvpn"
-OpenVpnManagementAddress = "openvpn:2080"
-OpenVpnManagementNetwork = "tcp"
-OVConfigLogVerbose = "1"
-
-# google config
-googleClientID = your-google-clientid
-googleClientSecret = your-google-secret
-googleRedirectURL = http://localhost:8080/auth/google/callback
-`
+; LdapAddress = "localhost:389"
+; LdapDn = "cn=%s,ou=users,dc=syncloud,dc=org"
+; plain/tls/starttls
+; LdapTransport = "plain"
+; LdapInsecureSkipVerify = true
+;EasyRsaPath = "/usr/share/easy-rsa"
+EasyRsaPath = "/srv/nicevpn/easy-rsa"
+OpenVpnPath = "/srv/nicevpn/openvpn"
+OpenVpnManagementAddress = "0.0.0.0:2080"
+OpenVpnManagementNetwork = "tcp"`
 
 func ensureConfigFile(configDir, configFile string) error {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
