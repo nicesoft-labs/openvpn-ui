@@ -32,6 +32,30 @@
     padding: .5rem; display:flex; justify-content:flex-end; gap:.5rem;
   }
   .save-bar .badge { align-self:center; }
+/* Быстрые якоря-разделы — базово прозрачные */
+.quick-nav{
+  position: sticky; top: 1rem; z-index: 1030;
+  background: transparent;
+  transition: background-color .18s ease, box-shadow .18s ease, border-color .18s ease;
+  border-radius: .5rem;
+}
+/* Становится «плашкой» при прокрутке */
+.quick-nav.solid{
+  background: #fff;                 /* светлая тема */
+  border: 1px solid #e9ecef;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  padding: .5rem .5rem .25rem;
+}
+/* Тёмная тема */
+.quick-nav.solid.dark{
+  background: #1e1f22;
+  border-color: #2a2d31;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+/* Чуть уплотним кнопки внутри плашки */
+.quick-nav.solid .btn{ margin: .125rem .125rem; }
+/* Чтобы контент не «просвечивал» под плашкой в iOS/Chrome с эффектами */
+.quick-nav.solid{ -webkit-backdrop-filter: none; backdrop-filter: none; }
 </style>
 {{end}}
 {{define "body"}}
@@ -1676,5 +1700,28 @@ window.addEventListener('load', loadCiphersAndRender);
     recomputeSummary();
     syncConflictAndSave();
   });
+})();
+</script>
+<script>
+(function(){
+  const nav = document.querySelector('.quick-nav');
+  if (!nav) return;
+
+  const THEME_IS_DARK = () => (localStorage.getItem('theme') === 'dark');
+
+  function applySolid(){
+    // показываем «плашку», если проскроллили хотя бы на 8px ИЛИ навбар касается контента
+    const scrolled = window.scrollY > 8;
+    nav.classList.toggle('solid', scrolled);
+    nav.classList.toggle('dark', scrolled && THEME_IS_DARK());
+  }
+
+  // если меняете тему динамически — переиспользуем тот же апдейтер
+  window.addEventListener('scroll', applySolid, { passive: true });
+  window.addEventListener('resize', applySolid);
+  window.addEventListener('load', applySolid);
+
+  // опционально: реагируем на переключение темы, если у вас есть глобальное событие
+  window.addEventListener('themechange', applySolid);
 })();
 </script>
