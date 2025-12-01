@@ -1,46 +1,44 @@
 <ul class="navbar-nav">
 
   <li {{if compare .RouterPattern "/"}}class="nav-item"{{end}}>
-    <a href="{{urlfor "MainController.Get"}}" class="nav-link">Home <span class="sr-only">(current)</span></a>
+    <a href="{{urlfor "MainController.Get"}}" class="nav-link">Главная <span class="sr-only">(текущая)</span></a>
   </li>
-
 
 {{ if .Userinfo.IsAdmin }}
   <li class="dropdown">
     <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-      Configuration </a>
+      Конфигурация </a>
 
     <ul class="dropdown-menu" role="menu">
       <li {{if compare .RouterPattern "/settings"}}class="dropdown-item"{{end}}>
-        <a href="{{urlfor "SettingsController.Get"}}" class="dropdown-item">OpenVPN UI</a>
+        <a href="{{urlfor "SettingsController.Get"}}" class="dropdown-item">Интерфейс OpenVPN</a>
       </li>
 
       <li {{if compare .RouterPattern "/ov/config"}}class="dropdown-item"{{end}}>
-        <a href="{{urlfor "OVConfigController.Get"}}" class="dropdown-item">OpenVPN Server</a>
+        <a href="{{urlfor "OVConfigController.Get"}}" class="dropdown-item">Сервер OpenVPN</a>
       </li>
 
       <li {{if compare .RouterPattern "/ov/clientconfig"}}class="dropdown-item"{{end}}>
-        <a href="{{urlfor "OVClientConfigController.Get"}}" class="dropdown-item">OpenVPN Client</a>
+        <a href="{{urlfor "OVClientConfigController.Get"}}" class="dropdown-item">Клиент OpenVPN</a>
       </li>
 
       <li {{if compare .RouterPattern "/easyrsa/config"}}class="dropdown-item"{{end}}>
-        <a href="{{urlfor "EasyRSAConfigController.Get"}}" class="dropdown-item">EasyRSA vars</a>
+        <a href="{{urlfor "EasyRSAConfigController.Get"}}" class="dropdown-item">Параметры EasyRSA</a>
       </li>
 
       <li {{if compare .RouterPattern "/dangerzone"}}class="dropdown-item"{{end}}>
-        <a href="{{urlfor "DangerController.Get"}}" class="dropdown-item">Maintenance</a>
+        <a href="{{urlfor "DangerController.Get"}}" class="dropdown-item">Обслуживание</a>
       </li>
     </ul>
   </li>
   {{ else }}
   {{ end }}
 
-
   <li {{if compare .RouterPattern "/certificates"}}class="nav-item"{{end}}>
-    <a href="{{urlfor "CertificatesController.Get"}}" class="nav-link">Certificates</a>
+    <a href="{{urlfor "CertificatesController.Get"}}" class="nav-link">Сертификаты</a>
   </li>
 
   <li {{if compare .RouterPattern "/logs"}}class="nav-item"{{end}}>
-    <a href="{{urlfor "LogsController.Get"}}" class="nav-link">Logs</a>
+    <a href="{{urlfor "LogsController.Get"}}" class="nav-link">Журналы</a>
   </li>
 </ul>
