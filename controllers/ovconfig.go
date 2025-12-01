@@ -37,6 +37,7 @@ func (c *OVConfigController) NestPrepare() {
 // @router /ov/config [Get]
 func (c *OVConfigController) Get() {
 	c.TplName = "ovconfig.html"
+
 	besettings := models.Settings{Profile: "default"}
 	_ = besettings.Read("Profile")
 	c.Data["BeeSettings"] = &besettings
@@ -49,10 +50,10 @@ func (c *OVConfigController) Get() {
 	}
 	c.Data["ServerConfig"] = string(serverConf)
 	c.Data["xsrfdata"] = template.HTML(c.XSRFFormHTML())
+
 	cfg := models.OVConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 	c.Data["Settings"] = &cfg
-
 }
 
 // @router /ov/config [Post]
@@ -61,21 +62,28 @@ func (c *OVConfigController) Post() {
 
 	c.TplName = "ovconfig.html"
 	flash := web.NewFlash()
+
+	// Загружаем текущие настройки
 	cfg := models.OVConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 
 	logs.Info("Post: Parsing form data")
-	logs.Info("Form data before parsing: %v", c.Ctx.Request.Form)
+	logs.Info("Form data (raw): ", c.Ctx.Request.Form)
+
+	// Парсим форму в cfg
 	if err := c.ParseForm(&cfg); err != nil {
 		logs.Warning(err)
 		flash.Error(err.Error())
 		flash.Store(&c.Controller)
 		return
 	}
+
+	// Нормализация полей split-tunnel
 	cfg.Config.PushRoute = strings.TrimSpace(cfg.Config.PushRoute)
 	cfg.Config.RedirectGW = strings.TrimSpace(cfg.Config.RedirectGW)
 	cfg.Config.PushRoutesExtra = normalizeLineEndings(strings.TrimSpace(cfg.Config.PushRoutesExtra))
 
+	// Строим итоговый набор push "route ..."
 	pushRoutes, err := buildPushRoutes(cfg.Config.PushRoute, cfg.Config.PushRoutesExtra)
 	if err != nil {
 		logs.Warning(err)
@@ -86,23 +94,29 @@ func (c *OVConfigController) Post() {
 
 	cfg.Config.PushRoutes = strings.Join(pushRoutes, "\n")
 	if cfg.Config.PushRoute != "" && len(pushRoutes) > 0 {
+		// для обратной совместимости сохраняем первое значение в единичное поле
 		cfg.Config.PushRoute = pushRoutes[0]
 	}
 
+	// Режим split-only: не пушим redirect-gateway
 	if cfg.Config.SplitOnlyMode {
 		cfg.Config.RedirectGW = ""
 	}
-	logs.Info("Form data after parsing: %v", c.Ctx.Request.Form)
 
 	logs.Info("Post: Dumping configuration data")
-	logs.Info("Configuration data: %v", cfg)
 	lib.Dump(cfg)
 	c.Data["Settings"] = &cfg
-	logs.Info("Settings data: %v", c.Data["Settings"])
+	logs.Info("Settings data attached to template")
 
+	// Всегда прокидываем xsrfdata после submit
+	c.Data["xsrfdata"] = template.HTML(c.XSRFFormHTML())
+
+	// Сохраняем server.conf по шаблону
 	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "server.conf")
-	logs.Info("Post: Saving configuration to file according to template")
-	err := config.SaveToFile(filepath.Join(c.ConfigDir, "openvpn-server-config.tpl"), cfg.Config, destPath)
+	tplPath := filepath.Join(c.ConfigDir, "openvpn-server-config.tpl")
+
+	// ВАЖНО: тут было `err :=` — заменено на обычное присваивание `err =`
+	err = config.SaveToFile(tplPath, cfg.Config, destPath)
 	if err != nil {
 		logs.Warning(err)
 		flash.Error(err.Error())
@@ -110,19 +124,20 @@ func (c *OVConfigController) Post() {
 		return
 	}
 
-	logs.Info("Post: Updating configuration in database")
+	// Обновляем запись в БД
 	o := orm.NewOrm()
 	if _, err := o.Update(&cfg); err != nil {
 		flash.Error(err.Error())
 	} else {
 		flash.Success("Post: Config has been updated")
+		// Пытаемся мягко перегрузить OpenVPN через management-interface
 		client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 		if err := client.Signal("SIGTERM"); err != nil {
 			flash.Warning("Config has been updated but OpenVPN server was NOT reloaded: " + err.Error())
 		}
 	}
 
-	logs.Info("Post: Reading updated server configuration from file")
+	// Перечитываем сохранённый конфиг для модального окна
 	serverConf, err := os.ReadFile(destPath)
 	if err != nil {
 		logs.Error("Error reading server config from file:", err)
@@ -138,10 +153,10 @@ func (c *OVConfigController) Post() {
 func (c *OVConfigController) Edit() {
 	c.TplName = "ovconfig.html"
 	flash := web.NewFlash()
+
 	cfg := models.OVConfig{Profile: "default"}
 	_ = cfg.Read("Profile")
 
-	//logs.Info("Post: Parsing form data")
 	if err := c.ParseForm(&cfg); err != nil {
 		logs.Warning(err)
 		flash.Error(err.Error())
@@ -149,11 +164,10 @@ func (c *OVConfigController) Edit() {
 		return
 	}
 
-	//logs.Info("Post: Dumping configuration data")
 	lib.Dump(cfg)
 	c.Data["Settings"] = &cfg
+	c.Data["xsrfdata"] = template.HTML(c.XSRFFormHTML())
 
-	//logs.Info("Starting Edit method in OVConfigController")
 	destPath := filepath.Join(state.GlobalCfg.OVConfigPath, "server.conf")
 
 	err := lib.ConfSaveToFile(destPath, c.GetString("ServerConfig"))
@@ -162,7 +176,6 @@ func (c *OVConfigController) Edit() {
 		flash.Error("Error saving server config to file")
 		return
 	} else {
-		//logs.Info("Edit: Server config saved to file:", destPath)
 		flash.Success("Config has been updated")
 	}
 
@@ -206,7 +219,7 @@ func buildPushRoutes(pushRoute string, pushRoutesExtra string) ([]string, error)
 
 		m := pushRoutesExtraRx.FindStringSubmatch(trimmed)
 		if m == nil || !isValidIPv4(m[1]) || !isValidIPv4(m[2]) {
-			return nil, fmt.Errorf("invalid PushRoutesExtra line: \"%s\", expected \"<NET> <MASK>\".", trimmed)
+			return nil, fmt.Errorf("invalid PushRoutesExtra line: %q, expected \"<NET> <MASK>\".", trimmed)
 		}
 
 		normalized := fmt.Sprintf("push \"route %s %s\"", m[1], m[2])
@@ -222,9 +235,8 @@ func buildPushRoutes(pushRoute string, pushRoutesExtra string) ([]string, error)
 func normalizePushRoute(route string) (string, error) {
 	m := pushRouteRx.FindStringSubmatch(route)
 	if m == nil || !isValidIPv4(m[1]) || !isValidIPv4(m[2]) {
-		return "", fmt.Errorf("invalid PushRoute line: \"%s\", expected \"<NET> <MASK>\".", route)
+		return "", fmt.Errorf("invalid PushRoute line: %q, expected \"<NET> <MASK>\".", route)
 	}
-
 	return fmt.Sprintf("push \"route %s %s\"", m[1], m[2]), nil
 }
 
