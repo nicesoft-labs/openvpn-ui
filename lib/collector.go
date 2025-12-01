@@ -160,9 +160,12 @@ func (c *ObservabilityCollector) collectSnapshot() error {
 
 	for _, cl := range status.Clients {
 		lookup := models.MakeClientLookupKey(cl.ClientID, cl.CommonName, cl.RealAddr, cl.VirtAddr)
-		route := routingIndex[cl.VirtAddr]
+		route, ok := routingIndex[cl.VirtAddr]
 		connectedAt := cl.Connected
-		lastRef := route.LastRef
+		lastRef := time.Time{}
+		if ok {
+			lastRef = route.LastRef
+		}
 		peerLabels := c.collectPeerLabels(cl.ClientID, cl.CommonName)
 		username := firstNotEmpty(cl.Username, peerLabels["username"])
 		realAddr := NormalizeAddr(cl.RealAddr)
@@ -373,12 +376,16 @@ func (c *ObservabilityCollector) handleStateLine(line string) {
 			models.MetricSample{Name: "openvpn_server_new_sessions_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"},
 			models.MetricSample{Name: "openvpn_server_tls_handshakes_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"},
 			models.MetricSample{Name: "openvpn_auth_success_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"},
+			models.MetricSample{Name: "openvpn_client_connected", Value: 1, Unit: "sessions", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "gauge"},
 		)
 		if evt.ClientID != "" {
 			go c.capturePeerInfo(evt.ClientID)
 		}
 	case "RECONNECTING", "EXITING":
-		samples = append(samples, models.MetricSample{Name: "openvpn_server_disconnects_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"})
+		samples = append(samples,
+			models.MetricSample{Name: "openvpn_server_disconnects_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"},
+			models.MetricSample{Name: "openvpn_client_connected", Value: 0, Unit: "sessions", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "gauge"},
+		)
 	case "TLS_ERROR":
 		samples = append(samples, models.MetricSample{Name: "openvpn_server_handshake_errors_total", Value: 1, Unit: "events", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: evt.Recorded, Source: "state", MetricType: "counter"})
 	case "AUTH_FAILED":
@@ -478,8 +485,8 @@ func (c *ObservabilityCollector) handleBytecountLine(line string) {
 	}
 	now := time.Now()
 	_ = models.SaveMetricSamples([]models.MetricSample{
-		{Name: "openvpn_client_cli_bytes_in", Value: float64(sample.BytesIn), Unit: "bytes", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: now, Source: "bytecount", MetricType: "counter"},
-		{Name: "openvpn_client_cli_bytes_out", Value: float64(sample.BytesOut), Unit: "bytes", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: now, Source: "bytecount", MetricType: "counter"},
+		{Name: "openvpn_client_bytes_in_total", Value: float64(sample.BytesIn), Unit: "bytes", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: now, Source: "bytecount", MetricType: "counter"},
+		{Name: "openvpn_client_bytes_out_total", Value: float64(sample.BytesOut), Unit: "bytes", LabelsJSON: models.MarshalLabels(lbl), RecordedAt: now, Source: "bytecount", MetricType: "counter"},
 	})
 }
 
