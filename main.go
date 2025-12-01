@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/beego/beego/v2/server/web"
@@ -17,6 +18,10 @@ func main() {
 	flag.Parse()
 
 	configFile := filepath.Join(*configDir, "app.conf")
+
+	if err := ensureConfigFile(*configDir, configFile); err != nil {
+		panic(err)
+	}
 	fmt.Println("Config file:", configFile)
 
 	if err := web.LoadAppConfig("ini", configFile); err != nil {
@@ -39,4 +44,40 @@ func main() {
 
 	lib.AddFuncMaps()
 	web.Run()
+}
+
+const defaultAppConfig = `; we use this when building the app.
+appname = openvpn-ui
+httpport = 8080
+runmode = prod
+EnableGzip = true
+EnableAdmin = false
+sessionon = true
+CopyRequestBody = true
+AuthType = "password"
+DbPath = "./db/data.db"
+EasyRsaPath = "/usr/share/easy-rsa"
+OpenVpnPath = "/etc/openvpn"
+OpenVpnManagementAddress = "openvpn:2080"
+OpenVpnManagementNetwork = "tcp"
+OVConfigLogVerbose = "1"
+
+# google config
+googleClientID = your-google-clientid
+googleClientSecret = your-google-secret
+googleRedirectURL = http://localhost:8080/auth/google/callback
+`
+
+func ensureConfigFile(configDir, configFile string) error {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	if _, err := os.Stat(configFile); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat config file: %w", err)
+	}
+
+	return os.WriteFile(configFile, []byte(defaultAppConfig), 0o644)
 }
