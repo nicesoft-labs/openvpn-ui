@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"reflect"
 	"strconv"
 
 	"github.com/beego/beego/v2/server/web"
@@ -60,15 +61,29 @@ func (c *BaseController) Prepare() {
 	c.Data["IsLogin"] = c.IsLogin
 	c.Data["Userinfo"] = c.Userinfo
 
-	// Важная защита от typed-nil
-	if app, ok := c.AppController.(NestPreparer); ok && app != nil {
-		app.NestPrepare()
+	// Защита от typed-nil в AppController перед вызовом NestPrepare
+	ac := c.AppController
+	if ac != nil {
+		rv := reflect.ValueOf(ac)
+		// если это указатель и он nil — не вызываем методы
+		if !(rv.Kind() == reflect.Ptr && rv.IsNil()) {
+			if app, ok := ac.(NestPreparer); ok {
+				app.NestPrepare()
+			}
+		}
 	}
 }
 
 func (c *BaseController) Finish() {
-	if app, ok := c.AppController.(NestFinisher); ok && app != nil {
-		app.NestFinish()
+	// Та же защита перед NestFinish
+	ac := c.AppController
+	if ac != nil {
+		rv := reflect.ValueOf(ac)
+		if !(rv.Kind() == reflect.Ptr && rv.IsNil()) {
+			if app, ok := ac.(NestFinisher); ok {
+				app.NestFinish()
+			}
+		}
 	}
 }
 
