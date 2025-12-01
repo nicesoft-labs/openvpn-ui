@@ -46,21 +46,21 @@
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_COUNTRY</label>
-        <input type="text" class="form-control" id="EasyRSAReqCountry" name="EasyRSAReqCountry" placeholder="UA"
+        <input type="text" class="form-control" id="EasyRSAReqCountry" name="EasyRSAReqCountry" placeholder="RU"
           value="{{ .Settings.EasyRSAReqCountry }}">
-          <span id="helpBlock" class="text-muted">Двубуквенное поле DN для кода страны (например, UA).</span>
+          <span id="helpBlock" class="text-muted">Двубуквенное поле DN для кода страны (например, RU).</span>
       </div>
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_PROVINCE</label>
-        <input type="text" class="form-control" id="EasyRSAReqProvince" name="EasyRSAReqProvince" placeholder="KY"
+        <input type="text" class="form-control" id="EasyRSAReqProvince" name="EasyRSAReqProvince" placeholder="MOS"
           value="{{ .Settings.EasyRSAReqProvince }}">
-        <span id="helpBlock" class="text-muted">Двубуквенное поле DN для кода региона/штата (например, KY для &quot;Kyiv region&quot;).</span>
+        <span id="helpBlock" class="text-muted">Двубуквенное поле DN для кода региона/штата (например, RU для &quot;Moscow region&quot;).</span>
       </div>
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_CITY</label>
-        <input type="text" class="form-control" id="EasyRSAReqCity" name="EasyRSAReqCity" placeholder="Kyiv"
+        <input type="text" class="form-control" id="EasyRSAReqCity" name="EasyRSAReqCity" placeholder="Moscow"
           value="{{ .Settings.EasyRSAReqCity }}">
         <span id="helpBlock" class="text-muted">Город в DN организации.</span>
 
@@ -68,21 +68,21 @@
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_ORG</label>
-        <input type="text" class="form-control" id="EasyRSAReqOrg" name="EasyRSAReqOrg" placeholder="SweetHome"
+        <input type="text" class="form-control" id="EasyRSAReqOrg" name="EasyRSAReqOrg" placeholder="NiceSOFT"
           value="{{ .Settings.EasyRSAReqOrg }}">
         <span id="helpBlock" class="text-muted">Название организации в DN.</span>
       </div>
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_EMAIL</label>
-        <input type="text" class="form-control" id="EasyRSAReqEmail" name="EasyRSAReqEmail" placeholder="sweet@home.ua"
+        <input type="text" class="form-control" id="EasyRSAReqEmail" name="EasyRSAReqEmail" placeholder="info@ncsgp.ru"
           value="{{ .Settings.EasyRSAReqEmail }}">
         <span id="helpBlock" class="text-muted">Адрес электронной почты организации в DN.</span>
       </div>
 
       <div class="form-group">
         <label for="name">EASYRSA_REQ_OU</label>
-        <input type="text" class="form-control" id="EasyRSAReqOu" name="EasyRSAReqOu" placeholder="GarageVPN"
+        <input type="text" class="form-control" id="EasyRSAReqOu" name="EasyRSAReqOu" placeholder="NiceVPN"
           value="{{ .Settings.EasyRSAReqOu }}">
         <span id="helpBlock" class="text-muted">Организационное подразделение (OU) в DN.</span>
       </div>
