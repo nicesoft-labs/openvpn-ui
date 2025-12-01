@@ -60,6 +60,11 @@ func InitMetricsDB() error {
 	return nil
 }
 
+// GetMetricsOrm returns an ormer bound to the metrics database alias.
+func GetMetricsOrm() orm.Ormer {
+	return orm.NewOrmUsingDB(metricsAlias)
+}
+
 // SaveMetrics persists metric samples into the dedicated metrics database.
 func SaveMetrics(records []MetricRecord) error {
 	if len(records) == 0 {

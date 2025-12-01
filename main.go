@@ -11,7 +11,7 @@ import (
 	"github.com/d3vilh/openvpn-ui/lib"
 	"github.com/d3vilh/openvpn-ui/models"
 	"github.com/d3vilh/openvpn-ui/routers"
-	"github.com/d3vilh/openvpn-ui/services/mgmtcollector"
+	"github.com/d3vilh/openvpn-ui/services/statuscollector"
 	"github.com/d3vilh/openvpn-ui/state"
 )
 
@@ -48,7 +48,7 @@ func main() {
 	collector := lib.NewObservabilityCollector()
 	collector.Start()
 
-	mgmtcollector.Start(loadMgmtCollectorConfig())
+	statuscollector.Start(loadStatusCollectorConfig())
 
 	if err := lib.GenerateUIDataReport("ui-data-report.md"); err != nil {
 		fmt.Println("report generation error:", err)
@@ -82,7 +82,11 @@ OpenVpnManagementAddress = "127.0.0.1:2080"
 OpenVpnManagementNetwork = "tcp"
 OpenVpnManagementPollInterval = "5s"
 OpenVpnManagementDialTimeout = "2s"
-OpenVpnManagementRWTimeout = "2s"`
+OpenVpnManagementRWTimeout = "2s"
+OpenVpnStatusFilePath = "/var/log/status.log"
+OpenVpnStatusFilePollInterval = "2s"
+OpenVpnStatusFileSessionHardTimeout = "1s"
+OpenVpnStatusFileBackoffMax = "10s"`
 
 func ensureConfigFile(configDir, configFile string) error {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -98,13 +102,12 @@ func ensureConfigFile(configDir, configFile string) error {
 	return os.WriteFile(configFile, []byte(defaultAppConfig), 0o644)
 }
 
-func loadMgmtCollectorConfig() mgmtcollector.Config {
-	return mgmtcollector.Config{
-		MINetwork:    web.AppConfig.DefaultString("OpenVpnManagementNetwork", state.GlobalCfg.MINetwork),
-		MIAddress:    web.AppConfig.DefaultString("OpenVpnManagementAddress", state.GlobalCfg.MIAddress),
-		PollInterval: parseDurationConfig("OpenVpnManagementPollInterval", 5*time.Second),
-		DialTimeout:  parseDurationConfig("OpenVpnManagementDialTimeout", 2*time.Second),
-		RWTimeout:    parseDurationConfig("OpenVpnManagementRWTimeout", 2*time.Second),
+func loadStatusCollectorConfig() statuscollector.Config {
+	return statuscollector.Config{
+		StatusFilePath:     web.AppConfig.DefaultString("OpenVpnStatusFilePath", "/var/log/status.log"),
+		PollInterval:       parseDurationConfig("OpenVpnStatusFilePollInterval", 2*time.Second),
+		SessionHardTimeout: parseDurationConfig("OpenVpnStatusFileSessionHardTimeout", 1*time.Second),
+		BackoffMax:         parseDurationConfig("OpenVpnStatusFileBackoffMax", 10*time.Second),
 	}
 }
 
