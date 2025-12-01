@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"strconv"
+
 	"github.com/beego/beego/v2/server/web"
 	"github.com/d3vilh/openvpn-ui/models"
 )
@@ -20,23 +22,41 @@ type NestFinisher interface {
 	NestFinish()
 }
 
+// sessionUserID безопасно извлекает идентификатор пользователя из сессии.
+// Поддерживает int64, int и string.
+func (c *BaseController) sessionUserID() (int64, bool) {
+	v := c.GetSession("userinfo")
+	switch id := v.(type) {
+	case int64:
+		return id, true
+	case int:
+		return int64(id), true
+	case string:
+		n, err := strconv.ParseInt(id, 10, 64)
+		if err == nil {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
 func (c *BaseController) Prepare() {
 	c.SetParams()
 
-	userID := c.GetSession("userinfo")
-	if userID != nil {
-		var user models.User
-		user.Id = userID.(int64)
-		err := user.Read("Id")
-		if err == nil {
+	if uid, ok := c.sessionUserID(); ok {
+		user := models.User{Id: uid}
+		if err := user.Read("Id"); err == nil {
 			c.IsLogin = true
 			c.Userinfo = &user
 		} else {
+			// Пользователь в БД не найден — чистим сессию
 			c.IsLogin = false
 			c.DelSession("userinfo")
+			c.Userinfo = nil
 		}
 	} else {
 		c.IsLogin = false
+		c.Userinfo = nil
 	}
 
 	c.Data["IsLogin"] = c.IsLogin
@@ -53,10 +73,14 @@ func (c *BaseController) Finish() {
 	}
 }
 
+// GetLogin возвращает пользователя из сессии или nil, если не залогинен.
 func (c *BaseController) GetLogin() *models.User {
-	u := &models.User{Id: c.GetSession("userinfo").(int64)}
-	u.Read("Id")
-	return u
+	if uid, ok := c.sessionUserID(); ok {
+		u := &models.User{Id: uid}
+		_ = u.Read("Id") // игнорируем ошибку: если не нашли — вернём u, но выше логика обычно проверяет IsLogin
+		return u
+	}
+	return nil
 }
 
 func (c *BaseController) DelLogin() {
@@ -66,7 +90,8 @@ func (c *BaseController) DelLogin() {
 }
 
 func (c *BaseController) SetLogin(user *models.User) {
-	c.SetSession("userinfo", user.Id)
+	// Храним ID в сессии единообразно как int64
+	c.SetSession("userinfo", int64(user.Id))
 	c.IsLogin = true
 	c.Userinfo = user
 }
@@ -77,14 +102,13 @@ func (c *BaseController) LoginPath() string {
 
 func (c *BaseController) SetParams() {
 	c.Data["Params"] = make(map[string]string)
-	input, err := c.Input()
-	if err != nil {
-		// handle the error
-		// log.Println("Error getting input:", err)
-		return
-	}
+
+	// В beego v2 Input() возвращает url.Values и не возвращает ошибку
+	input := c.Input()
 	for k, v := range input {
-		c.Data["Params"].(map[string]string)[k] = v[0]
+		if len(v) > 0 {
+			c.Data["Params"].(map[string]string)[k] = v[0]
+		}
 	}
 }
 
