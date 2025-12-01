@@ -86,34 +86,6 @@
   </div>
 </div>
 
-<!-- ===== Management & Queue ===== -->
-<div class="row">
-  <div class="col-lg-6 col-md-12 mb-3">
-    <div class="card-clean h-100">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="kpi-box__title mb-0">Management</div>
-          <div class="d-flex gap-2" style="gap:8px">
-            <span class="status-pill pill-mini pill-warn" id="mgmt-state-pill">state</span>
-            <span class="status-pill pill-mini pill-warn" id="mgmt-log-pill">log</span>
-            <span class="status-pill pill-mini pill-warn" id="mgmt-bytecount-pill">bytecount</span>
-          </div>
-        </div>
-        <div class="kpi-box__muted mb-0">Переподключений за 24ч: <span id="mgmt-reconnects">0</span></div>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-6 col-md-12 mb-3">
-    <div class="card-clean h-100">
-      <div class="card-body">
-        <div class="kpi-box__title">Очередь широковещания/мультикаста</div>
-        <div class="kpi-box__value" id="bcast-queue-val" style="font-size:1.4rem">0</div>
-        <div class="kpi-box__muted">GLOBAL STATS → Max bcast/mcast queue length</div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ===== Память / Swap ===== -->
 <h5 class="mt-2 mb-2">Память</h5>
 <div class="row">
@@ -271,33 +243,6 @@
     </div>
   </div>
 </div>
-
-<!-- ===== События безопасности (24ч) ===== -->
-<div class="row mt-3">
-  <div class="col-md-12 mb-3">
-    <div class="card-clean">
-      <div class="card-header"><h3 class="card-title" style="margin:0">События безопасности (24ч)</h3></div>
-      <div class="card-body">
-        <div class="d-flex flex-wrap align-items-center" style="gap:18px">
-          <div>
-            <div class="kpi-box__title mb-1">Auth fail</div>
-            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-auth-fail">0</div>
-          </div>
-          <div>
-            <div class="kpi-box__title mb-1">TLS/verify</div>
-            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-tls">0</div>
-          </div>
-          <div>
-            <div class="kpi-box__title mb-1">Keepalive timeouts</div>
-            <div class="kpi-box__value" style="font-size:1.1rem" id="sec-keepalive">0</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="small-muted mt-1" id="metrics-updated">Обновление: —</div>
 
   <!-- ===== Скрипты ===== -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
