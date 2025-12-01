@@ -359,7 +359,12 @@
                   <i class="fa fa-home"></i>
                   <input type="text" selector="vformdata" class="form-control" name="Server" id="Server" placeholder="server 10.0.70.0 255.255.255.0" value="{{ .Settings.Server }}">
                 </div>
-                <small class="form-help">Пул адресов для VLAN1; для <b>tap</b> можно использовать <code>server-bridge</code>.</small>
+                <small class="form-help">
+                  Выделяет VPN-подсеть для клиентов (пул адресов «доверенной» зоны). Не должен пересекаться с сетями клиентов.
+                  Пример: <code>server 10.0.70.0 255.255.255.0</code> → сервер 10.0.70.1, клиенты 10.0.70.2–254.
+                  Это не добавляет маршруты к вашим LAN — только создаёт адресное пространство VPN.
+                  Для <b>tap</b> можно использовать <code>server-bridge</code>
+                </small>
               </div>
             </div>
 
@@ -370,18 +375,27 @@
                   <i class="fa fa-route"></i>
                   <input type="text" selector="vformdata" class="form-control" name="Route" id="Route" placeholder="route 10.0.71.0 255.255.255.0" value="{{ .Settings.Route }}">
                 </div>
-                <small class="form-help">Маршрут до гостевой VLAN2, распространяется с сервера.</small>
+                <small class="form-help">
+                  Добавляет маршрут на стороне сервера и делает подсеть достижимой через туннель. Клиентам НЕ рассылается.
+                  Полезно для дополнительной VPN-подсети/сегмента (напр., «гости»).
+                  Для site-to-site используйте с <code>client-config-dir</code> + <code>iroute</code> (привязка подсети к клиенту).
+                  Пример: <code>route 10.0.71.0 255.255.255.0</code>.
+                </small>
               </div>
             </div>
 
             <div class="col-md-4">
               <div class="form-group">
-                <label for="PushRoute">Push Route (домашняя подсеть)</label>
+                <label for="PushRoute">Push Route (домашняя/офисная подсеть)</label>
                 <div class="input-icon">
                   <i class="fa fa-share-square-o"></i>
                   <input type="text" selector="vformdata" class="form-control" name="PushRoute" id="PushRoute" placeholder='push "route 10.0.60.0 255.255.255.0"' value="{{ .Settings.PushRoute }}">
                 </div>
-                <small class="form-help">Пушит маршрут к домашней сети для VLAN1.</small>
+                <small class="form-help">
+                  Рассылает всем клиентам маршрут к вашей LAN (split-tunnel). Нужен, чтобы клиенты видели домашнюю/офисную сеть через VPN.
+                  Сервер должен уметь доставлять ответы (статический обратный маршрут или NAT).
+                  Пример: <code>push "route 10.0.60.0 255.255.255.0"</code>. Для «весь трафик через VPN» — <code>push "redirect-gateway def1 bypass-dhcp"</code>.
+                </small>
               </div>
             </div>
           </div>
