@@ -1,12 +1,12 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/d3vilh/openvpn-ui/lib"
 	"github.com/d3vilh/openvpn-ui/models"
 )
@@ -53,70 +53,89 @@ func (c *MainController) NestPrepare() {
 	}
 }
 
+// Get рендерит главную страницу. Данные берём ТОЛЬКО из БД (UISnapshot),
+// никаких обращений к management из HTTP-слоя.
 func (c *MainController) Get() {
+	// Системная информация (локально, не mgmt)
 	sysInfo := lib.GetSystemInfo()
 	c.Data["sysinfo"] = sysInfo
 
-	snapshot, err := BuildStatuszSnapshot()
-	if err != nil {
-		logs.Warn(fmt.Sprintf("status snapshot error: %v", err))
+	// Готовый JSON-снимок для UI из БД
+	payload, _, err := models.GetUISnapshot()
+	if err != nil || payload == "" {
+		logs.Warn(fmt.Sprintf("status snapshot empty: %v", err))
+		// Отдаём пустые структуры — шаблон корректно отрисует плейсхолдеры.
+		c.Data["ovstatus"] = nil
+		c.Data["ovstats"] = nil
+		c.Data["metrics"] = nil
+		c.Data["ovversion"] = ""
+		c.TplName = "index.html"
+		return
 	}
-	if snapshot != nil {
-		c.Data["ovstatus"] = snapshot.Ovstatus
-		c.Data["ovstats"] = snapshot.Ovstats
-		c.Data["metrics"] = snapshot.Metrics
-		if snapshot.Metrics.Ovversion != "" {
-			c.Data["ovversion"] = snapshot.Metrics.Ovversion
-		}
+
+	// Парсим только нужные поля
+	var snap struct {
+		Ovstatus any `json:"ovstatus"`
+		Ovstats  any `json:"ovstats"`
+		Metrics  struct {
+			Ovversion string `json:"ovversion"`
+			// Остальные поля остаются внутри metrics как map для шаблона
+			// чтобы не терять динамику, прочитаем всё как generic:
+			Raw json.RawMessage `json:"-"`
+		} `json:"metrics"`
 	}
+
+	// Второй проход: чтобы передать metrics целиком в шаблон
+	var generic map[string]any
+	if err := json.Unmarshal([]byte(payload), &generic); err != nil {
+		logs.Warn(fmt.Sprintf("status snapshot unmarshal(top): %v", err))
+	}
+
+	if err := json.Unmarshal([]byte(payload), &snap); err != nil {
+		logs.Warn(fmt.Sprintf("status snapshot unmarshal(fields): %v", err))
+	}
+
+	// Достаём metrics как map, чтобы шаблон мог читать произвольные поля
+	var metrics any
+	if m, ok := generic["metrics"]; ok {
+		metrics = m
+	}
+
+	c.Data["ovstatus"] = snap.Ovstatus
+	c.Data["ovstats"] = snap.Ovstats
+	c.Data["metrics"] = metrics
+	c.Data["ovversion"] = snap.Metrics.Ovversion
 
 	c.TplName = "index.html"
 }
 
-func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo lib.SystemInfo, managementAvailable bool) dashboardMetrics {
+// ВНИМАНИЕ: UI больше не использует типы из management-пакета.
+// Если нужны агрегаты для дашборда — формируйте их из содержимого JSON-снимка
+// (ovstats/ovstatus/metrics), уже извлечённого из БД. Ниже оставлен каркас
+// (при необходимости можно распаковать ovstatus/ovstats в конкретные структуры).
+func buildDashboardMetrics(
+	_ovstatus any, // ожидается объект со списком клиентов
+	_ovstats any,  // ожидается объект со сводной статистикой
+	sysInfo lib.SystemInfo,
+	managementAvailable bool,
+) dashboardMetrics {
 	dm := dashboardMetrics{}
 
+	// При необходимости распарсить _ovstatus в структуру с ClientList и заполнить clientMetrics.
 	clientMetrics := make([]clientMetric, 0)
-	routingIndex := make(map[string]*mi.RoutingPath)
-	if status != nil {
-		for _, route := range status.RoutingTable {
-			routingIndex[route.CommonName] = route
-		}
-	}
 
 	now := time.Now().Unix()
-
-	if status != nil {
-		for _, cl := range status.ClientList {
-			sessionDuration := parseUnixDiff(now, cl.ConnectedSinceT)
-			idle := 0.0
-			if route, ok := routingIndex[cl.CommonName]; ok {
-				idle = parseUnixDiff(now, route.LastRefT)
-			}
-
-			clientMetrics = append(clientMetrics, clientMetric{
-				CommonName: cl.CommonName,
-				RealAddr:   cl.RealAddress,
-				VirtAddr:   cl.VirtualAddress,
-				BytesIn:    cl.BytesReceived,
-				BytesOut:   cl.BytesSent,
-				SessionSec: sessionDuration,
-				IdleSec:    idle,
-				Info:       "TLS established",
-			})
-		}
-	}
+	_ = now // заготовка, если добавите расчёт длительностей из ovstatus
 
 	dm.ClientBreakdown = clientMetrics
 
 	totalClients := float64(len(clientMetrics))
 	totalBytesIn := 0.0
 	totalBytesOut := 0.0
-	if loadStats != nil && managementAvailable {
-		totalClients = float64(loadStats.NClients)
-		totalBytesIn = float64(loadStats.BytesIn)
-		totalBytesOut = float64(loadStats.BytesOut)
-	}
+
+	// Если нужно — распакуйте _ovstats и возьмите:
+	//  - NClients -> totalClients
+	//  - BytesIn/BytesOut -> totalBytesIn/totalBytesOut
 
 	uptimeSeconds := float64(sysInfo.Uptime)
 	probeSuccess := 1.0
@@ -219,31 +238,6 @@ func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo l
 	}
 
 	return dm
-}
-
-func buildMetricRecords(dm dashboardMetrics) []models.MetricRecord {
-	records := make([]models.MetricRecord, 0, len(dm.ServerMetrics)+len(dm.CryptoMetrics)+len(dm.RoutingMetrics)+len(dm.AuthMetrics)+len(dm.HealthMetrics)+len(dm.QualityMetrics))
-
-	appendRecords := func(category string, metrics []dashboardMetric) {
-		for _, m := range metrics {
-			records = append(records, models.MetricRecord{
-				Category:    category,
-				Name:        m.Name,
-				Value:       m.Value,
-				Unit:        m.Unit,
-				Description: m.Description,
-			})
-		}
-	}
-
-	appendRecords("server", dm.ServerMetrics)
-	appendRecords("crypto", dm.CryptoMetrics)
-	appendRecords("routing", dm.RoutingMetrics)
-	appendRecords("auth", dm.AuthMetrics)
-	appendRecords("health", dm.HealthMetrics)
-	appendRecords("quality", dm.QualityMetrics)
-
-	return records
 }
 
 func parseUnixDiff(now int64, raw string) float64 {
