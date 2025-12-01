@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
@@ -14,13 +15,19 @@ import (
 	"gopkg.in/hlandau/passlib.v1"
 )
 
+var registerDriverOnce sync.Once
+
 func InitDB() {
-	err := orm.RegisterDriver("sqlite3", orm.DRSqlite)
+	registerDriverOnce.Do(func() {
+		if err := orm.RegisterDriver("sqlite3", orm.DRSqlite); err != nil {
+			panic(err)
+		}
+	})
+	dbPath, err := web.AppConfig.String("dbPath")
 	if err != nil {
 		panic(err)
 	}
-	dbPath, err := web.AppConfig.String("dbPath")
-	if err != nil {
+	if err := ensureDir(filepath.Dir(dbPath)); err != nil {
 		panic(err)
 	}
 	dbSource := "file:" + dbPath

@@ -8,6 +8,7 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/d3vilh/openvpn-ui/lib"
+	"github.com/d3vilh/openvpn-ui/models"
 	"github.com/d3vilh/openvpn-ui/state"
 )
 
@@ -57,12 +58,14 @@ func (c *MainController) Get() {
 	sysInfo := lib.GetSystemInfo()
 	c.Data["sysinfo"] = sysInfo
 	lib.Dump(lib.GetSystemInfo())
+	managementAvailable := true
 	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 	status, err := client.GetStatus()
 	if err != nil {
 		logs.Error(err)
 		logs.Warn(fmt.Sprintf("passed client line: %s", client))
 		logs.Warn(fmt.Sprintf("error: %s", err))
+		managementAvailable = false
 	} else {
 		c.Data["ovstatus"] = status
 	}
@@ -71,6 +74,7 @@ func (c *MainController) Get() {
 	version, err := client.GetVersion()
 	if err != nil {
 		logs.Error(err)
+		managementAvailable = false
 	} else {
 		c.Data["ovversion"] = version.OpenVPN
 	}
@@ -79,6 +83,7 @@ func (c *MainController) Get() {
 	pid, err := client.GetPid()
 	if err != nil {
 		logs.Error(err)
+		managementAvailable = false
 	} else {
 		c.Data["ovpid"] = pid
 	}
@@ -87,17 +92,25 @@ func (c *MainController) Get() {
 	loadStats, err := client.GetLoadStats()
 	if err != nil {
 		logs.Error(err)
+		managementAvailable = false
 	} else {
 		c.Data["ovstats"] = loadStats
 	}
 	lib.Dump(loadStats)
 
-	c.Data["metrics"] = buildDashboardMetrics(status, loadStats, sysInfo)
+	metrics := buildDashboardMetrics(status, loadStats, sysInfo, managementAvailable)
+	c.Data["metrics"] = metrics
+
+	if managementAvailable {
+		if err := models.SaveMetrics(buildMetricRecords(metrics)); err != nil {
+			logs.Error(err)
+		}
+	}
 
 	c.TplName = "index.html"
 }
 
-func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo lib.SystemInfo) dashboardMetrics {
+func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo lib.SystemInfo, managementAvailable bool) dashboardMetrics {
 	dm := dashboardMetrics{}
 
 	clientMetrics := make([]clientMetric, 0)
@@ -136,10 +149,17 @@ func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo l
 	totalClients := float64(len(clientMetrics))
 	totalBytesIn := 0.0
 	totalBytesOut := 0.0
-	if loadStats != nil {
+	if loadStats != nil && managementAvailable {
 		totalClients = float64(loadStats.NClients)
 		totalBytesIn = float64(loadStats.BytesIn)
 		totalBytesOut = float64(loadStats.BytesOut)
+	}
+
+	uptimeSeconds := float64(sysInfo.Uptime)
+	probeSuccess := 1.0
+	if !managementAvailable {
+		uptimeSeconds = 0
+		probeSuccess = 0
 	}
 
 	dm.ServerMetrics = []dashboardMetric{
@@ -163,7 +183,7 @@ func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo l
 		},
 		{
 			Name:        "openvpn_server_uptime_seconds",
-			Value:       float64(sysInfo.Uptime),
+			Value:       uptimeSeconds,
 			Unit:        "сек",
 			Description: "Аптайм демона по данным системы",
 		},
@@ -226,7 +246,7 @@ func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo l
 	dm.HealthMetrics = []dashboardMetric{
 		{Name: "openvpn_tun_rx_bytes_total", Value: totalBytesIn, Unit: "байт", Description: "TUN RX"},
 		{Name: "openvpn_tun_tx_bytes_total", Value: totalBytesOut, Unit: "байт", Description: "TUN TX"},
-		{Name: "probe_success", Value: 1, Unit: "ok", Description: "Порт 1194 слушается"},
+		{Name: "probe_success", Value: probeSuccess, Unit: "ok", Description: "Порт 1194 слушается"},
 	}
 
 	dm.QualityMetrics = []dashboardMetric{
@@ -236,6 +256,31 @@ func buildDashboardMetrics(status *mi.Status, loadStats *mi.LoadStats, sysInfo l
 	}
 
 	return dm
+}
+
+func buildMetricRecords(dm dashboardMetrics) []models.MetricRecord {
+	records := make([]models.MetricRecord, 0, len(dm.ServerMetrics)+len(dm.CryptoMetrics)+len(dm.RoutingMetrics)+len(dm.AuthMetrics)+len(dm.HealthMetrics)+len(dm.QualityMetrics))
+
+	appendRecords := func(category string, metrics []dashboardMetric) {
+		for _, m := range metrics {
+			records = append(records, models.MetricRecord{
+				Category:    category,
+				Name:        m.Name,
+				Value:       m.Value,
+				Unit:        m.Unit,
+				Description: m.Description,
+			})
+		}
+	}
+
+	appendRecords("server", dm.ServerMetrics)
+	appendRecords("crypto", dm.CryptoMetrics)
+	appendRecords("routing", dm.RoutingMetrics)
+	appendRecords("auth", dm.AuthMetrics)
+	appendRecords("health", dm.HealthMetrics)
+	appendRecords("quality", dm.QualityMetrics)
+
+	return records
 }
 
 func parseUnixDiff(now int64, raw string) float64 {
