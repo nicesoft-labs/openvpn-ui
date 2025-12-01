@@ -1,7 +1,9 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/beego/beego/v2/client/orm"
@@ -55,7 +57,7 @@ type ClientSession struct {
 type ClientEvent struct {
 	Id         int64
 	Ts         time.Time `orm:"auto_now_add;type(datetime);index"`
-	ClientID   string    `orm:"size(64);null"`
+	ClientID   string    `orm:"size(64);null;index"`
 	CommonName string    `orm:"size(128);index"`
 	RealAddr   string    `orm:"size(128);null"`
 	VirtAddr   string    `orm:"size(128);null"`
@@ -68,7 +70,7 @@ type ClientEvent struct {
 // scans.
 type RoutingCCD struct {
 	Id         int64
-	ClientID   string    `orm:"size(64);null"`
+	ClientID   string    `orm:"size(64);null;index"`
 	CommonName string    `orm:"size(128);null"`
 	Net        string    `orm:"size(64);index"`
 	Mask       string    `orm:"size(64);null"`
@@ -78,11 +80,12 @@ type RoutingCCD struct {
 
 // DaemonInfo keeps latest daemon snapshot.
 type DaemonInfo struct {
-	Id        int64
-	Pid       int64     `orm:"index"`
-	Version   string    `orm:"size(128);null"`
-	BuildInfo string    `orm:"type(text);null"`
-	LastSeen  time.Time `orm:"auto_now;type(datetime);index"`
+	Id          int64
+	Pid         int64     `orm:"index"`
+	Version     string    `orm:"size(128);null"`
+	BuildInfo   string    `orm:"type(text);null"`
+	DaemonStart time.Time `orm:"null;type(datetime);index"`
+	LastSeen    time.Time `orm:"auto_now;type(datetime);index"`
 }
 
 // SaveMetricSamples persists metric samples into the dedicated metrics database.
@@ -173,9 +176,25 @@ func MarshalLabels(labels map[string]string) string {
 	if len(labels) == 0 {
 		return ""
 	}
-	data, err := json.Marshal(labels)
-	if err != nil {
-		return ""
+
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
 	}
-	return string(data)
+	sort.Strings(keys)
+
+	buf := &bytes.Buffer{}
+	buf.WriteByte('{')
+	for i, k := range keys {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		v, _ := json.Marshal(labels[k])
+		buf.WriteString("\"")
+		buf.WriteString(k)
+		buf.WriteString("\":")
+		buf.Write(v)
+	}
+	buf.WriteByte('}')
+	return buf.String()
 }
