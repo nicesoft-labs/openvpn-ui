@@ -424,7 +424,7 @@ func (c *collector) persist(parsed *parsedSnapshot, snapshot *Snapshot, now time
 	routeIndex := map[string]routeRow{}
 	for _, rt := range parsed.routes {
 		routeIndex[rt.virtAddress] = rt
-		routes = append(routes, models.RoutingCCD{Net: rt.virtAddress, CommonName: rt.commonName, RealAddr: rt.realAddr, SeenAt: now, Source: "statusfile"})
+		routes = append(routes, models.RoutingCCD{Net: rt.virtAddress, CommonName: rt.commonName, SeenAt: now, Source: "statusfile"})
 	}
 
 	ovVersion := extractVersion(parsed.title)
