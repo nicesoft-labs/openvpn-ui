@@ -483,7 +483,7 @@
                   </label>
                 </div>
                 <small class="form-help">
-                  При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов.
+                  При включении — игнорировать «redirect-gateway» при генерации клиентских конфигов (даже если указан).
                 </small>
               </div>
 
@@ -571,20 +571,31 @@
             </div>
 
             <div class="col-md-6">
-              <div class="form-group">
-                <label for="RedirectGW">Push redirect-gateway</label>
+              <div class="custom-control custom-switch mb-2">
+                <input type="checkbox" class="custom-control-input" id="ForceDefaultRoute" name="ForceDefaultRoute"
+                       {{ if .Settings.ForceDefaultRoute }}checked{{ end }}>
+                <label class="custom-control-label" for="ForceDefaultRoute">
+                  Принудительный default-route через VPN
+                </label>
+              </div>
+              <div class="form-group mb-1">
+                <label for="RedirectGW">redirect-gateway (опции)</label>
                 <div class="input-icon">
                   <i class="fa fa-location-arrow"></i>
-                  <input pattern='^push\s+"redirect-gateway\s+(def1\s+bypass-dhcp|autolocal|local|def1|bypass-dhcp|bypass-dns|block-local|ipv6|!ipv4)?"$'
-                         title='push "redirect-gateway [options]"'
+                  <input pattern='^redirect-gateway(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4)(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4))*)?$'
+                         title='redirect-gateway [options]'
                          type="text" class="form-control" name="RedirectGW" id="RedirectGW"
-                         placeholder='push "redirect-gateway def1 bypass-dhcp"' value="{{ .Settings.RedirectGW }}"
+                         placeholder='redirect-gateway def1 bypass-dhcp' value="{{ .Settings.RedirectGW }}"
                          aria-describedby="RGWHelp">
                 </div>
                 <small id="RGWHelp" class="form-help">
-                  Принудительный default-route через VPN. Нельзя сочетать со strict split-tunnel.
+                  Если поле пустое, при включённом флаге добавится <code>redirect-gateway def1 bypass-dhcp</code>. Опции хранится без <code>push</code>.
+                  Нельзя сочетать со strict split-tunnel.
                 </small>
-                <div class="invalid-feedback">Формат: push "redirect-gateway [options]".</div>
+                <div class="invalid-feedback">Формат: redirect-gateway [options].</div>
+              </div>
+              <div class="alert alert-warning d-none" role="alert" id="SplitOnlyConflict" style="padding: 8px 12px;">
+                Split-tunnel и принудительный default-route несовместимы: снимите один из флагов.
               </div>
             </div>
           </div>
@@ -1215,7 +1226,7 @@ window.addEventListener('load', loadCiphersAndRender);
   const routeLineRx = /^route\s+([0-9.]+)\s+([0-9.]+)\s*$/i;
   const pushRouteRx = /^push\s+"route\s+([0-9.]+)\s+([0-9.]+)"\s*$/i;
   const pushDnsRx = /^push\s+"dhcp-option\s+DNS\s+([0-9.]+)"\s*$/i;
-  const redirectGwRx = /^push\s+"redirect-gateway\s+(def1\s+bypass-dhcp|autolocal|local|def1|bypass-dhcp|bypass-dns|block-local|ipv6|!ipv4)?"$/i;
+  const redirectGwRx = /^redirect-gateway(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4)(?:\s+(?:def1|bypass-dhcp|bypass-dns|local|autolocal|block-local|ipv6|!ipv4))*)?$/i;
   const scriptSecRx = /^script-security\s+[0-3]$/;
   const userPassVerifyRx = /^auth-user-pass-verify\s+[a-zA-Z0-9_/.-]+\s+via-(file|env)$/i;
 
@@ -1263,9 +1274,12 @@ window.addEventListener('load', loadCiphersAndRender);
   const Route = document.getElementById('Route');
   const PushRoute = document.getElementById('PushRoute');
   const PushRoutesExtra = document.getElementById('PushRoutesExtra');
+  const SplitOnlyMode = document.getElementById('SplitOnlyMode');
+  const ForceDefaultRoute = document.getElementById('ForceDefaultRoute');
   const DNSServer1 = document.getElementById('DNSServer1');
   const DNSServer2 = document.getElementById('DNSServer2');
   const RedirectGW = document.getElementById('RedirectGW');
+  const RedirectConflict = document.getElementById('SplitOnlyConflict');
   const OVConfigClientConfigDir = document.getElementById('OVConfigClientConfigDir');
   const IfconfigPoolPersist = document.getElementById('IfconfigPoolPersist');
 
@@ -1349,8 +1363,15 @@ window.addEventListener('load', loadCiphersAndRender);
       const m = DNSServer2.value.trim().match(pushDnsRx);
       ok &= setValidity(DNSServer2, !!m && ipRx.test(m?.[1]||''), 'Формат: push "dhcp-option DNS <IP>"');
     }
-    if (RedirectGW.value.trim()) {
-      ok &= setValidity(RedirectGW, redirectGwRx.test(RedirectGW.value), 'Формат: push "redirect-gateway [options]"');
+    if (SplitOnlyMode && ForceDefaultRoute) {
+      const conflict = SplitOnlyMode.checked && ForceDefaultRoute.checked;
+      ok &= setValidity(ForceDefaultRoute, !conflict, 'Нельзя совместить со split-tunnel');
+      ok &= setValidity(SplitOnlyMode, !conflict, 'Нельзя совместить с принудительным default-route');
+      if (RedirectConflict) { RedirectConflict.classList.toggle('d-none', !conflict); }
+      if (conflict) { return false; }
+    }
+    if (ForceDefaultRoute?.checked || RedirectGW.value.trim()) {
+      ok &= setValidity(RedirectGW, !RedirectGW.value.trim() || redirectGwRx.test(RedirectGW.value.trim()), 'Формат: redirect-gateway [options]');
     }
     ok &= setValidity(OVConfigClientConfigDir, !OVConfigClientConfigDir.value || pathRx.test(OVConfigClientConfigDir.value), 'Валидный путь к директории');
     ok &= setValidity(IfconfigPoolPersist, !IfconfigPoolPersist.value || pathRx.test(IfconfigPoolPersist.value), 'Валидный путь к файлу');
@@ -1373,7 +1394,7 @@ window.addEventListener('load', loadCiphersAndRender);
     Device, Port, Proto, Topology, Keepalive, MaxClients,
     OVConfigUser, OVConfigGroup, Ca, Cert, Key, Crl, Dh, TLSControlChannel,
     TLSMinVersion, TLSRemoteCert, CipherSel, NcpSel, AuthSel, FuncMode, ScriptSecurity, UserPassVerify,
-    Server, Route, PushRoute, PushRoutesExtra, DNSServer1, DNSServer2, RedirectGW,
+    Server, Route, PushRoute, PushRoutesExtra, SplitOnlyMode, ForceDefaultRoute, DNSServer1, DNSServer2, RedirectGW,
     OVConfigClientConfigDir, IfconfigPoolPersist,
     OVConfigLogfile, OVConfigLogVerbose, OVConfigStatusLog, OVConfigStatusLogVersion,
     CustomOptOne, CustomOptTwo, CustomOptThree
