@@ -71,19 +71,10 @@
       <div class="kpi-box__title">Аптайм ОС</div>
       <div class="kpi-box__value">{{ .sysinfo.UptimeS }}</div>
       <div class="kpi-box__muted">Стабильность хоста</div>
+      PID: <div class="kpi-box__value">{{ if ovpid }}{{ .ovpid }}{{ else }}0{{ end }}</div>
     </div>
   </div>
-
-  <div class="col-lg-3 col-md-6 mb-3">
-    <div class="kpi-box">
-      <div class="d-flex align-items-center justify-content-between">
-        <div class="kpi-box__title mb-1">Статус OpenVPN</div>
-        <div class="status-pill pill-warn" id="ov-status-pill">UNKNOWN</div>
-      </div>
-      <div class="kpi-box__muted">Аптайм: <span id="ov-uptime">—</span></div>
-      <div class="kpi-box__muted">Версия: <span id="ov-version">{{ .ovversion }}</span></div>
-    </div>
-  </div>
+  
 </div>
 
 <!-- ===== Память / Swap ===== -->
