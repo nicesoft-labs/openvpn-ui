@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/beego/beego/v2/core/logs"
-	mi "github.com/d3vilh/openvpn-server-config/server/mi"
 	"github.com/d3vilh/openvpn-ui/lib"
 	"github.com/d3vilh/openvpn-ui/state"
+	mi "github.com/nicesoft-labs/openvpn-server-config/server/mi"
 )
 
 type MainController struct {

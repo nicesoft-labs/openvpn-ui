@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/beego/beego/v2/client/orm"
-	easyrsaconfig "github.com/d3vilh/openvpn-server-config/easyrsa/config"
+	easyrsaconfig "github.com/nicesoft-labs/openvpn-server-config/easyrsa/config"
 )
 
 // EasyRSAConfig holds values for EasyRSA configuration

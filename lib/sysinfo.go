@@ -26,15 +26,15 @@ type FSUsage struct {
 type SystemInfo struct {
 	Memory      sigar.Mem         `json:"memory"`
 	Swap        sigar.Swap        `json:"swap"`
-	Uptime      int               `json:"uptime"`       // сек
-	UptimeS     string            `json:"uptimeS"`      // форматированно
-	BootTime    time.Time         `json:"bootTime"`     // приблизительно: now - uptime
+	Uptime      int               `json:"uptime"`   // сек
+	UptimeS     string            `json:"uptimeS"`  // форматированно
+	BootTime    time.Time         `json:"bootTime"` // приблизительно: now - uptime
 	LoadAvg     sigar.LoadAverage `json:"loadAvg"`
-	CPU         sigar.Cpu         `json:"cpu"`          // агрегированный CPU c тиками
-	CPUList     sigar.CpuList     `json:"cpuList"`      // per-CPU тики
+	CPU         sigar.Cpu         `json:"cpu"`     // агрегированный CPU c тиками
+	CPUList     sigar.CpuList     `json:"cpuList"` // per-CPU тики
 	CPUCount    int               `json:"cpuCount"`
-	Processes   int               `json:"processes"`    // кол-во процессов
-	FS          []FSUsage         `json:"fs"`           // список маунтов с usage
+	Processes   int               `json:"processes"` // кол-во процессов
+	FS          []FSUsage         `json:"fs"`        // список маунтов с usage
 	Arch        string            `json:"arch"`
 	Os          string            `json:"os"`
 	Hostname    string            `json:"hostname"`
@@ -46,13 +46,15 @@ func GetSystemInfo() SystemInfo {
 	s := SystemInfo{}
 
 	// Аптайм
-	if up := sigar.Uptime{}; up.Get() == nil {
+	var up sigar.Uptime
+	if up.Get() == nil {
 		s.Uptime = int(up.Length)
 		s.UptimeS = up.Format()
 	}
 
 	// Load Average
-	if avg := sigar.LoadAverage{}; avg.Get() == nil {
+	var avg sigar.LoadAverage
+	if avg.Get() == nil {
 		avg.One = formatFloat(avg.One)
 		avg.Five = formatFloat(avg.Five)
 		avg.Fifteen = formatFloat(avg.Fifteen)
@@ -66,24 +68,29 @@ func GetSystemInfo() SystemInfo {
 	}
 
 	// Память/свап
-	if mem := sigar.Mem{}; mem.Get() == nil {
+	var mem sigar.Mem
+	if mem.Get() == nil {
 		s.Memory = mem
 	}
-	if sw := sigar.Swap{}; sw.Get() == nil {
+	var sw sigar.Swap
+	if sw.Get() == nil {
 		s.Swap = sw
 	}
 
 	// CPU (агрегированный и per-CPU)
-	if cpu := sigar.Cpu{}; cpu.Get() == nil {
+	var cpu sigar.Cpu
+	if cpu.Get() == nil {
 		s.CPU = cpu
 	}
-	if cpus := sigar.CpuList{}; cpus.Get() == nil {
+	var cpus sigar.CpuList
+	if cpus.Get() == nil {
 		s.CPUList = cpus
 		s.CPUCount = len(cpus.List)
 	}
 
 	// Процессы (только количество)
-	if pl := sigar.ProcList{}; pl.Get() == nil {
+	var pl sigar.ProcList
+	if pl.Get() == nil {
 		s.Processes = len(pl.List)
 	}
 
