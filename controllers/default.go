@@ -24,8 +24,18 @@ func (c *MainController) NestPrepare() {
 }
 
 func (c *MainController) Get() {
-	sysinfo := lib.GetSystemInfo()
-	netinfo, _ := lib.CollectNetInfo()
+    sysinfo := lib.GetSystemInfo()
+    // передаём контекст запроса в сборщик сетевой телеметрии
+    netinfo, errNet := lib.CollectNetInfo(c.Ctx.Request.Context())
+    if errNet != nil {
+        logs.Warn("collect net info: %v", errNet)
+    }
+	// выводим предупреждения, которые твой сборщик собрал в NetInfo.Warnings
+	if len(netinfo.Warnings) > 0 {
+		for _, w := range netinfo.Warnings {
+			logs.Warn("netinfo warning: %s", w)
+		}
+	}
 	c.Data["sysinfo"] = sysinfo
 	c.Data["netinfo"] = netinfo
 	lib.Dump(sysinfo)
