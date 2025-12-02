@@ -71,7 +71,7 @@
       <div class="kpi-box__title">Аптайм ОС</div>
       <div class="kpi-box__value">{{ .sysinfo.UptimeS }}</div>
       <div class="kpi-box__muted">Стабильность хоста</div>
-      PID: <div class="kpi-box__value">{{ if ovpid }}{{ .ovpid }}{{ else }}0{{ end }}</div>
+      <div>OpenVPN PID: <span class="kpi-box__value">{{ if .ovpid }}{{ .ovpid }}{{ else }}0{{ end }}</span></div>
     </div>
   </div>
   
