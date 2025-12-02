@@ -24,8 +24,9 @@ func (c *MainController) NestPrepare() {
 }
 
 func (c *MainController) Get() {
-	c.Data["sysinfo"] = lib.GetSystemInfo()
-	lib.Dump(lib.GetSystemInfo())
+	sysinfo := lib.GetSystemInfo()
+	c.Data["sysinfo"] = sysinfo
+	lib.Dump(sysinfo)
 	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 	status, err := client.GetStatus()
 	if err != nil {
@@ -60,6 +61,14 @@ func (c *MainController) Get() {
 		c.Data["ovstats"] = loadStats
 	}
 	lib.Dump(loadStats)
+
+	c.Data["metrics"] = map[string]interface{}{
+		"sysinfo":   sysinfo,
+		"ovstatus":  status,
+		"ovversion": version,
+		"ovpid":     pid,
+		"ovstats":   loadStats,
+	}
 
 	c.TplName = "index.html"
 }
