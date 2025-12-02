@@ -28,9 +28,24 @@ func (c *APISessionController) Get() {
 	status, err := client.GetStatus()
 	if err != nil {
 		c.ServeJSONError(err.Error())
-	} else {
-		c.ServeJSONData(status)
+		return
 	}
+
+	pid, err := client.GetPid()
+	if err != nil {
+		c.ServeJSONError(err.Error())
+		return
+	}
+
+	response := struct {
+		*mi.Status
+		Pid int64 `json:"Pid"`
+	}{
+		Status: status,
+		Pid:    pid,
+	}
+
+	c.ServeJSONData(response)
 }
 
 // Kill deletes vpn session
