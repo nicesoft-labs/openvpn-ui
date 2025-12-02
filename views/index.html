@@ -13,27 +13,17 @@
   .card-clean .card-body{padding:16px}
   .metric-card{border:1px solid #e9ecef; border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,.03); background:#fff}
   .metric-card__header{font-weight:600; margin-bottom:8px}
-  /* Фиксированная высота графиков, чтобы сетка не "плыла" без данных */
   .metric-card .chart-wrap{position:relative; height:220px}
   .metric-card canvas{width:100% !important; height:100% !important}
-  /* Статусы */
   .status-pill{display:inline-flex; align-items:center; padding:5px 12px; border-radius:999px; font-weight:700; font-size:.9rem; color:#fff; letter-spacing:.03em; text-transform:uppercase}
-  .status-pill.pill-mini{font-size:.8rem; padding:4px 10px}
   .pill-ok{background:#28a745}
   .pill-warn{background:#ffc107; color:#212529}
   .pill-bad{background:#dc3545}
   .small-muted{font-size:.85rem; color:#6c757d}
-  /* Плейсхолдер «Нет данных» */
-  .empty-state{
-    display:none; align-items:center; justify-content:center;
-    height:220px; border:2px dashed #e9ecef; border-radius:10px; color:#6c757d;
-    font-size:.95rem; background:#fafafa;
-  }
+  .empty-state{display:none; align-items:center; justify-content:center; height:220px; border:2px dashed #e9ecef; border-radius:10px; color:#6c757d; font-size:.95rem; background:#fafafa}
   .empty-state .hint{font-size:.85rem; color:#9aa0a6; margin-left:.5rem}
-  /* Прогрессы памяти */
   .progress-xs{height:10px}
   .progress-number{font-weight:600}
-  /* Таблица клиентов */
   .table thead th{white-space:nowrap}
   .button-transparent{background:transparent;border:0;padding:0;margin-left:6px}
   .clippy{opacity:.6}
@@ -59,9 +49,7 @@
   <div class="col-lg-3 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Нагрузка (Load Average)</div>
-      <div class="kpi-box__value">
-        1м: {{ .sysinfo.LoadAvg.One }}
-      </div>
+      <div class="kpi-box__value">1м: {{ .sysinfo.LoadAvg.One }}</div>
       <div class="kpi-box__muted">5м: {{ .sysinfo.LoadAvg.Five }} • 15м: {{ .sysinfo.LoadAvg.Fifteen }}</div>
     </div>
   </div>
@@ -82,7 +70,6 @@
       <div class="kpi-box__muted">Ядер CPU: <span id="cpu-count">{{ .sysinfo.CPUCount }}</span></div>
     </div>
   </div>
-
 </div>
 
 <!-- ===== Память / Swap ===== -->
@@ -96,9 +83,11 @@
             ОЗУ: <b>{{ printmb .sysinfo.Memory.Used }}</b> / {{ printmb .sysinfo.Memory.Total }} MB — {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%
           </span>
           <div class="progress progress-xs mt-2">
-            <div class="progress-bar bg-primary progress-bar-striped"
-                 style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%"></div>
+            <div class="progress-bar bg-primary progress-bar-striped" style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%"></div>
           </div>
+          {{ if eq .sysinfo.Swap.Total 0 }}
+            <div class="small text-warning mt-2">Swap отключён — рекомендовано включить (zram или swapfile).</div>
+          {{ end }}
         </div>
       </div>
     </div>
@@ -111,8 +100,7 @@
             Swap: <b>{{ printmb .sysinfo.Swap.Used }}</b> / {{ printmb .sysinfo.Swap.Total }} MB — {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%
           </span>
           <div class="progress progress-xs mt-2">
-            <div class="progress-bar bg-secondary progress-bar-striped"
-                 style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%"></div>
+            <div class="progress-bar bg-secondary progress-bar-striped" style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%"></div>
           </div>
         </div>
       </div>
@@ -131,33 +119,13 @@
       <div class="chart-wrap">
         <canvas id="cpuUsageChart"></canvas>
       </div>
-      <div class="empty-state" data-empty-for="cpuUsageChart">
-        Нет данных CPU<span class="hint"> (метрика недоступна)</span>
-      </div>
-      <small class="text-muted d-block mt-2">Показывает долю активного времени (busy %) для каждого ядра.</small>
+      <div class="empty-state" data-empty-for="cpuUsageChart">Нет данных CPU<span class="hint"> (метрика недоступна)</span></div>
+      <small class="text-muted d-block mt-2">Доля активного времени (busy %) на ядро.</small>
     </div>
   </div>
 
-  <div class="col-lg-6 col-md-12 mb-4">
-    <div class="metric-card">
-      <div class="metric-card__header d-flex justify-content-between">
-        <span>Использование файловых систем</span>
-        <span class="small-muted">Заполненность</span>
-      </div>
-      <div class="chart-wrap">
-        <canvas id="fsUsageChart"></canvas>
-      </div>
-      <div class="empty-state" data-empty-for="fsUsageChart">
-        Нет данных по дискам<span class="hint"> (мониторинг отключен)</span>
-      </div>
-      <small class="text-muted d-block mt-2">Показывает процент использования для точек монтирования.</small>
-    </div>
-  </div>
-</div>
-
-<!-- ===== Графики (минимально необходимое) ===== -->
-<div class="row">
-  <div class="col-lg-6 col-md-12 mb-4">
+<!-- ===== График: суммарный трафик OpenVPN ===== -->
+<div class="col-lg-6 col-md-12 mb-4">
     <div class="metric-card">
       <div class="metric-card__header">
         Суммарный трафик OpenVPN
@@ -166,26 +134,24 @@
       <div class="chart-wrap">
         <canvas id="serverTotalsChart"></canvas>
       </div>
-      <div class="empty-state" data-empty-for="serverTotalsChart">
-        Нет данных для отображения<span class="hint"> (подключите management/status)</span>
-      </div>
+      <div class="empty-state" data-empty-for="serverTotalsChart">Нет данных<span class="hint"> (подключите management/status)</span></div>
       <small class="text-muted d-block mt-2">Источник: management (load-stats) / status.</small>
     </div>
   </div>
+</div>
 
-  <div class="col-lg-6 col-md-12 mb-4">
+<div class="row">
+  <div class="col-md-12">
     <div class="metric-card">
-      <div class="metric-card__header">
-        Распределение трафика по клиентам
-        <small class="text-secondary d-block">openvpn_client_bytes_*_total</small>
+      <div class="metric-card__header d-flex justify-content-between">
+        <span>Использование файловых систем</span>
+        <span class="small-muted">Заполненность</span>
       </div>
       <div class="chart-wrap">
-        <canvas id="clientTrafficChart"></canvas>
+        <canvas id="fsUsageChart"></canvas>
       </div>
-      <div class="empty-state" data-empty-for="clientTrafficChart">
-        Нет активных сессий<span class="hint"> (клиенты не подключены)</span>
-      </div>
-      <small class="text-muted d-block mt-2">Показывает входящий/исходящий трафик (MB) по активным сессиям.</small>
+      <div class="empty-state" data-empty-for="fsUsageChart">Нет данных по дискам<span class="hint"> (мониторинг отключен)</span></div>
+      <small class="text-muted d-block mt-2">Процент использования по точкам монтирования.</small>
     </div>
   </div>
 </div>
@@ -194,9 +160,7 @@
 <div class="row">
   <div class="col-md-12">
     <div class="card-clean">
-      <div class="card-header">
-        <h3 class="card-title" style="margin:0">Подключённые клиенты</h3>
-      </div>
+      <div class="card-header"><h3 class="card-title" style="margin:0">Подключённые клиенты</h3></div>
       <div class="card-body">
         {{if .ovstatus}}
           {{if gt (len .ovstatus.ClientList) 0}}
@@ -204,14 +168,9 @@
               <table class="table table-sm">
                 <thead>
                   <tr>
-                    <th>CN</th>
-                    <th>Реальный адрес</th>
-                    <th>Вирт. адрес</th>
-                    <th class="text-right">KB вход</th>
-                    <th class="text-right">KB выход</th>
-                    <th>Сессия с</th>
-                    <th>Пользователь</th>
-                    <th></th>
+                    <th>CN</th><th>Реальный адрес</th><th>Вирт. адрес</th>
+                    <th class="text-right">KB вход</th><th class="text-right">KB выход</th>
+                    <th>Сессия с</th><th>Пользователь</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -229,25 +188,17 @@
                     <td class="text-right">{{printkb .BytesSent}}</td>
                     <td>{{.ConnectedSince}}</td>
                     <td>{{if eq .Username "UNDEF"}}-{{else}}{{.Username}}{{end}}</td>
-                    <td>
-                      <a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')"
-                         class="btn btn-xs btn-danger"
-                         title="Отключить">Откл.</a>
-                    </td>
+                    <td><a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')" class="btn btn-xs btn-danger" title="Отключить">Откл.</a></td>
                   </tr>
                   {{end}}
                 </tbody>
               </table>
             </div>
           {{else}}
-            <div class="empty-state" style="display:flex; height:140px">
-              Клиентов нет<span class="hint"> (активных сессий не обнаружено)</span>
-            </div>
+            <div class="empty-state" style="display:flex; height:140px">Клиентов нет<span class="hint"> (активных сессий не обнаружено)</span></div>
           {{end}}
         {{else}}
-          <div class="empty-state" style="display:flex; height:140px">
-            Нет данных статуса<span class="hint"> (проверьте management/status)</span>
-          </div>
+          <div class="empty-state" style="display:flex; height:140px">Нет данных статуса<span class="hint"> (проверьте management/status)</span></div>
         {{end}}
       </div>
     </div>
@@ -262,6 +213,7 @@
         <img src="/static/img/openvpn-win.svg" alt="OpenVPN" width="40" height="40" style="opacity:.7; margin-right:12px">
         <div>
           <div class="kpi-box__title">Версия OpenVPN</div>
+          <!-- Важно: печатаем .ovversion целиком, чтобы не падать на interface{} -->
           <div class="kpi-box__value" style="font-size:1.2rem">{{ .ovversion }}</div>
         </div>
       </div>
@@ -282,9 +234,7 @@
 
 <!-- ===== Отладка системных метрик ===== -->
 <div class="card-clean mt-3">
-  <div class="card-header">
-    <h3 class="card-title" style="margin:0">Отладка системной информации</h3>
-  </div>
+  <div class="card-header"><h3 class="card-title" style="margin:0">Отладка системной информации</h3></div>
   <div class="card-body">
     <div class="row">
       <div class="col-md-4 mb-3">
@@ -305,280 +255,70 @@
   </div>
 </div>
 
-  <!-- ===== Скрипты ===== -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-    // Бэкенд-данные
-    const ovstatusData = {{ tojson .ovstatus }} || {};
-    const ovstats = {{ tojson .ovstats }};
-    const metricsData = {{ tojson .metrics }} || {};
-    const sysinfoData = {{ tojson .sysinfo }} || {};
+<!-- ===== Скрипты (без опросов) ===== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const ovstats     = {{ tojson .ovstats  }} || {};
+  const sysinfoData = {{ tojson .sysinfo  }} || {};
 
-  // Палитра
   const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
-
-    // Хранилище, чтобы не плодить графики
-    const CHARTS = {};
-
-    function destroyChart(id){
-      if (CHARTS[id]) { try { CHARTS[id].destroy(); } catch(e){} delete CHARTS[id]; }
-    }
+  const CHARTS = {};
+  function destroyChart(id){ if (CHARTS[id]) { try { CHARTS[id].destroy(); } catch(e){} delete CHARTS[id]; } }
   function showEmpty(id, show=true){
     const canvas = document.getElementById(id);
     const empty = document.querySelector(`[data-empty-for="${id}"]`);
     if (canvas) canvas.style.display = show ? 'none' : 'block';
     if (empty)  empty.style.display  = show ? 'flex' : 'none';
   }
-
-  function toPercent(part, total){
-    if (!total) return 0;
-    return Math.max(0, Math.min(100, (part / total) * 100));
-  }
-  function isAllZeroOrEmpty(arr){
-    if (!arr || !arr.length) return true;
-    return arr.every(v => (v===null || v===undefined || v===0));
-  }
-    function renderBarOrEmpty({id, labels, datasets, stacked=false}){
-      const noLabels = !labels || labels.length===0;
-      const allZero = !datasets || datasets.length===0 || datasets.every(ds => isAllZeroOrEmpty(ds.data));
-      if (noLabels || allZero){
-        destroyChart(id);
-      showEmpty(id, true);
-      return;
+  function isAllZeroOrEmpty(arr){ return !arr || !arr.length || arr.every(v => v===null || v===undefined || v===0); }
+  function renderBarOrEmpty({id, labels, datasets, stacked=false}){
+    if (!labels || !labels.length || !datasets || datasets.length===0 || datasets.every(ds => isAllZeroOrEmpty(ds.data))){
+      destroyChart(id); showEmpty(id, true); return;
     }
     showEmpty(id, false);
-    const ctx = document.getElementById(id);
-    if (!ctx) return;
+    const ctx = document.getElementById(id); if (!ctx) return;
     destroyChart(id);
     CHARTS[id] = new Chart(ctx, {
       type: 'bar',
       data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: { x:{ stacked }, y:{ stacked, beginAtZero:true } },
-        plugins: { legend: { position:'bottom' } }
-      }
+      options: { responsive:true, maintainAspectRatio:false, animation:false,
+        scales:{ x:{ stacked }, y:{ stacked, beginAtZero:true } },
+        plugins:{ legend:{ position:'bottom' } } }
     });
-  }
-
-  function setStatusPill(el, state){
-    if (!el) return;
-    const normalized = (state || 'UNKNOWN').toString().toUpperCase();
-    el.classList.remove('pill-ok', 'pill-warn', 'pill-bad');
-    let cls = 'pill-warn';
-    if (['CONNECTED', 'ACTIVE', 'RUNNING', 'OK'].includes(normalized)) cls = 'pill-ok';
-    else if (['WAIT', 'RECONNECTING', 'UNKNOWN'].includes(normalized)) cls = 'pill-warn';
-    else cls = 'pill-bad';
-    el.classList.add(cls);
-    el.textContent = normalized;
-  }
-
-  function formatUptime(sec){
-    if (sec === undefined || sec === null || isNaN(sec)) return '—';
-    const total = Math.max(0, Math.floor(Number(sec)));
-    const d = Math.floor(total / 86400);
-    const h = Math.floor((total % 86400) / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    return `${d}d ${h}h ${m}m`;
-  }
-
-  function formatTimestamp(ts){
-    if (ts === undefined || ts === null) return '—';
-    let d;
-    if (typeof ts === 'number') d = new Date(ts < 1e12 ? ts * 1000 : ts);
-    else {
-      d = new Date(ts);
-      if (isNaN(d.getTime())) return '—';
-    }
-    const pad = (n) => `${n}`.padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   function renderCpuUsage(info){
-    const list = info?.cpuList?.List || [];
-    const labels = list.map((_, idx) => `CPU${idx}`);
-    const data = list.map((cpu) => {
-      const total = (cpu?.User || 0) + (cpu?.Sys || 0) + (cpu?.Nice || 0) + (cpu?.Idle || 0) + (cpu?.Wait || 0) + (cpu?.Irq || 0) + (cpu?.SoftIrq || 0) + (cpu?.Stolen || 0);
+    const list = (info && info.cpuList && info.cpuList.List) || [];
+    const labels = list.map((_, i) => `CPU${i}`);
+    const data = list.map(cpu => {
+      const total = (cpu?.User||0)+(cpu?.Sys||0)+(cpu?.Nice||0)+(cpu?.Idle||0)+(cpu?.Wait||0)+(cpu?.Irq||0)+(cpu?.SoftIrq||0)+(cpu?.Stolen||0);
       if (!total) return 0;
-      const busy = total - (cpu?.Idle || 0);
-      return Math.round(toPercent(busy, total) * 10) / 10;
+      const busy = total - (cpu?.Idle||0);
+      return Math.round((busy/total)*1000)/10;
     });
-    renderBarOrEmpty({
-      id: 'cpuUsageChart',
-      labels,
-      datasets: [{ label: 'Загрузка (%)', data, backgroundColor: palette[0] }],
-    });
+    renderBarOrEmpty({ id:'cpuUsageChart', labels, datasets:[{ label:'Загрузка (%)', data, backgroundColor:palette[0] }] });
   }
 
   function renderFsUsage(info){
-    const fsList = info?.fs || [];
-    const labels = fsList.map((fs) => fs.Mount || fs.Device || 'fs');
-    const data = fsList.map((fs) => Math.round(((fs?.UsedPercent || 0)) * 10) / 10);
-    renderBarOrEmpty({
-      id: 'fsUsageChart',
-      labels,
-      datasets: [{ label: 'Использовано (%)', data, backgroundColor: palette[2] }],
-    });
+    const fsList = (info && info.fs) || [];
+    const labelOf = (fs) => fs.mount || fs.Mount || fs.device || fs.Device || 'fs';
+    const usedPctOf = (fs) => (fs.usedPercent ?? fs.UsedPercent ?? 0);
+    const labels = fsList.map(labelOf);
+    const data   = fsList.map(fs => Math.round(usedPctOf(fs)*10)/10);
+    renderBarOrEmpty({ id:'fsUsageChart', labels, datasets:[{ label:'Использовано (%)', data, backgroundColor:palette[2] }] });
   }
 
-  function updateOvStatus(metrics, stats){
-    const statusEl = document.getElementById('ov-status-pill');
-    const uptimeEl = document.getElementById('ov-uptime');
-    const versionEl = document.getElementById('ov-version');
-    const daemonState = (metrics && metrics.ovdaemon && metrics.ovdaemon.state) || metrics?.ovdaemon_state || 'UNKNOWN';
-    setStatusPill(statusEl, daemonState);
-    const uptimeSeconds = stats && stats.Uptime !== undefined && stats.Uptime !== null ? stats.Uptime : null;
-    if (uptimeEl) uptimeEl.textContent = formatUptime(uptimeSeconds);
-    if (versionEl && metrics && metrics.ovversion) versionEl.textContent = metrics.ovversion;
-  }
-
-  function updateManagement(metrics){
-    const mgmt = (metrics && metrics.management) || {};
-    const reconnects = (metrics && metrics.management_reconnects_24h);
-    const setPill = (id, val, label) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.remove('pill-ok', 'pill-warn', 'pill-bad');
-      let cls = 'pill-warn';
-      if (val === 1) cls = 'pill-ok';
-      else if (val === 0) cls = 'pill-bad';
-      el.classList.add(cls);
-      el.textContent = label;
-    };
-    setPill('mgmt-state-pill', mgmt.state, 'state');
-    setPill('mgmt-log-pill', mgmt.log, 'log');
-    setPill('mgmt-bytecount-pill', mgmt.bytecount, 'bytecount');
-    const reconnectsEl = document.getElementById('mgmt-reconnects');
-    if (reconnectsEl) reconnectsEl.textContent = (reconnects !== undefined && reconnects !== null) ? reconnects : 0;
-  }
-
-  function updateQueue(ovstatus, metrics){
-    const valFromMetrics = metrics && metrics.global ? metrics.global.max_bcast_mcast_queue_len : undefined;
-    const valFromStatus = ovstatus && ovstatus.GlobalStats ? ovstatus.GlobalStats.maxbcastmcastqueuelen : undefined;
-    const queueVal = (valFromMetrics !== undefined && valFromMetrics !== null) ? valFromMetrics : (valFromStatus !== undefined && valFromStatus !== null ? valFromStatus : 0);
-    const el = document.getElementById('bcast-queue-val');
-    if (!el) return;
-    el.textContent = queueVal;
-    el.classList.remove('text-success', 'text-danger');
-    if (queueVal > 0) el.classList.add('text-danger');
-    else el.classList.add('text-success');
-  }
-
-  function updateSecurity(metrics){
-    const sec = (metrics && metrics.security_24h) || {};
-    const authFail = Number(sec.auth_fail) || 0;
-    const tlsErrors = (Number(sec.handshake_errors) || 0) + (Number(sec.tls_verify_fail) || 0) + (Number(sec.crl_reject) || 0);
-    const keepalive = Number(sec.keepalive_timeouts) || 0;
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setVal('sec-auth-fail', authFail);
-    setVal('sec-tls', tlsErrors);
-    setVal('sec-keepalive', keepalive);
-  }
-
-  function updateUpdatedAt(metrics, stats){
-    const el = document.getElementById('metrics-updated');
-    if (!el) return;
-    const ts = (metrics && metrics.last_seen_ts !== undefined && metrics.last_seen_ts !== null)
-      ? metrics.last_seen_ts
-      : (stats && stats.CollectedAt);
-    const formatted = formatTimestamp(ts);
-    el.textContent = `Обновление: ${formatted}`;
-    el.classList.remove('text-danger');
-    if (ts) {
-      const parsed = new Date(ts);
-      if (!isNaN(parsed.getTime())) {
-        const stale = Date.now() - parsed.getTime();
-        if (stale > 60000) {
-          el.classList.add('text-danger');
-        }
-      }
-    }
-  }
-
-  function renderSysinfo(info){
-    if (!info) return;
-    renderCpuUsage(info);
-    renderFsUsage(info);
-    const procEl = document.getElementById('process-count');
-    if (procEl && info.processes !== undefined) procEl.textContent = info.processes;
-    const cpuEl = document.getElementById('cpu-count');
-    if (cpuEl && info.cpuCount !== undefined) cpuEl.textContent = info.cpuCount;
-    const hostEl = document.getElementById('host-name');
-    if (hostEl && info.hostname) hostEl.textContent = info.hostname;
-    const bootEl = document.getElementById('boot-time');
-    if (bootEl) bootEl.textContent = formatTimestamp(info.bootTime || info.BootTime);
-    const nowEl = document.getElementById('current-time');
-    if (nowEl) nowEl.textContent = formatTimestamp(info.currentTime || info.CurrentTime);
-    const upEl = document.getElementById('debug-uptime');
-    if (upEl && info.uptimeS) upEl.textContent = info.uptimeS;
-    const procDbg = document.getElementById('debug-processes');
-    if (procDbg && info.processes !== undefined) procDbg.textContent = info.processes;
-    const debugPre = document.getElementById('sysinfo-debug');
-    if (debugPre) debugPre.textContent = JSON.stringify(info, null, 2);
-  }
-
-  function updateCharts(stats, metrics){
+  function renderServerTotals(stats){
     const inMB  = ((stats && stats.BytesIn)  || 0) / 1024 / 1024;
     const outMB = ((stats && stats.BytesOut) || 0) / 1024 / 1024;
-    renderBarOrEmpty({
-      id: 'serverTotalsChart',
-      labels: ['Вход','Выход'],
-      datasets: [{ label:'MB', data:[inMB, outMB], backgroundColor:[palette[0], palette[1]] }]
-    });
-
-    const breakdown = (metrics && metrics.client_breakdown) || [];
-    const labels = breakdown.map(c => c.common_name || c.real_addr || 'peer');
-    const inMBClients   = breakdown.map(c => ((c.bytes_in  || 0) / 1024 / 1024));
-    const outMBClients  = breakdown.map(c => ((c.bytes_out || 0) / 1024 / 1024));
-    renderBarOrEmpty({
-      id: 'clientTrafficChart',
-      labels,
-      datasets: [
-        { label:'Входящий трафик (MB)', data: inMBClients,  backgroundColor: palette[0] },
-        { label:'Исходящий трафик (MB)', data: outMBClients, backgroundColor: palette[1] }
-      ],
-      stacked: true
-    });
+    renderBarOrEmpty({ id:'serverTotalsChart', labels:['Вход','Выход'],
+      datasets:[{ label:'MB', data:[inMB,outMB], backgroundColor:[palette[0],palette[1]] }] });
   }
 
-  function updateDashboard(data){
-    if (!data) return;
-    const stats = data.ovstats || {};
-    const status = data.ovstatus || {};
-    const metrics = data.metrics || {};
-    const sysinfo = data.sysinfo || sysinfoData;
-    updateOvStatus(metrics, stats);
-    updateManagement(metrics);
-    updateQueue(status, metrics);
-    updateSecurity(metrics);
-    updateUpdatedAt(metrics, stats);
-    updateCharts(stats, metrics);
-    renderSysinfo(sysinfo);
-  }
-
-  updateDashboard({ ovstats, ovstatus: ovstatusData, metrics: metricsData, sysinfo: sysinfoData });
-
-  let pollInterval = 15000;
-  let currentInterval = pollInterval;
-
-  async function pollStatus(){
-    try {
-      const res = await fetch('/ui/statusz.json', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const payload = await res.json();
-      updateDashboard(payload);
-      currentInterval = pollInterval;
-    } catch (err) {
-      console.warn('statusz fetch failed', err);
-      currentInterval = Math.min(currentInterval * 2, 60000);
-    } finally {
-      setTimeout(pollStatus, currentInterval);
-    }
-  }
-
-  setTimeout(pollStatus, currentInterval);
+  // Единоразовый рендер
+  renderCpuUsage(sysinfoData);
+  renderFsUsage(sysinfoData);
+  renderServerTotals(ovstats);
 
   // Копирование адресов (иконка-скрепка)
   (function(){
@@ -588,8 +328,8 @@
         const txt = b.getAttribute('data-clipboard-text') || '';
         if (!txt) return;
         navigator.clipboard.writeText(txt).then(()=> {
-          b.querySelector('.clippy').style.opacity = 1;
-          setTimeout(()=>{ b.querySelector('.clippy').style.opacity = .6; }, 800);
+          const icon = b.querySelector('.clippy'); if (!icon) return;
+          icon.style.opacity = 1; setTimeout(()=>{ icon.style.opacity = .6; }, 800);
         });
       });
     });
