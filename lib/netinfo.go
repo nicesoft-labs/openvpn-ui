@@ -47,11 +47,11 @@ type NetInterface struct {
 
 // SoftnetCPU describes softnet stats per CPU.
 type SoftnetCPU struct {
-	CPU            int    `json:"cpu"`
-	Processed      uint64 `json:"processed"`
-	Dropped        uint64 `json:"dropped"`
-	TimeSqueezed   uint64 `json:"time_squeezed"`
-	FlowLimitCount uint64 `json:"flow_limit_count"`
+	CPU            int     `json:"cpu"`
+	Processed      uint64  `json:"processed"`
+	Dropped        uint64  `json:"dropped"`
+	TimeSqueezed   uint64  `json:"time_squeezed"`
+	FlowLimitCount uint64  `json:"flow_limit_count"`
 }
 
 // SoftnetTotal contains aggregated softnet stats across CPUs.
@@ -84,45 +84,44 @@ type ConntrackStat struct {
 
 // TCPStates aggregates TCP socket counts per state.
 type TCPStates struct {
+	Listen      uint64 `json:"listen"`
 	Established uint64 `json:"established"`
-	TimeWait    uint64 `json:"time_wait"`
-	CloseWait   uint64 `json:"close_wait"`
 	SynSent     uint64 `json:"syn_sent"`
+	SynRecv     uint64 `json:"syn_recv"`
 	FinWait1    uint64 `json:"fin_wait1"`
 	FinWait2    uint64 `json:"fin_wait2"`
+	TimeWait    uint64 `json:"time_wait"`
+	Close       uint64 `json:"close"`
+	CloseWait   uint64 `json:"close_wait"`
 	LastAck     uint64 `json:"last_ack"`
 	Closing     uint64 `json:"closing"`
-	Listen      uint64 `json:"listen"`
+	NewSynRecv  uint64 `json:"new_syn_recv"`
+	Unknown     uint64 `json:"unknown"`
 }
 
 // CollectNetInfo gathers network metrics snapshot.
 func CollectNetInfo() (NetInfo, error) {
 	netinfo := NetInfo{}
-
 	defer func() {
 		if r := recover(); r != nil {
 			logs.Warn(fmt.Sprintf("netinfo collection panic: %v", r))
 		}
 	}()
-
 	netinfo.Ifaces = collectInterfaces()
 	netinfo.Softnet = collectSoftnet()
 	netinfo.SNMP = collectSNMP()
 	netinfo.Conntrack = collectConntrack()
 	netinfo.TCPStates = collectTCPStates()
-
 	return netinfo, nil
 }
 
 func collectInterfaces() []NetInterface {
-	names := listInterfaces()
 	fallback := parseProcNetDev()
+	names := listInterfaces(fallback)
 	result := make([]NetInterface, 0, len(names))
-
 	for _, name := range names {
 		iface := NetInterface{Name: name}
 		basePath := filepath.Join("/sys/class/net", name)
-
 		if mac, err := readTrimmedString(filepath.Join(basePath, "address")); err == nil {
 			iface.MAC = mac
 		}
@@ -134,8 +133,11 @@ func collectInterfaces() []NetInterface {
 			iface.OperState = oper
 		}
 		if speed, err := readInt(filepath.Join(basePath, "speed")); err == nil {
-			s := int64(speed)
-			iface.SpeedMbps = &s
+			// Drivers often return -1 if speed is unknown
+			if speed >= 0 {
+				s := int64(speed)
+				iface.SpeedMbps = &s
+			}
 		}
 		if duplex, err := readTrimmedString(filepath.Join(basePath, "duplex")); err == nil {
 			iface.Duplex = duplex
@@ -143,7 +145,6 @@ func collectInterfaces() []NetInterface {
 		if qdisc, err := readTrimmedString(filepath.Join(basePath, "qdisc")); err == nil {
 			iface.QDisc = qdisc
 		}
-
 		setCounter := func(path string) *uint64 {
 			if v, err := readUint64(path); err == nil {
 				val := v
@@ -151,7 +152,6 @@ func collectInterfaces() []NetInterface {
 			}
 			return nil
 		}
-
 		iface.RxBytes = setCounter(filepath.Join(basePath, "statistics/rx_bytes"))
 		iface.TxBytes = setCounter(filepath.Join(basePath, "statistics/tx_bytes"))
 		iface.RxPackets = setCounter(filepath.Join(basePath, "statistics/rx_packets"))
@@ -165,7 +165,6 @@ func collectInterfaces() []NetInterface {
 		iface.RxFrameErrors = setCounter(filepath.Join(basePath, "statistics/rx_frame_errors"))
 		iface.TxCarrierErrors = setCounter(filepath.Join(basePath, "statistics/tx_carrier_errors"))
 		iface.Multicast = setCounter(filepath.Join(basePath, "statistics/multicast"))
-
 		if fb, ok := fallback[name]; ok {
 			if iface.RxBytes == nil {
 				iface.RxBytes = &fb.RxBytes
@@ -207,16 +206,13 @@ func collectInterfaces() []NetInterface {
 				iface.Multicast = &fb.Multicast
 			}
 		}
-
 		result = append(result, iface)
 	}
-
 	return result
 }
 
 func listInterfaces(fallback map[string]procNetDevStat) []string {
 	entries, err := os.ReadDir("/sys/class/net")
-
 	allowedPrefix := []string{"eth", "en", "tun", "tap", "wg"}
 	matches := func(name string) bool {
 		for _, p := range allowedPrefix {
@@ -226,7 +222,6 @@ func listInterfaces(fallback map[string]procNetDevStat) []string {
 		}
 		return false
 	}
-
 	names := make([]string, 0, len(entries))
 	if err == nil {
 		for _, e := range entries {
@@ -241,7 +236,6 @@ func listInterfaces(fallback map[string]procNetDevStat) []string {
 	} else {
 		logs.Warn(fmt.Sprintf("cannot read /sys/class/net: %v", err))
 	}
-
 	if len(names) == 0 && len(fallback) > 0 {
 		for name := range fallback {
 			if name == "lo" {
@@ -252,7 +246,6 @@ func listInterfaces(fallback map[string]procNetDevStat) []string {
 			}
 		}
 	}
-
 	return names
 }
 
@@ -279,7 +272,6 @@ func parseProcNetDev() map[string]procNetDevStat {
 		return map[string]procNetDevStat{}
 	}
 	defer file.Close()
-
 	stats := make(map[string]procNetDevStat)
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
@@ -321,11 +313,9 @@ func parseProcNetDev() map[string]procNetDevStat {
 			TxCarrierErrors: vals[14],
 		}
 	}
-
 	if err := scanner.Err(); err != nil {
 		logs.Debug(fmt.Sprintf("error reading /proc/net/dev: %v", err))
 	}
-
 	return stats
 }
 
@@ -336,7 +326,6 @@ func collectSoftnet() SoftnetStat {
 		return SoftnetStat{}
 	}
 	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
 	perCPU := make([]SoftnetCPU, 0, 4)
 	totals := SoftnetTotal{}
@@ -383,10 +372,13 @@ func collectSNMP() SNMPStats {
 	stats := SNMPStats{}
 	stats.TCP = extractSnmpSection("/proc/net/snmp", "Tcp")
 	stats.UDP = extractSnmpSection("/proc/net/snmp", "Udp")
-
-	tcpext := extractSnmpSection("/proc/net/netstat", "Tcpext")
+	// Different cases for TcpExt section may be encountered
+	tcpext := extractSnmpSection("/proc/net/netstat", "TcpExt")
 	if len(tcpext) == 0 {
 		tcpext = extractSnmpSection("/proc/net/netstat", "TCPExt")
+	}
+	if len(tcpext) == 0 {
+		tcpext = extractSnmpSection("/proc/net/netstat", "Tcpext")
 	}
 	stats.TCPExt = tcpext
 	return stats
@@ -399,13 +391,12 @@ func extractSnmpSection(path, section string) map[string]uint64 {
 		return nil
 	}
 	defer file.Close()
-
 	return parseSnmpSection(file, section)
 }
 
 func parseSnmpSection(r io.Reader, section string) map[string]uint64 {
 	scanner := bufio.NewScanner(r)
-	headers := []string{}
+	var last map[string]uint64
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, section+":") {
@@ -416,7 +407,7 @@ func parseSnmpSection(r io.Reader, section string) map[string]uint64 {
 			break
 		}
 		valueLine := strings.TrimPrefix(scanner.Text(), section+":")
-		headers = strings.Fields(headerLine)
+		headers := strings.Fields(headerLine)
 		values := strings.Fields(valueLine)
 		if len(headers) != len(values) {
 			continue
@@ -427,12 +418,13 @@ func parseSnmpSection(r io.Reader, section string) map[string]uint64 {
 				out[key] = v
 			}
 		}
-		return out
+		// Do not exit early — take the last section occurrence as the most recent
+		last = out
 	}
 	if err := scanner.Err(); err != nil {
 		logs.Debug(fmt.Sprintf("error reading snmp section %s: %v", section, err))
 	}
-	return nil
+	return last
 }
 
 func collectConntrack() ConntrackStat {
@@ -480,34 +472,40 @@ func collectTCPStates() TCPStates {
 			logs.Debug(fmt.Sprintf("error reading %s: %v", path, err))
 		}
 	}
-
 	parseTCPFile("/proc/net/tcp")
 	parseTCPFile("/proc/net/tcp6")
-
 	return states
 }
 
 func incrementTCPState(states *TCPStates, hexState string) {
 	state := strings.ToUpper(strings.TrimSpace(hexState))
 	switch state {
+	case "0A":
+		states.Listen++
 	case "01":
 		states.Established++
 	case "02":
 		states.SynSent++
+	case "03":
+		states.SynRecv++
 	case "04":
 		states.FinWait1++
 	case "05":
 		states.FinWait2++
 	case "06":
 		states.TimeWait++
+	case "07":
+		states.Close++
 	case "08":
 		states.CloseWait++
 	case "09":
 		states.LastAck++
-	case "0A":
-		states.Listen++
 	case "0B":
 		states.Closing++
+	case "0C":
+		states.NewSynRecv++
+	default:
+		states.Unknown++
 	}
 }
 
