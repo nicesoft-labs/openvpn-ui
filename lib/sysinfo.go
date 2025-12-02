@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	sigar "github.com/cloudfoundry/gosigar"
@@ -20,6 +21,21 @@ type FSUsage struct {
 	Used        uint64  `json:"used"`        // байты
 	Free        uint64  `json:"free"`        // байты
 	UsedPercent float64 `json:"usedPercent"` // 0..100
+}
+
+// Health — общая оценка состояния.
+type Health struct {
+	Overall string   `json:"overall"` // "green" | "yellow" | "red"
+	Reasons []string `json:"reasons"`
+}
+
+// MemView — удобный вид памяти для UI.
+type MemView struct {
+	Total       uint64  `json:"total"`
+	ActualUsed  uint64  `json:"actualUsed"`
+	ActualFree  uint64  `json:"actualFree"`
+	ActualUsedP float64 `json:"actualUsedPercent"`
+	NoSwap      bool    `json:"noSwap"`
 }
 
 // SystemInfo содержит базовую информацию о системе.
@@ -39,6 +55,10 @@ type SystemInfo struct {
 	Os          string            `json:"os"`
 	Hostname    string            `json:"hostname"`
 	CurrentTime time.Time         `json:"currentTime"`
+
+	// Добавлено:
+	Mem    MemView `json:"memView"` // удобный «вид» памяти
+	Health Health  `json:"health"`  // оценка состояния
 }
 
 // GetSystemInfo возвращает краткую сводку по системной нагрузке.
@@ -52,7 +72,7 @@ func GetSystemInfo() SystemInfo {
 		s.UptimeS = up.Format()
 	}
 
-	// Load Average
+	// Load Average (с округлением до 2 знаков)
 	var avg sigar.LoadAverage
 	if avg.Get() == nil {
 		avg.One = formatFloat(avg.One)
@@ -77,6 +97,9 @@ func GetSystemInfo() SystemInfo {
 		s.Swap = sw
 	}
 
+	// Удобный вид памяти
+	s.Mem = makeMemView(s.Memory, s.Swap)
+
 	// CPU (агрегированный и per-CPU)
 	var cpu sigar.Cpu
 	if cpu.Get() == nil {
@@ -94,8 +117,8 @@ func GetSystemInfo() SystemInfo {
 		s.Processes = len(pl.List)
 	}
 
-	// Файловые системы + их usage
-	s.FS = collectFSUsage()
+	// Файловые системы + их usage (с фильтрацией и агрегированием overlay)
+	s.FS = collectFSUsageFiltered()
 
 	// Базовая платформа
 	s.Arch = runtime.GOARCH
@@ -104,9 +127,13 @@ func GetSystemInfo() SystemInfo {
 		s.Hostname = h
 	}
 
+	// Итоговая оценка здоровья
+	s.Health = assessHealth(s)
+
 	return s
 }
 
+// Собирает usage всех ФС без фильтрации.
 func collectFSUsage() []FSUsage {
 	out := make([]FSUsage, 0, 8)
 
@@ -117,13 +144,13 @@ func collectFSUsage() []FSUsage {
 
 	for _, fs := range fsl.List {
 		// fs.DirName — точка монтирования, fs.SysTypeName — тип (ext4, xfs, tmpfs, …)
-		// Можно фильтровать псевдо-ФС, но оставим всё и аккуратно обработаем ошибки.
 		var u sigar.FileSystemUsage
 		if err := u.Get(fs.DirName); err != nil {
 			continue
 		}
 
-		total := u.Total * 1024 // gosigar отдает значения в KiB
+		// gosigar возвращает значения в KiB
+		total := u.Total * 1024
 		used := u.Used * 1024
 		free := u.Free * 1024
 		usedPct := 0.0
@@ -144,6 +171,131 @@ func collectFSUsage() []FSUsage {
 	}
 
 	return out
+}
+
+// Фильтрует «шумные» ФС и схлопывает docker overlay.
+func collectFSUsageFiltered() []FSUsage {
+	raw := collectFSUsage()
+
+	// Псевдо-ФС скрываем, tmpfs показываем выборочно.
+	skip := map[string]bool{
+		"proc": true, "sysfs": true, "devtmpfs": true, "devpts": true,
+		"tmpfs": false, // покажем только /tmp, /run, /dev/shm
+		"cgroup": true, "cgroup2": true, "pstore": true, "bpf": true,
+		"autofs": true, "hugetlbfs": true, "mqueue": true, "debugfs": true,
+		"tracefs": true, "nsfs": true, "securityfs": true, "configfs": true,
+		"fusectl": true, "binfmt_misc": true,
+	}
+
+	out := make([]FSUsage, 0, len(raw))
+	for _, fs := range raw {
+		if skip[fs.FSType] {
+			continue
+		}
+		if fs.FSType == "tmpfs" {
+			if !(fs.Mount == "/tmp" || fs.Mount == "/run" || fs.Mount == "/dev/shm") {
+				continue
+			}
+		}
+		out = append(out, fs)
+	}
+
+	// Схлопываем дубликаты overlay от Docker в один понятный блок.
+	out = aggregateOverlay(out)
+
+	return out
+}
+
+// Агрегирует overlay-маунты Docker в один элемент /var/lib/docker (overlay).
+func aggregateOverlay(fs []FSUsage) []FSUsage {
+	var overlays []FSUsage
+	var nonOverlay []FSUsage
+	for _, f := range fs {
+		if f.FSType == "overlay" || f.Device == "overlay" {
+			overlays = append(overlays, f)
+		} else {
+			nonOverlay = append(nonOverlay, f)
+		}
+	}
+	if len(overlays) == 0 {
+		return fs
+	}
+	// Выберем репрезентативный overlay.
+	rep := overlays[0]
+	for _, o := range overlays {
+		if strings.HasPrefix(o.Mount, "/var/lib/docker/overlay2") {
+			rep = o
+			break
+		}
+	}
+	rep.Mount = "/var/lib/docker (overlay)"
+	return append(nonOverlay, rep)
+}
+
+// Удобный вид памяти (actual used/free, проценты, признак swap).
+func makeMemView(m sigar.Mem, sw sigar.Swap) MemView {
+	mv := MemView{
+		Total:      m.Total,
+		ActualUsed: m.ActualUsed,
+		ActualFree: m.ActualFree,
+		NoSwap:     sw.Total == 0,
+	}
+	if m.Total > 0 {
+		mv.ActualUsedP = round2(100.0 * float64(m.ActualUsed) / float64(m.Total))
+	}
+	return mv
+}
+
+// Простая оценка здоровья на основе RAM, swap, load и дисков.
+func assessHealth(s SystemInfo) Health {
+	h := Health{Overall: "green"}
+
+	add := func(msg string, sev string) {
+		h.Reasons = append(h.Reasons, msg)
+		switch sev {
+		case "red":
+			h.Overall = "red"
+		case "yellow":
+			if h.Overall == "green" {
+				h.Overall = "yellow"
+			}
+		}
+	}
+
+	// RAM (actual used)
+	if s.Mem.ActualUsedP > 95 {
+		add(fmt.Sprintf("RAM high: %.0f%%", s.Mem.ActualUsedP), "red")
+	} else if s.Mem.ActualUsedP > 85 {
+		add(fmt.Sprintf("RAM high: %.0f%%", s.Mem.ActualUsedP), "yellow")
+	}
+
+	// Swap
+	if s.Mem.NoSwap {
+		add("Swap disabled", "yellow")
+	}
+
+	// CPU: load 5m vs число ядер (очень упрощённо)
+	if s.CPUCount > 0 {
+		if s.LoadAvg.Five > float64(s.CPUCount)*2.0 {
+			add("CPU load 5m very high", "red")
+		} else if s.LoadAvg.Five > float64(s.CPUCount)*1.0 {
+			add("CPU load 5m high", "yellow")
+		}
+	}
+
+	// Диски: предупреждаем по реальным ФС (не tmpfs)
+	for _, f := range s.FS {
+		if f.FSType == "tmpfs" {
+			continue
+		}
+		if f.UsedPercent >= 90 {
+			add(fmt.Sprintf("Disk nearly full: %s (%.0f%%)", f.Mount, f.UsedPercent), "red")
+		} else if f.UsedPercent >= 80 {
+			add(fmt.Sprintf("Disk getting full: %s (%.0f%%)", f.Mount, f.UsedPercent), "yellow")
+		}
+	}
+
+	return h
 }
 
 func formatFloat(f float64) float64 {
