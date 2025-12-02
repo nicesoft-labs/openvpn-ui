@@ -74,7 +74,15 @@
       <div>OpenVPN PID: <span class="kpi-box__value">{{ if .ovpid }}{{ .ovpid }}{{ else }}0{{ end }}</span></div>
     </div>
   </div>
-  
+
+  <div class="col-lg-3 col-md-6 mb-3">
+    <div class="kpi-box">
+      <div class="kpi-box__title">Процессы</div>
+      <div class="kpi-box__value" id="process-count">{{ .sysinfo.Processes }}</div>
+      <div class="kpi-box__muted">Ядер CPU: <span id="cpu-count">{{ .sysinfo.CPUCount }}</span></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ===== Память / Swap ===== -->
@@ -108,6 +116,41 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CPU / Диски ===== -->
+<div class="row">
+  <div class="col-lg-6 col-md-12 mb-4">
+    <div class="metric-card">
+      <div class="metric-card__header d-flex justify-content-between">
+        <span>Нагрузка CPU по ядрам</span>
+        <span class="small-muted">В процентах</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="cpuUsageChart"></canvas>
+      </div>
+      <div class="empty-state" data-empty-for="cpuUsageChart">
+        Нет данных CPU<span class="hint"> (метрика недоступна)</span>
+      </div>
+      <small class="text-muted d-block mt-2">Показывает долю активного времени (busy %) для каждого ядра.</small>
+    </div>
+  </div>
+
+  <div class="col-lg-6 col-md-12 mb-4">
+    <div class="metric-card">
+      <div class="metric-card__header d-flex justify-content-between">
+        <span>Использование файловых систем</span>
+        <span class="small-muted">Заполненность</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="fsUsageChart"></canvas>
+      </div>
+      <div class="empty-state" data-empty-for="fsUsageChart">
+        Нет данных по дискам<span class="hint"> (мониторинг отключен)</span>
+      </div>
+      <small class="text-muted d-block mt-2">Показывает процент использования для точек монтирования.</small>
     </div>
   </div>
 </div>
@@ -230,6 +273,27 @@
         <div class="kpi-box__title">Операционная система</div>
         <div class="kpi-box__value" style="font-size:1.2rem">{{ .sysinfo.Os }}</div>
         <div class="kpi-box__muted">Архитектура: {{ .sysinfo.Arch }}</div>
+        <div class="kpi-box__muted">Хост: <span id="host-name">{{ .sysinfo.Hostname }}</span></div>
+        <div class="kpi-box__muted">Загружен: <span id="boot-time">{{ .sysinfo.BootTime }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Отладка системных метрик ===== -->
+<div class="card-clean mt-3">
+  <div class="card-header">
+    <h3 class="card-title" style="margin:0">Отладка системной информации</h3>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <div class="small-muted">Текущее время: <span id="current-time">{{ .sysinfo.CurrentTime }}</span></div>
+        <div class="small-muted">Аптайм: <span id="debug-uptime">{{ .sysinfo.UptimeS }}</span></div>
+        <div class="small-muted">Процессы: <span id="debug-processes">{{ .sysinfo.Processes }}</span></div>
+      </div>
+      <div class="col-md-8">
+        <pre id="sysinfo-debug" class="bg-light p-3 small" style="max-height:320px; overflow:auto">{{ tojson .sysinfo }}</pre>
       </div>
     </div>
   </div>
@@ -242,6 +306,7 @@
     const ovstatusData = {{ tojson .ovstatus }} || {};
     const ovstats = {{ tojson .ovstats }};
     const metricsData = {{ tojson .metrics }} || {};
+    const sysinfoData = {{ tojson .sysinfo }} || {};
 
   // Палитра
   const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
@@ -257,6 +322,11 @@
     const empty = document.querySelector(`[data-empty-for="${id}"]`);
     if (canvas) canvas.style.display = show ? 'none' : 'block';
     if (empty)  empty.style.display  = show ? 'flex' : 'none';
+  }
+
+  function toPercent(part, total){
+    if (!total) return 0;
+    return Math.max(0, Math.min(100, (part / total) * 100));
   }
   function isAllZeroOrEmpty(arr){
     if (!arr || !arr.length) return true;
@@ -318,6 +388,33 @@
     }
     const pad = (n) => `${n}`.padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function renderCpuUsage(info){
+    const list = info?.cpuList?.List || [];
+    const labels = list.map((_, idx) => `CPU${idx}`);
+    const data = list.map((cpu) => {
+      const total = (cpu?.User || 0) + (cpu?.Sys || 0) + (cpu?.Nice || 0) + (cpu?.Idle || 0) + (cpu?.Wait || 0) + (cpu?.Irq || 0) + (cpu?.SoftIrq || 0) + (cpu?.Stolen || 0);
+      if (!total) return 0;
+      const busy = total - (cpu?.Idle || 0);
+      return Math.round(toPercent(busy, total) * 10) / 10;
+    });
+    renderBarOrEmpty({
+      id: 'cpuUsageChart',
+      labels,
+      datasets: [{ label: 'Загрузка (%)', data, backgroundColor: palette[0] }],
+    });
+  }
+
+  function renderFsUsage(info){
+    const fsList = info?.fs || [];
+    const labels = fsList.map((fs) => fs.Mount || fs.Device || 'fs');
+    const data = fsList.map((fs) => Math.round(((fs?.UsedPercent || 0)) * 10) / 10);
+    renderBarOrEmpty({
+      id: 'fsUsageChart',
+      labels,
+      datasets: [{ label: 'Использовано (%)', data, backgroundColor: palette[2] }],
+    });
   }
 
   function updateOvStatus(metrics, stats){
@@ -394,6 +491,28 @@
     }
   }
 
+  function renderSysinfo(info){
+    if (!info) return;
+    renderCpuUsage(info);
+    renderFsUsage(info);
+    const procEl = document.getElementById('process-count');
+    if (procEl && info.processes !== undefined) procEl.textContent = info.processes;
+    const cpuEl = document.getElementById('cpu-count');
+    if (cpuEl && info.cpuCount !== undefined) cpuEl.textContent = info.cpuCount;
+    const hostEl = document.getElementById('host-name');
+    if (hostEl && info.hostname) hostEl.textContent = info.hostname;
+    const bootEl = document.getElementById('boot-time');
+    if (bootEl) bootEl.textContent = formatTimestamp(info.bootTime || info.BootTime);
+    const nowEl = document.getElementById('current-time');
+    if (nowEl) nowEl.textContent = formatTimestamp(info.currentTime || info.CurrentTime);
+    const upEl = document.getElementById('debug-uptime');
+    if (upEl && info.uptimeS) upEl.textContent = info.uptimeS;
+    const procDbg = document.getElementById('debug-processes');
+    if (procDbg && info.processes !== undefined) procDbg.textContent = info.processes;
+    const debugPre = document.getElementById('sysinfo-debug');
+    if (debugPre) debugPre.textContent = JSON.stringify(info, null, 2);
+  }
+
   function updateCharts(stats, metrics){
     const inMB  = ((stats && stats.BytesIn)  || 0) / 1024 / 1024;
     const outMB = ((stats && stats.BytesOut) || 0) / 1024 / 1024;
@@ -423,15 +542,17 @@
     const stats = data.ovstats || {};
     const status = data.ovstatus || {};
     const metrics = data.metrics || {};
+    const sysinfo = data.sysinfo || sysinfoData;
     updateOvStatus(metrics, stats);
     updateManagement(metrics);
     updateQueue(status, metrics);
     updateSecurity(metrics);
     updateUpdatedAt(metrics, stats);
     updateCharts(stats, metrics);
+    renderSysinfo(sysinfo);
   }
 
-  updateDashboard({ ovstats, ovstatus: ovstatusData, metrics: metricsData });
+  updateDashboard({ ovstats, ovstatus: ovstatusData, metrics: metricsData, sysinfo: sysinfoData });
 
   let pollInterval = 15000;
   let currentInterval = pollInterval;

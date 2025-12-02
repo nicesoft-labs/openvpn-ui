@@ -8,9 +8,9 @@ import (
 	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
-	clientconfig "github.com/d3vilh/openvpn-server-config/client/client-config"
-	easyrsaconfig "github.com/d3vilh/openvpn-server-config/easyrsa/config"
-	"github.com/d3vilh/openvpn-server-config/server/config"
+	clientconfig "github.com/nicesoft-labs/openvpn-server-config/client/client-config"
+	easyrsaconfig "github.com/nicesoft-labs/openvpn-server-config/easyrsa/config"
+	"github.com/nicesoft-labs/openvpn-server-config/server/config"
 	"gopkg.in/hlandau/passlib.v1"
 )
 
@@ -51,7 +51,6 @@ func ensureDir(path string) error {
 
 	return nil
 }
-
 
 func CreateDefaultUsers() {
 	hash, err := passlib.Hash(os.Getenv("OPENVPN_ADMIN_PASSWORD"))

@@ -10,12 +10,12 @@ import (
 // Don't think these defaults are ever used -- see models/models.go
 var defaultConfig = Config{
 	EasyRSADN:          "org",
-	EasyRSAReqCountry:  "UA",
-	EasyRSAReqProvince: "KY",
-	EasyRSAReqCity:     "Kyiv",
-	EasyRSAReqOrg:      "SweetHome",
-	EasyRSAReqEmail:    "sweet@home.net",
-	EasyRSAReqOu:       "MyOrganizationalUnit",
+	EasyRSAReqCountry:  "RU",
+	EasyRSAReqProvince: "MO",
+	EasyRSAReqCity:     "MOSCOW",
+	EasyRSAReqOrg:      "NiceSOFT",
+	EasyRSAReqEmail:    "info@ncsgp.ru",
+	EasyRSAReqOu:       "IT",
 	EasyRSAReqCn:       "server",
 	EasyRSAKeySize:     2048,
 	EasyRSACaExpire:    3650,
