@@ -12,17 +12,17 @@ type Client struct {
 	MIAddress string
 
 	// Необязательные таймауты (по желанию)
-	DialTimeout   time.Duration
-	ReadTimeout   time.Duration
-	WriteTimeout  time.Duration
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 	// Будущее: TLS / auth и т.п. можно добавить сюда
 }
 
 // NewClient initializes Management Interface client structure
 func NewClient(network, address string) *Client {
 	return &Client{
-		MINetwork:   network, // Management Interface network (e.g., "tcp")
-		MIAddress:   address, // Management Interface address (e.g., "127.0.0.1:2080")
+		MINetwork:    network, // Management Interface network (e.g., "tcp")
+		MIAddress:    address, // Management Interface address (e.g., "127.0.0.1:2080")
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
@@ -53,7 +53,9 @@ func (c *Client) GetStatus() (*Status, error) {
 	str3, err := c.Execute("status 3")
 	if err == nil {
 		if st, perr := ParseStatus(str3); perr == nil {
-			return st, nil
+			if st.Title != "" || len(st.ClientList) > 0 || len(st.RoutingTable) > 0 {
+				return st, nil
+			}
 		}
 	}
 	// fallback
