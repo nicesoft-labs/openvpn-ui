@@ -85,9 +85,6 @@
           <div class="progress progress-xs mt-2">
             <div class="progress-bar bg-primary progress-bar-striped" style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%"></div>
           </div>
-          {{ if eq .sysinfo.Swap.Total 0 }}
-            <div class="small text-warning mt-2">Swap отключён — рекомендовано включить (zram или swapfile).</div>
-          {{ end }}
         </div>
       </div>
     </div>
@@ -102,6 +99,9 @@
           <div class="progress progress-xs mt-2">
             <div class="progress-bar bg-secondary progress-bar-striped" style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%"></div>
           </div>
+          {{ if eq .sysinfo.Swap.Total 0 }}
+            <div class="small text-warning mt-2">Swap отключён — рекомендовано включить (zram).</div>
+          {{ end }}
         </div>
       </div>
     </div>
