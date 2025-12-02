@@ -2,6 +2,8 @@ package lib
 
 import (
 	"fmt"
+	"math"
+	"os"
 	"runtime"
 	"strconv"
 	"time"
@@ -9,61 +11,139 @@ import (
 	sigar "github.com/cloudfoundry/gosigar"
 )
 
-// SystemInfo contains basic information about system load
-type SystemInfo struct {
-	Memory      sigar.Mem
-	Swap        sigar.Swap
-	Uptime      int
-	UptimeS     string
-	LoadAvg     sigar.LoadAverage
-	CPUList     sigar.CpuList
-	Arch        string
-	Os          string
-	CurrentTime time.Time
+// FSUsage — сводка по файловой системе.
+type FSUsage struct {
+	Mount       string  `json:"mount"`
+	FSType      string  `json:"fstype"`
+	Device      string  `json:"device"`
+	Total       uint64  `json:"total"`       // байты
+	Used        uint64  `json:"used"`        // байты
+	Free        uint64  `json:"free"`        // байты
+	UsedPercent float64 `json:"usedPercent"` // 0..100
 }
 
-// GetSystemInfo returns short info about system load
+// SystemInfo содержит базовую информацию о системе.
+type SystemInfo struct {
+	Memory      sigar.Mem         `json:"memory"`
+	Swap        sigar.Swap        `json:"swap"`
+	Uptime      int               `json:"uptime"`       // сек
+	UptimeS     string            `json:"uptimeS"`      // форматированно
+	BootTime    time.Time         `json:"bootTime"`     // приблизительно: now - uptime
+	LoadAvg     sigar.LoadAverage `json:"loadAvg"`
+	CPU         sigar.Cpu         `json:"cpu"`          // агрегированный CPU c тиками
+	CPUList     sigar.CpuList     `json:"cpuList"`      // per-CPU тики
+	CPUCount    int               `json:"cpuCount"`
+	Processes   int               `json:"processes"`    // кол-во процессов
+	FS          []FSUsage         `json:"fs"`           // список маунтов с usage
+	Arch        string            `json:"arch"`
+	Os          string            `json:"os"`
+	Hostname    string            `json:"hostname"`
+	CurrentTime time.Time         `json:"currentTime"`
+}
+
+// GetSystemInfo возвращает краткую сводку по системной нагрузке.
 func GetSystemInfo() SystemInfo {
 	s := SystemInfo{}
 
-	uptime := sigar.Uptime{}
-	if err := uptime.Get(); err == nil {
-		s.Uptime = int(uptime.Length)
-		s.UptimeS = uptime.Format()
+	// Аптайм
+	if up := sigar.Uptime{}; up.Get() == nil {
+		s.Uptime = int(up.Length)
+		s.UptimeS = up.Format()
 	}
 
-	avg := sigar.LoadAverage{}
-	if err := avg.Get(); err == nil {
+	// Load Average
+	if avg := sigar.LoadAverage{}; avg.Get() == nil {
+		avg.One = formatFloat(avg.One)
+		avg.Five = formatFloat(avg.Five)
+		avg.Fifteen = formatFloat(avg.Fifteen)
 		s.LoadAvg = avg
-		s.LoadAvg.One = formatFloat(s.LoadAvg.One)
-		s.LoadAvg.Five = formatFloat(s.LoadAvg.Five)
-		s.LoadAvg.Fifteen = formatFloat(s.LoadAvg.Fifteen)
 	}
 
+	// Текущее время и "время загрузки" (приблизительно)
 	s.CurrentTime = time.Now()
+	if s.Uptime > 0 {
+		s.BootTime = s.CurrentTime.Add(-time.Duration(s.Uptime) * time.Second)
+	}
 
-	mem := sigar.Mem{}
-	if err := mem.Get(); err == nil {
+	// Память/свап
+	if mem := sigar.Mem{}; mem.Get() == nil {
 		s.Memory = mem
 	}
-
-	swap := sigar.Swap{}
-	if err := swap.Get(); err == nil {
-		s.Swap = swap
+	if sw := sigar.Swap{}; sw.Get() == nil {
+		s.Swap = sw
 	}
 
-	cpulist := sigar.CpuList{}
-	if err := cpulist.Get(); err == nil {
-		s.CPUList = cpulist
+	// CPU (агрегированный и per-CPU)
+	if cpu := sigar.Cpu{}; cpu.Get() == nil {
+		s.CPU = cpu
+	}
+	if cpus := sigar.CpuList{}; cpus.Get() == nil {
+		s.CPUList = cpus
+		s.CPUCount = len(cpus.List)
 	}
 
+	// Процессы (только количество)
+	if pl := sigar.ProcList{}; pl.Get() == nil {
+		s.Processes = len(pl.List)
+	}
+
+	// Файловые системы + их usage
+	s.FS = collectFSUsage()
+
+	// Базовая платформа
 	s.Arch = runtime.GOARCH
 	s.Os = runtime.GOOS
+	if h, err := os.Hostname(); err == nil {
+		s.Hostname = h
+	}
 
 	return s
+}
+
+func collectFSUsage() []FSUsage {
+	out := make([]FSUsage, 0, 8)
+
+	fsl := sigar.FileSystemList{}
+	if err := fsl.Get(); err != nil {
+		return out
+	}
+
+	for _, fs := range fsl.List {
+		// fs.DirName — точка монтирования, fs.SysTypeName — тип (ext4, xfs, tmpfs, …)
+		// Можно фильтровать псевдо-ФС, но оставим всё и аккуратно обработаем ошибки.
+		var u sigar.FileSystemUsage
+		if err := u.Get(fs.DirName); err != nil {
+			continue
+		}
+
+		total := u.Total * 1024 // gosigar отдает значения в KiB
+		used := u.Used * 1024
+		free := u.Free * 1024
+		usedPct := 0.0
+		if total > 0 {
+			usedPct = 100.0 * float64(used) / float64(total)
+			usedPct = math.Min(100, math.Max(0, usedPct))
+		}
+
+		out = append(out, FSUsage{
+			Mount:       fs.DirName,
+			FSType:      fs.SysTypeName,
+			Device:      fs.DevName,
+			Total:       total,
+			Used:        used,
+			Free:        free,
+			UsedPercent: round2(usedPct),
+		})
+	}
+
+	return out
 }
 
 func formatFloat(f float64) float64 {
 	formatted, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", f), 64)
 	return formatted
+}
+
+func round2(f float64) float64 {
+	return math.Round(f*100) / 100
 }
