@@ -39,42 +39,6 @@
 {{end}}
 
 {{define "body"}}
-
-{{/* === Верхние KPI: поддержка и struct(lib.NetInfo), и map === */}}
-{{ $tunRx := 0 }}{{ $tunTx := 0 }}{{ $ethRx := 0 }}{{ $ethTx := 0 }}
-{{ if .netinfo }}
-  {{/* Сначала пробуем как структуру с полем Ifaces */}}
-  {{ with .netinfo.Ifaces }}
-    {{ range . }}
-      {{ if eq .Name "tun0" }}
-        {{ $tunRx = .RxBytes }}
-        {{ $tunTx = .TxBytes }}
-      {{ end }}
-      {{ if eq .Name "eth0" }}
-        {{ $ethRx = .RxBytes }}
-        {{ $ethTx = .TxBytes }}
-      {{ end }}
-    {{ end }}
-  {{ else }}
-    {{/* Иначе — как map[string]any с ключом "ifaces" */}}
-    {{ $ifaces := index .netinfo "ifaces" }}
-    {{ if $ifaces }}
-      {{ range $i, $it := $ifaces }}
-        {{ $name := index $it "name" }}
-        {{ if eq $name "tun0" }}
-          {{ $tunRx = (index $it "rx_bytes") }}
-          {{ $tunTx = (index $it "tx_bytes") }}
-        {{ end }}
-        {{ if eq $name "eth0" }}
-          {{ $ethRx = (index $it "rx_bytes") }}
-          {{ $ethTx = (index $it "tx_bytes") }}
-        {{ end }}
-      {{ end }}
-    {{ end }}
-  {{ end }}
-{{ end }}
-
-
 <div class="row">
   <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
     <div class="kpi-box">
@@ -115,7 +79,13 @@
   <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Эффективность VPN</div>
-      <div class="kpi-box__value" id="kpi-vpn-eff" data-ov-in="{{if .ovstats}}{{.ovstats.BytesIn}}{{end}}" data-ov-out="{{if .ovstats}}{{.ovstats.BytesOut}}{{end}}" data-tun-rx="{{$tunRx}}" data-tun-tx="{{$tunTx}}" data-eth-rx="{{$ethRx}}" data-eth-tx="{{$ethTx}}">—</div>
+       <!-- data-* заполняем в JS -->
+      <div
+        class="kpi-box__value"
+        id="kpi-vpn-eff"
+        data-ov-in=""
+        data-ov-out=""
+        data-tun-rx="" data-tun-tx="" data-eth-rx="" data-eth-tx="">—</div>
       <div class="kpi-box__muted">Асимметрия: <span id="kpi-vpn-asym">—</span></div>
     </div>
   </div>
@@ -214,39 +184,8 @@
   </div>
 </div>
 
-{{ $udpErr := 0 }}{{ $udpRcvErr := 0 }}{{ $tcpTimeouts := 0 }}
-{{ if .netinfo }}
-  {{/* --- Сначала как структура lib.NetInfo --- */}}
-  {{ with .netinfo.Snmp }}
-    {{ with .Udp }}
-      {{ $udpErr    = .InErrors }}
-      {{ $udpRcvErr = .RcvbufErrors }}
-    {{ end }}
-    {{ with .Tcpext }}
-      {{ $tcpTimeouts = .TCPTimeouts }}
-    {{ end }}
-  {{ else }}
-    {{/* --- Иначе: fallback как map[string]any --- */}}
-    {{ $sn := index .netinfo "snmp" }}
-    {{ if $sn }}
-      {{ $udp := index $sn "udp" }}
-      {{ if $udp }}
-        {{ $udpErr    = (index $udp "InErrors") }}
-        {{ $udpRcvErr = (index $udp "RcvbufErrors") }}
-      {{ end }}
-      {{ $tx := index $sn "tcpext" }}
-      {{ if $tx }}
-        {{ $tcpTimeouts = (index $tx "TCPTimeouts") }}
-      {{ end }}
-    {{ end }}
-  {{ end }}
-{{ end }}
-{{ if or (gt $udpErr 0) (gt $udpRcvErr 0) (gt $tcpTimeouts 0) }}
-<div class="alert alert-danger">
-  Сетевая деградация: UDP InErrors={{$udpErr}}, RcvbufErrors={{$udpRcvErr}}, TCPTimeouts={{$tcpTimeouts}}.
-  Проверьте MTU/MSS, rmem/wmem, фильтрацию 1194/UDP, потери в SG/NAT.
-</div>
-{{ end }}
+<!-- Алёрт о деградации сети создаём/заполняем в JS -->
+<div id="net-degradation-alert" class="alert alert-danger" style="display:none"></div>
 
 <h5 class="mt-3 mb-2">Сеть</h5>
 
@@ -534,6 +473,47 @@
   const makeNote = (text)=>{ const td=safeTd(text); td.classList.add('small-muted'); return td; };
   const makeBadge = (val, dangerIfGtZero=true)=>{ const span=document.createElement('span'); const num=Number(val||0); span.className=(dangerIfGtZero && num>0)?'badge bg-danger':'badge bg-success'; span.textContent=String(num); if(!dangerIfGtZero && num!==0){ span.className='badge bg-secondary'; } return span; };
   const makeBadgeCell = (val, dangerIfGtZero=true)=>{ const td=document.createElement('td'); td.appendChild(makeBadge(val, dangerIfGtZero)); return td; };
+  // -------- Универсальные извлекатели из netinfo (структура или map) --------
+  function first(a, b){ return a!==undefined ? a : b; }
+  function toNum(x){ const n=Number(x||0); return Number.isFinite(n)? n : 0; }
+
+  function extractIfaceBytes(net){
+    // ожидаем либо net.ifaces = [{name, rx_bytes, tx_bytes}, ...]
+    const ifs = Array.isArray(net?.ifaces) ? net.ifaces : [];
+    const pick = (name) => {
+      const it = ifs.find(x => x?.name === name);
+      return {
+        rx: toNum(it?.rx_bytes ?? it?.RxBytes),
+        tx: toNum(it?.tx_bytes ?? it?.TxBytes),
+      };
+    };
+    const tun = pick('tun0');
+    const eth = pick('eth0');
+    return { tunRx: tun.rx, tunTx: tun.tx, ethRx: eth.rx, ethTx: eth.tx };
+  }
+
+  function extractSnmp(net){
+    // ожидаем net.snmp.udp / net.snmp.tcpext
+    const sn   = net?.snmp || {};
+    const udp  = sn.udp || {};
+    const txe  = sn.tcpext || {};
+    return {
+      udpErr:     toNum(first(udp.InErrors, udp.in_errors)),
+      udpRcvErr:  toNum(first(udp.RcvbufErrors, udp.rcvbuf_errors)),
+      tcpTimeouts:toNum(first(txe.TCPTimeouts, txe.tcp_timeouts)),
+    };
+  }
+
+  function renderDegradationAlert(net){
+    const {udpErr, udpRcvErr, tcpTimeouts} = extractSnmp(net);
+    const has = (udpErr>0) || (udpRcvErr>0) || (tcpTimeouts>0);
+    const el = document.getElementById('net-degradation-alert');
+    if (!el) return;
+    if (!has){ el.style.display='none'; el.textContent=''; return; }
+    el.style.display = 'block';
+    el.innerHTML = `Сетевая деградация: UDP InErrors=${udpErr}, RcvbufErrors=${udpRcvErr}, TCPTimeouts=${tcpTimeouts}.
+      Проверьте MTU/MSS, rmem/wmem, фильтрацию 1194/UDP, потери в SG/NAT.`;
+  }
 
   function renderBarOrEmpty({id, labels, datasets, stacked=false}){
     if (!labels || !labels.length || !datasets || datasets.length===0 || datasets.every(ds => isAllZeroOrEmpty(ds.data))){
@@ -898,6 +878,19 @@
     renderNetKPIs(netinfoData);
   }
 
+  // ---- Подготовка данных для KPI Эффективность VPN ----
+  (function primeVpnEfficiency(){
+    const el = document.getElementById('kpi-vpn-eff');
+    if (!el) return;
+    const {tunRx, tunTx, ethRx, ethTx} = extractIfaceBytes(netinfoData);
+    el.dataset.ovIn   = String(toNum(ovstats?.BytesIn));
+    el.dataset.ovOut  = String(toNum(ovstats?.BytesOut));
+    el.dataset.tunRx  = String(tunRx);
+    el.dataset.tunTx  = String(tunTx);
+    el.dataset.ethRx  = String(ethRx);
+    el.dataset.ethTx  = String(ethTx);
+  })();
+
   renderCpuUsage(sysinfoData);
   lazyChart('fsUsageChart', ()=>renderFsUsage(sysinfoData));
   renderServerTotals(ovstats);
@@ -905,7 +898,8 @@
   computeEfficiency();
   applyCipherBadges();
   renderDcoBadge();
-
+  renderDegradationAlert(netinfoData);
+  
   new ResizeObserver(()=>Object.values(CHARTS).forEach(ch=>{ if (ch) ch.resize(); })).observe(document.body);
 
   const themeBtn=document.getElementById('theme-toggle');
