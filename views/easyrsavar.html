@@ -1,187 +1,413 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>EasyRSA Variables</title>
+<title>NiceSOFT NiceVPN UI — Переменные EasyRSA</title>
+<style>
+  body{
+    background:#f8f9fa;
+  }
+
+  .card-clean{
+    border:1px solid #e9ecef;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 3px 10px rgba(0,0,0,.04);
+  }
+  .card-clean .card-header{
+    border-bottom:1px solid #eef1f4;
+    background:#fff;
+    border-top-left-radius:14px;
+    border-top-right-radius:14px;
+    padding:14px 18px;
+  }
+  .card-clean .card-body{
+    padding:18px;
+  }
+
+  .section-title{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    margin:0;
+    font-size:1.05rem;
+    font-weight:600;
+  }
+  .section-subtitle{
+    font-size:.9rem;
+    color:#6c757d;
+    margin-top:.25rem;
+  }
+
+  .settings-badge{
+    font-size:.75rem;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#6c757d;
+  }
+
+  .form-group{
+    margin-bottom:1rem;
+  }
+  .card .card-body > .form-group + .form-group{
+    margin-top:.875rem;
+  }
+
+  .form-help{
+    font-size:.9rem;
+    color:#6c757d;
+    display:block;
+    margin-top:.25rem;
+  }
+
+  .input-group-text{
+    background:#f8f9fa;
+    border-color:#e0e4ea;
+  }
+
+  .note-callout{
+    border-radius:10px;
+    border:1px solid #e3f2fd;
+    background:#f8fbff;
+    padding:12px 14px;
+    margin-bottom:1rem;
+  }
+  .note-title{
+    font-weight:600;
+    font-size:.95rem;
+    margin-bottom:.25rem;
+  }
+  .note-text{
+    font-size:.9rem;
+    color:#6c757d;
+  }
+  .note-text ol{
+    padding-left:1.1rem;
+    margin:0;
+  }
+  .note-text li + li{
+    margin-top:.15rem;
+  }
+
+  .btn-primary{
+    border-radius:999px;
+  }
+</style>
 {{end}}
 
 {{define "body"}}
-<div class="card card-default">
-  <div class="card-header with-border">
-    <h3 class="card-title">Vars Configuration</h3>
-    <div class="pull-right card-tools">
-      <button type="button" class="btn btn-tool" data-card-widget="collapse">
-        <i class="fa fa-minus"></i></button>
+<h5 class="mt-4 mb-3">Переменные EasyRSA</h5>
+
+<div class="card-clean mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <h3 class="card-title section-title">
+        Конфигурация Vars EasyRSA
+      </h3>
+      <div class="section-subtitle">
+        Базовые DN-поля и криптопараметры для PKI OpenVPN (CA, сервер и клиенты).
+      </div>
     </div>
+    <span class="settings-badge d-none d-md-inline">PKI / CA</span>
   </div>
+
   <div class="card-body">
-    <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false" class="collapsed">
-      <i class="fa fa-fw fa-info-circle" style="font-size: 15px;"></i> Please note
-    </a>
-    <div class="card-group" id="accordion">
-    </div>
-    <div id="collapseOne" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-      <span class="text-muted">If you've already completed the automatic setup without modifying the EasyRSA vars and now wish to make changes, follow these steps:</span><br>
-      <span class="text-muted"><b style="visibility: hidden;">Note</b>1. Save the new EasyRSA vars on this page.</span><br>
-      <span class="text-muted"><b style="visibility: hidden;">Note</b>2. Navigate to &quot;Configuration > Maintenance&quot;.</span><br>
-      <span class="text-muted"><b style="visibility: hidden;">Note</b>3. Click the &quot;DELETE ALL&quot; button, followed by the &quot;INITIALIZE ALL&quot; button.</span>
+    {{template "common/alert.html" .}}
+
+    <div class="note-callout">
+      <div class="note-title">
+        <i class="fa fa-fw fa-info-circle" style="font-size:14px;"></i>
+        Обратите внимание
+      </div>
+      <div class="note-text">
+        Если вы уже выполняли автоматическую инициализацию PKI без настройки переменных EasyRSA
+        и теперь хотите их изменить:
+        <ol>
+          <li>Сохраните новые переменные EasyRSA на этой странице.</li>
+          <li>Перейдите в раздел <strong>Configuration → Maintenance</strong>.</li>
+          <li>Нажмите <strong>DELETE ALL</strong>, затем <strong>INITIALIZE ALL</strong>, чтобы пересоздать PKI с новыми Vars.</li>
+        </ol>
+      </div>
     </div>
 
-      <!-- /.card-header -->
-      <!-- form start -->
-      {{template "common/alert.html" .}}
-      <form role="form" action="{{urlfor "EasyRSAConfigController.Post"}}" method="post">
+    <p class="form-help mb-3">
+      Подробный справочник по переменным EasyRSA доступен
+      <a href="https://github.com/OpenVPN/easy-rsa/blob/master/doc/EasyRSA-Advanced.md#environmental-variables-reference"
+         target="_blank" rel="noreferrer">здесь</a>.
+    </p>
 
-        <span>EasyRSA vars reference with description for every parameter can be found<a href="https://github.com/OpenVPN/easy-rsa/blob/master/doc/EasyRSA-Advanced.md#environmental-variables-reference" target="_blank"> here</a>.</span><br><br>
-          <!-- Disabled Profile - yet another feature to implement.
+    <form role="form" action="{{urlfor "EasyRSAConfigController.Post"}}" method="post">
+      <div class="row">
+        <!-- Левая колонка: DN / организация -->
+        <div class="col-lg-7 col-md-12">
           <div class="form-group">
-            <label for="name">Profile</label>
-            <input type="text" class="form-control" name="Profile" id="Profile" value="{{ .Settings.Profile }}" style="visibility: hidden;" disabled>
-          </div> -->
-      <div class="form-group">
-        <label for="name">EASYRSA_DN</label>
-        <input type="text" class="form-control" id="EasyRSADN" name="EasyRSADN" placeholder="org"
-          value="{{ .Settings.EasyRSADN }}">
-          <span id="helpBlock" class="text-muted">&quot;org&quot; - full DN format: &quot;Country/Province/City/Org/Org.Unit/email/commonName&quot;. &quot;cn_only&quot; - Use just a commonName value.</span>
-      </div>
+            <label for="EasyRSADN">EASYRSA_DN</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSADN"
+              name="EasyRSADN"
+              placeholder="org"
+              value="{{ .Settings.EasyRSADN }}">
+            <span class="form-help">
+              <code>org</code> — полный формат DN:
+              <code>Country/Province/City/Org/Org.Unit/email/commonName</code>.
+              <code>cn_only</code> — использовать только <em>Common Name</em>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_COUNTRY</label>
-        <input type="text" class="form-control" id="EasyRSAReqCountry" name="EasyRSAReqCountry" placeholder="UA"
-          value="{{ .Settings.EasyRSAReqCountry }}">
-          <span id="helpBlock" class="text-muted">The two-letter DN Organisational field for country code (e.g. UA).</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqCountry">EASYRSA_REQ_COUNTRY</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqCountry"
+              name="EasyRSAReqCountry"
+              placeholder="RU"
+              value="{{ .Settings.EasyRSAReqCountry }}">
+            <span class="form-help">
+              Двубуквенный код страны (ISO 3166-1 alpha-2), например <code>RU</code>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_PROVINCE</label>
-        <input type="text" class="form-control" id="EasyRSAReqProvince" name="EasyRSAReqProvince" placeholder="KY"
-          value="{{ .Settings.EasyRSAReqProvince }}">
-        <span id="helpBlock" class="text-muted">The two-letter DN Organisational field for province code (e.g. KY for &quot;Kyiv region&quot;).</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqProvince">EASYRSA_REQ_PROVINCE</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqProvince"
+              name="EasyRSAReqProvince"
+              placeholder="MOS"
+              value="{{ .Settings.EasyRSAReqProvince }}">
+            <span class="form-help">
+              Регион или штат в DN. Можно использовать аббревиатуру, например <code>MOS</code>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_CITY</label>
-        <input type="text" class="form-control" id="EasyRSAReqCity" name="EasyRSAReqCity" placeholder="Kyiv"
-          value="{{ .Settings.EasyRSAReqCity }}">
-        <span id="helpBlock" class="text-muted">The city of DN Organisation.</span>
+          <div class="form-group">
+            <label for="EasyRSAReqCity">EASYRSA_REQ_CITY</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqCity"
+              name="EasyRSAReqCity"
+              placeholder="Moscow"
+              value="{{ .Settings.EasyRSAReqCity }}">
+            <span class="form-help">
+              Город организации в DN.
+            </span>
+          </div>
 
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqOrg">EASYRSA_REQ_ORG</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqOrg"
+              name="EasyRSAReqOrg"
+              placeholder="NiceSOFT"
+              value="{{ .Settings.EasyRSAReqOrg }}">
+            <span class="form-help">
+              Название организации (Org) в DN.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_ORG</label>
-        <input type="text" class="form-control" id="EasyRSAReqOrg" name="EasyRSAReqOrg" placeholder="SweetHome"
-          value="{{ .Settings.EasyRSAReqOrg }}">
-        <span id="helpBlock" class="text-muted">The name of DN Organisation.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqOu">EASYRSA_REQ_OU</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqOu"
+              name="EasyRSAReqOu"
+              placeholder="NiceVPN"
+              value="{{ .Settings.EasyRSAReqOu }}">
+            <span class="form-help">
+              Организационное подразделение (OU), например <code>VPN</code> или <code>Security</code>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_EMAIL</label>
-        <input type="text" class="form-control" id="EasyRSAReqEmail" name="EasyRSAReqEmail" placeholder="sweet@home.ua"
-          value="{{ .Settings.EasyRSAReqEmail }}">
-        <span id="helpBlock" class="text-muted">The e-mail address of DN Organisation.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqEmail">EASYRSA_REQ_EMAIL</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqEmail"
+              name="EasyRSAReqEmail"
+              placeholder="info@ncsgp.ru"
+              value="{{ .Settings.EasyRSAReqEmail }}">
+            <span class="form-help">
+              Email организации, попадающий в DN (не обязательно совпадает с реальным support-адресом).
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_OU</label>
-        <input type="text" class="form-control" id="EasyRSAReqOu" name="EasyRSAReqOu" placeholder="GarageVPN"
-          value="{{ .Settings.EasyRSAReqOu }}">
-        <span id="helpBlock" class="text-muted">The Organisational Unit of DN Organisation.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSAReqCn">EASYRSA_REQ_CN</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAReqCn"
+              name="EasyRSAReqCn"
+              placeholder="OVPNserver"
+              value="{{ .Settings.EasyRSAReqCn }}">
+            <span class="form-help">
+              <em>Common Name</em> по умолчанию. Часто используется как имя сервера CA или VPN-сервера.
+            </span>
+          </div>
+        </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_REQ_CN</label>
-        <input type="text" class="form-control" id="EasyRSAReqCn" name="EasyRSAReqCn" placeholder="OVPNserver"
-          value="{{ .Settings.EasyRSAReqCn }}">
-        <span id="helpBlock" class="text-muted">The Common Name of DN Organisation.</span>
-      </div>
+        <!-- Правая колонка: криптопараметры и сроки -->
+        <div class="col-lg-5 col-md-12">
+          <div class="form-group">
+            <label for="EasyRSAKeySize">EASYRSA_KEY_SIZE</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSAKeySize"
+              name="EasyRSAKeySize"
+              placeholder="2048"
+              value="{{ .Settings.EasyRSAKeySize }}">
+            <span class="form-help">
+              Размер ключевых пар в битах. Рекомендуется <code>2048</code>; для повышенной стойкости — <code>4096</code>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_KEY_SIZE</label>
-        <input type="text" class="form-control" id="EasyRSAKeySize" name="EasyRSAKeySize" placeholder="2048"
-          value="{{ .Settings.EasyRSAKeySize }}">
-        <span id="helpBlock" class="text-muted">Size in bits for your keypairs. The recommended value is 2048, leave it as-is. However can be set up to 4096.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSACaExpire">EASYRSA_CA_EXPIRE</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSACaExpire"
+              name="EasyRSACaExpire"
+              placeholder="3650"
+              value="{{ .Settings.EasyRSACaExpire }}">
+            <span class="form-help">
+              Срок действия корневого CA (в днях). Типичное значение — <code>3650</code> (10 лет).
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_CA_EXPIRE</label>
-        <input type="text" class="form-control" id="EasyRSACaExpire" name="EasyRSACaExpire" placeholder="3650"
-          value="{{ .Settings.EasyRSACaExpire }}">
-        <span id="helpBlock" class="text-muted">Number of days until the root CA key expires. The recommended value is 3650.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSACertExpire">EASYRSA_CERT_EXPIRE</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSACertExpire"
+              name="EasyRSACertExpire"
+              placeholder="825"
+              value="{{ .Settings.EasyRSACertExpire }}">
+            <span class="form-help">
+              Срок действия клиентских и серверных сертификатов (в днях).
+              Часто используется значение <code>825</code>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_CERT_EXPIRE</label>
-        <input type="text" class="form-control" id="EasyRSACertExpire" name="EasyRSACertExpire" placeholder="825"
-          value="{{ .Settings.EasyRSACertExpire }}">
-        <span id="helpBlock" class="text-muted">Number of days until Client certificate expire. The recommended value is 825.</span>
-      </div>
+          <div class="form-group">
+            <label for="EasyRSACrlDays">EASYRSA_CRL_DAYS</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSACrlDays"
+              name="EasyRSACrlDays"
+              placeholder="180"
+              value="{{ .Settings.EasyRSACrlDays }}">
+            <span class="form-help">
+              Срок действия списка отзыва сертификатов (CRL) в днях.
+              После изменения параметра перегенерируйте CRL в разделе <strong>Maintenance → Generate CRL</strong>.
+            </span>
+          </div>
 
-      <div class="form-group">
-        <label for="name">EASYRSA_CRL_DAYS</label>
-        <input type="text" class="form-control" id="EasyRSACrlDays" name="EasyRSACrlDays" placeholder="180"
-          value="{{ .Settings.EasyRSACrlDays }}">
-        <span id="helpBlock" class="text-muted">Number of days until the CRL expires. The recommended value is 180. To apply new value - press &quot;Generate CRL&quot; under the &quot;Maintenance&quot;.</span>
-      </div>
-
-      <div class="form-group">
-        <label for="name">EASYRSA_CERT_RENEW</label>
-        <input type="text" class="form-control" id="EasyRSACertRenew" name="EasyRSACertRenew" placeholder="30"
-          value="{{ .Settings.EasyRSACertRenew }}">
-        <span id="helpBlock" class="text-muted">This should be implemented on OpenVPN Server side. Number of days before expiration to automatically renew certificates.</span>
+          <div class="form-group">
+            <label for="EasyRSACertRenew">EASYRSA_CERT_RENEW</label>
+            <input
+              type="text"
+              class="form-control"
+              id="EasyRSACertRenew"
+              name="EasyRSACertRenew"
+              placeholder="30"
+              value="{{ .Settings.EasyRSACertRenew }}">
+            <span class="form-help">
+              Используется при реализации авто-продления на стороне сервера OpenVPN.
+              Количество дней до истечения, за которое сертификаты должны продлеваться.
+            </span>
+          </div>
+        </div>
       </div>
 
       {{ .xsrfdata }}
 
-      <button type="submit" style="width: 145px;" class="btn btn-primary">Save Vars</button> &nbsp; &nbsp;
-      <button type="button" style="width: 145px;" class="btn btn-primary" data-toggle="modal" data-target="#easyrsa-view-modal">View Vars</button>
-    </div>
-        <!-- /.card-body -->
-  </form>
-
+      <div class="mt-3 d-flex flex-wrap" style="gap:.75rem;">
+        <button type="submit" class="btn btn-primary px-4" style="min-width:145px;">
+          Сохранить Vars
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary px-4"
+          style="min-width:145px;"
+          data-toggle="modal"
+          data-target="#easyrsa-view-modal">
+          Просмотреть Vars
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="modal fade" id="easyrsa-view-modal">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Config viewer</h4>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Просмотр конфигурации Vars</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
       <div class="modal-body">
-           <!-- /.card-header -->
-            <!-- form start -->
-           {{template "common/alert.html" .}}
-            <form role="form" method="post">
-              <div class="card-body">
-              
-                <div class="form-group">
-                  <label for="name">.easy-rsa/pki/vars</label>
-                  <textarea type="text" class="form-control my-textarea" name="ServerConfig" 
-                   id="ServerConfig"  spellcheck="false" rows="15">{{ .EasyRSAConf }}</textarea>
-                  <span id="helpBlock" class="text-muted">This is EasyRSA VARS file.
-                  </span>
-                </div>
-                
-                {{ .xsrfdata }}
+        {{template "common/alert.html" .}}
+        <form role="form" method="post">
+          <div class="card-body p-0">
+            <div class="form-group">
+              <label for="EasyRSAConfig">.easy-rsa/pki/vars</label>
+              <textarea
+                class="form-control my-textarea"
+                name="ServerConfig"
+                id="EasyRSAConfig"
+                spellcheck="false"
+                rows="15">{{ .EasyRSAConf }}</textarea>
+              <span class="form-help">
+                Сырый файл переменных EasyRSA (<code>vars</code>), с которым работает утилита.
+              </span>
+            </div>
 
-                <button type="button" class="btn btn-default pull-left" style="width: 145px;" data-dismiss="modal">Close</button>
-              </div>
-                 <!-- /.card-body -->
-            </form>
-            <span class="text-muted"> {{template "common/fvalid.html" field_error_message .validation "Name" }}</span>
+            {{ .xsrfdata }}
+
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <button
+                type="button"
+                class="btn btn-default"
+                style="min-width:145px;"
+                data-dismiss="modal">
+                Закрыть
+              </button>
+              <span class="text-muted">
+                {{template "common/fvalid.html" field_error_message .validation "Name" }}
+              </span>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 </div>
 
-<!-- /.card -->
-{{end}}
-
 <script>
-  // Check if "themeEditor" is set in localStorage
-  if (localStorage.getItem("theme") === "dark") {
-    createEditor("EasyRSAConfig", "600px", "clouds_midnight", "ovpn", true);
-  } else {
-    createEditor("EasyRSAConfig", "600px", "clouds", "ovpn", true);
+(function() {
+  // Подбор темы для редактора по настройкам UI
+  var uiTheme = localStorage.getItem("ui-theme") || localStorage.getItem("theme") || "auto";
+  var aceTheme = "clouds";
+  if (uiTheme === "dark") {
+    aceTheme = "clouds_midnight";
   }
+  if (typeof createEditor === "function") {
+    createEditor("EasyRSAConfig", "600px", aceTheme, "ovpn", true);
+  }
+})();
 </script>
+{{end}}
