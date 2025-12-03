@@ -1398,115 +1398,113 @@ func parseRule(
 				ipMask = append([]byte(nil), e.Mask...)
 			}
 
-		case *expr.Cmp:
-			switch {
-			// L4 proto (Meta(L4PROTO) или ip protocol из IP-заголовка)
-			case (expectCmp == "l4proto" || expectCmp == "ipproto") && len(e.Data) == 1:
-				switch e.Data[0] {
-				case 6:
-					l4proto = "tcp"
-					matches = append(matches, "proto=tcp")
-				case 17:
-					l4proto = "udp"
-					matches = append(matches, "proto=udp")
-				case 1:
-					l4proto = "icmp"
-					matches = append(matches, "proto=icmp")
-				case 58:
-					l4proto = "icmpv6"
-					matches = append(matches, "proto=icmpv6")
-				default:
-					l4proto = fmt.Sprintf("0x%02x", e.Data[0])
-					matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
-				}
-				expectCmp = ""
+        case *expr.Cmp:
+            switch {
+            // L4 proto (Meta(L4PROTO) или ip protocol из IP-заголовка)
+            case (expectCmp == "l4proto" || expectCmp == "ipproto") && len(e.Data) == 1:
+                switch e.Data[0] {
+                case 6:
+                    l4proto = "tcp"
+                    matches = append(matches, "proto=tcp")
+                case 17:
+                    l4proto = "udp"
+                    matches = append(matches, "proto=udp")
+                case 1:
+                    l4proto = "icmp"
+                    matches = append(matches, "proto=icmp")
+                case 58:
+                    l4proto = "icmpv6"
+                    matches = append(matches, "proto=icmpv6")
+                default:
+                    l4proto = fmt.Sprintf("0x%02x", e.Data[0])
+                    matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
+                }
+                expectCmp = ""
 
-			// Порты
-			case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
-				port := be16(e.Data)
-				p := uint16(port)
-				if expectCmp == "spt" {
-					matches = append(matches, fmt.Sprintf("spt=%d", port))
-					lastField = "spt"
-					varSport = &p
-				} else {
-					matches = append(matches, fmt.Sprintf("dpt=%d", port))
-					lastField = "dpt"
-					varDport = &p
-				}
-				expectCmp = ""
+            // Порты
+            case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
+                port := be16(e.Data)
+                p := uint16(port)
+                if expectCmp == "spt" {
+                    matches = append(matches, fmt.Sprintf("spt=%d", port))
+                    lastField = "spt"
+                    varSport = &p
+                } else {
+                    matches = append(matches, fmt.Sprintf("dpt=%d", port))
+                    lastField = "dpt"
+                    varDport = &p
+                }
+                expectCmp = ""
 
-			// IP / IP6 адреса с учётом возможной маски (сети)
+            // IP / IP6 адреса (в т.ч. через ct saddr/daddr) с учётом маски
             case ipMatchPending && (len(e.Data) == 4 || len(e.Data) == 16):
-				ip := net.IP(e.Data)
-				text := ip.String()
+                ip := net.IP(e.Data)
+                text := ip.String()
 
-				if len(ipMask) > 0 {
-					mask := net.IPMask(ipMask)
-					ones, bits := mask.Size()
-					if ones > 0 && bits > 0 && ones < bits {
-						text = (&net.IPNet{IP: ip, Mask: mask}).String()
-					}
-				}
+                if len(ipMask) > 0 {
+                    mask := net.IPMask(ipMask)
+                    ones, bits := mask.Size()
+                    if ones > 0 && bits > 0 && ones < bits {
+                        text = (&net.IPNet{IP: ip, Mask: mask}).String()
+                    }
+                }
 
-				switch expectCmp {
-				case "ip_saddr", "ip6_saddr":
                 switch expectCmp {
                 case "ip_saddr", "ip6_saddr", "ct_saddr":
-					srcIP = text
-					matches = append(matches, "src="+text)
-				case "ip_daddr", "ip6_daddr", "ct_daddr":
-					dstIP = text
-					matches = append(matches, "dst="+text)
-				}
+                    srcIP = text
+                    matches = append(matches, "src="+text)
+                case "ip_daddr", "ip6_daddr", "ct_daddr":
+                    dstIP = text
+                    matches = append(matches, "dst="+text)
+                }
 
-				expectCmp = ""
-				ipMatchPending = false
-				ipMask = nil
+                expectCmp = ""
+                ipMatchPending = false
+                ipMask = nil
 
-			// Fallback: голые IP без маски
+            // Fallback: голые IP без маски (и для ct_ тоже)
             case (strings.HasPrefix(expectCmp, "ip") || strings.HasPrefix(expectCmp, "ct_")) &&
                 (len(e.Data) == 4 || len(e.Data) == 16):
-				ip := net.IP(e.Data).String()
+                ip := net.IP(e.Data).String()
                 switch expectCmp {
                 case "ip_saddr", "ip6_saddr", "ct_saddr":
-					srcIP = ip
-					matches = append(matches, "src="+ip)
-				case "ip_daddr", "ip6_daddr", "ct_daddr":
-					dstIP = ip
-					matches = append(matches, "dst="+ip)
-				}
-				expectCmp = ""
-				ipMatchPending = false
-				ipMask = nil
+                    srcIP = ip
+                    matches = append(matches, "src="+ip)
+                case "ip_daddr", "ip6_daddr", "ct_daddr":
+                    dstIP = ip
+                    matches = append(matches, "dst="+ip)
+                }
+                expectCmp = ""
+                ipMatchPending = false
+                ipMask = nil
 
-			// IIF/OIF имя
-			case expectCmp == "iifname" || expectCmp == "oifname":
-				nameBytes := e.Data
-				if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
-					nameBytes = nameBytes[:idx]
-				}
-				name := string(nameBytes)
-				if expectCmp == "iifname" {
-					inIface = name
-					matches = append(matches, "iif="+name)
-				} else {
-					outIface = name
-					matches = append(matches, "oif="+name)
-				}
-				expectCmp = ""
+            // IIF/OIF имя
+            case expectCmp == "iifname" || expectCmp == "oifname":
+                nameBytes := e.Data
+                if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
+                    nameBytes = nameBytes[:idx]
+                }
+                name := string(nameBytes)
+                if expectCmp == "iifname" {
+                    inIface = name
+                    matches = append(matches, "iif="+name)
+                } else {
+                    outIface = name
+                    matches = append(matches, "oif="+name)
+                }
+                expectCmp = ""
 
-			// Ct state завершение
-			case ctSeen && len(e.Data) > 0:
-				ctValue = append([]byte(nil), e.Data...)
-				if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
-					if !contains(tags, TagEstablished) {
-						tags = append(tags, TagEstablished)
-					}
-					matches = append(matches, "ct=established")
-				}
-				ctSeen, ctMask, ctValue = false, nil, nil
-			}
+            // Ct state завершение
+            case ctSeen && len(e.Data) > 0:
+                ctValue = append([]byte(nil), e.Data...)
+                if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
+                    if !contains(tags, TagEstablished) {
+                        tags = append(tags, TagEstablished)
+                    }
+                    matches = append(matches, "ct=established")
+                }
+                ctSeen, ctMask, ctValue = false, nil, nil
+            }
 
 		case *expr.Verdict:
 			lastField = ""
