@@ -37,12 +37,13 @@ func ParsePid(input string) (int64, error) {
 
 // ParseVersion gets version information from string
 // Принимает 2 или 3 строки.
-//  1: "OpenVPN Version: OpenVPN 2.6.17 ..."
 //
-//  2: "Management Version: 5"
-//     ИЛИ "Management Interface Version 5 -- type 'help' for more info"
+//	1: "OpenVPN Version: OpenVPN 2.6.17 ..."
 //
-//  3: Дополнительная строка (иногда build/SSL), игнорируется.
+//	2: "Management Version: 5"
+//	   ИЛИ "Management Interface Version 5 -- type 'help' for more info"
+//
+//	3: Дополнительная строка (иногда build/SSL), игнорируется.
 func ParseVersion(input string) (*Version, error) {
 	v := Version{}
 	a := splitLines(input)
@@ -112,7 +113,7 @@ func ParseStats(input string) (*LoadStats, error) {
 			if x, err := strconv.ParseInt(val, 10, 64); err == nil {
 				ls.BytesOut = x
 			}
-		// Другие поля игнорируем (uptime/cpu_usage/mem_usage/…)
+			// Другие поля игнорируем (uptime/cpu_usage/mem_usage/…)
 		}
 	}
 	return &ls, nil
@@ -131,6 +132,9 @@ func ParseStatus(input string) (*Status, error) {
 	lines := splitLines(input)
 	for _, raw := range lines {
 		line := strings.TrimSpace(raw)
+		if strings.ContainsRune(line, '\t') {
+			line = strings.ReplaceAll(line, "\t", ",")
+		}
 		if line == "" {
 			continue
 		}
@@ -200,7 +204,7 @@ func ParseStatus(input string) (*Status, error) {
 				}
 				s.ClientList = append(s.ClientList, item)
 			}
-		// Иные теги (GLOBAL_STATS и др.) можно добавить по мере необходимости
+			// Иные теги (GLOBAL_STATS и др.) можно добавить по мере необходимости
 		}
 	}
 	return &s, nil
