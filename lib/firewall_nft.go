@@ -1539,32 +1539,63 @@ func parseRule(
     }
 
     // iptables-like синтез для NAT-правил:
-    // если протокол/адреса не заданы явно, считаем их "all" и 0.0.0.0/0|::/0.
-    isNAT := out.Verdict == "MASQUERADE" ||
-        out.Verdict == "SNAT" ||
-        out.Verdict == "DNAT" ||
-        out.Verdict == "REDIRECT"
+    // если протокол/адреса не заданы явно, считаем их "all" и 0.0.0.0/0|::/0
+    // и ПРИ ЭТОМ добавляем их в matches, чтобы UI мог парсить из Expr.
+    isNAT := verdict == "MASQUERADE" ||
+        verdict == "SNAT" ||
+        verdict == "DNAT" ||
+        verdict == "REDIRECT"
 
-    if isNAT && out.Proto == "" {
-        out.Proto = "all"
-    }
+    if isNAT {
+        // Протокол
+        if l4proto == "" {
+            l4proto = "all"
+            // если фронт вытаскивает proto из Expr по "proto=", даём ему зацепку
+            matches = append(matches, "proto=all")
+        }
 
-    // Если матчей по IP не было, но правило NAT — это эквивалент "любой адрес".
-    if isNAT && out.Src == "" {
-        switch family {
-        case "ip6":
-            out.Src = "::/0"
-        default: // "ip", "inet", всё остальное
-            out.Src = "0.0.0.0/0"
+        // Источник
+        if srcIP == "" {
+            switch family {
+            case "ip6":
+                srcIP = "::/0"
+            default:
+                srcIP = "0.0.0.0/0"
+            }
+            matches = append(matches, "src="+srcIP)
+        }
+
+        // Назначение
+        if dstIP == "" {
+            switch family {
+            case "ip6":
+                dstIP = "::/0"
+            default:
+                dstIP = "0.0.0.0/0"
+            }
+            matches = append(matches, "dst="+dstIP)
         }
     }
-    if isNAT && out.Dst == "" {
-        switch family {
-        case "ip6":
-            out.Dst = "::/0"
-        default:
-            out.Dst = "0.0.0.0/0"
-        }
+
+    out := NFTRule{
+        Matches:    matches,
+        Verdict:    verdict,
+        JumpTarget: jumpTarget,
+        Packets:    pkts,
+        Bytes:      byteCount,
+        Tags:       tags,
+        Proto:      l4proto,
+        Src:        srcIP,
+        Dst:        dstIP,
+        InIface:    inIface,
+        OutIface:   outIface,
+    }
+
+    if varSport != nil {
+        out.Sport = varSport
+    }
+    if varDport != nil {
+        out.Dport = varDport
     }
 
     return out, warns
