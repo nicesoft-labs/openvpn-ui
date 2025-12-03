@@ -1174,7 +1174,7 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-// parseRule — парсер правила с извлечением proto/src/dst/портов/iif/oif.
+// parseRule — парсер правила с извлечением proto/src/dst/портов/iif/oif + NAT.
 func parseRule(
 	rule *nftables.Rule,
 	family string,
@@ -1185,13 +1185,13 @@ func parseRule(
 ) (NFTRule, []string) {
 
 	var (
-                matches   []string
-                verdict   string
-				jumpTarget string
-                pkts      uint64
-                byteCount uint64
-                tags      []string
-                warns     []string
+		matches    []string
+		verdict    string
+		jumpTarget string
+		pkts       uint64
+		byteCount  uint64
+		tags       []string
+		warns      []string
 
 		lastField string
 
@@ -1205,9 +1205,14 @@ func parseRule(
 
 		expectCmp string
 
+		// Ct state (ESTABLISHED)
 		ctSeen  bool
 		ctMask  []byte
 		ctValue []byte
+
+		// IP-адрес с возможной маской (для сетей 10.8.0.0/16 и т.п.)
+		ipMatchPending bool   // ждём Cmp для IP после Payload(+Bitwise)
+		ipMask         []byte // маска из Bitwise
 	)
 
 	_ = family
@@ -1226,14 +1231,15 @@ func parseRule(
 			case expr.MetaKeyOIFNAME:
 				expectCmp = "oifname"
 			default:
-				// другие meta пока не трогаем
+				// остальные meta пока не трогаем
 			}
 
 		case *expr.Payload:
-		    // ip protocol: IP header, offset 9, 1 байт
-		    if e.Base == expr.PayloadBaseNetworkHeader && e.Offset == 9 && e.Len == 1 {
-		        expectCmp = "ipproto"
-		    }
+			// ip protocol: IP header, offset 9, 1 байт
+			if e.Base == expr.PayloadBaseNetworkHeader && e.Offset == 9 && e.Len == 1 {
+				expectCmp = "ipproto"
+			}
+
 			// L4 порты
 			if e.Base == expr.PayloadBaseTransportHeader && e.Len == 2 {
 				switch e.Offset {
@@ -1250,15 +1256,23 @@ func parseRule(
 					switch e.Offset {
 					case 12:
 						expectCmp = "ip_saddr"
+						ipMatchPending = true
+						ipMask = nil
 					case 16:
 						expectCmp = "ip_daddr"
+						ipMatchPending = true
+						ipMask = nil
 					}
 				} else if e.Len == 16 {
 					switch e.Offset {
 					case 8:
 						expectCmp = "ip6_saddr"
+						ipMatchPending = true
+						ipMask = nil
 					case 24:
 						expectCmp = "ip6_daddr"
+						ipMatchPending = true
+						ipMask = nil
 					}
 				}
 			}
@@ -1277,74 +1291,20 @@ func parseRule(
 			}
 
 		case *expr.Counter:
-                        pkts += e.Packets
-                        byteCount += e.Bytes
+			pkts += e.Packets
+			byteCount += e.Bytes
 
-        case *expr.Masq:
-            // Нативный nft masquerade
-            verdict = "MASQUERADE"
-            if !contains(tags, TagMasq) {
-                tags = append(tags, TagMasq)
-            }
+		case *expr.Masq:
+			verdict = "MASQUERADE"
+			if !contains(tags, TagMasq) {
+				tags = append(tags, TagMasq)
+			}
 
-        case *expr.Redir:
-            // Нативный nft redirect
-            verdict = "REDIRECT"
-            if !contains(tags, TagRedir) {
-                tags = append(tags, TagRedir)
-            }
-
-        case *expr.Target:
-            // iptables-nft совместимый слой:
-            // MASQUERADE / DNAT / SNAT / REDIRECT / LOG / REJECT / и т.д.
-            name := strings.ToUpper(e.Name)
-
-            switch name {
-            case "MASQUERADE":
-                // iptables: -j MASQUERADE в nat POSTROUTING
-                if verdict == "" {
-                    verdict = "MASQUERADE"
-                }
-                if !contains(tags, TagMasq) {
-                    tags = append(tags, TagMasq)
-                }
-
-            case "REDIRECT":
-                // iptables: -j REDIRECT
-                if verdict == "" {
-                    verdict = "REDIRECT"
-                }
-                if !contains(tags, TagRedir) {
-                    tags = append(tags, TagRedir)
-                }
-
-            case "DNAT", "SNAT", "NETMAP":
-                // iptables: -j DNAT / SNAT / NETMAP
-                // В iptables это именно "target" колонка, поэтому
-                // просто кладём в Verdict, чтобы UI совпадал.
-                if verdict == "" {
-                    verdict = name
-                }
-
-            case "LOG":
-                // iptables: -j LOG
-                if verdict == "" {
-                    verdict = "LOG"
-                }
-                // Чтоб в Expr было видно, что тут именно логирование
-                matches = append(matches, "target=LOG")
-
-            case "REJECT":
-                // iptables: -j REJECT
-                if verdict == "" {
-                    verdict = "REJECT"
-                }
-
-            default:
-                // Незнакомый таргет — хотя бы отобразим его в Expr,
-                // чтобы не потерять информацию.
-                matches = append(matches, "target="+name)
-            }
+		case *expr.Redir:
+			verdict = "REDIRECT"
+			if !contains(tags, TagRedir) {
+				tags = append(tags, TagRedir)
+			}
 
 		case *expr.Ct:
 			if e.Key == expr.CtKeySTATE {
@@ -1352,83 +1312,122 @@ func parseRule(
 			}
 
 		case *expr.Bitwise:
+			// Ct state маска
 			if ctSeen && len(e.Mask) > 0 {
 				ctMask = append([]byte(nil), e.Mask...)
 			}
+			// Маска для IP-адреса (сеть)
+			if ipMatchPending && len(e.Mask) > 0 {
+				ipMask = append([]byte(nil), e.Mask...)
+			}
 
-case *expr.Cmp:
-    switch {
-    // L4 proto (Meta(L4PROTO) или ip protocol из IP-заголовка)
-    case (expectCmp == "l4proto" || expectCmp == "ipproto") && len(e.Data) == 1:
-        switch e.Data[0] {
-        case 6:
-            l4proto = "tcp"
-            matches = append(matches, "proto=tcp")
-        case 17:
-            l4proto = "udp"
-            matches = append(matches, "proto=udp")
-        default:
-            l4proto = fmt.Sprintf("0x%02x", e.Data[0])
-            matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
-        }
-        expectCmp = ""
+		case *expr.Cmp:
+			switch {
+			// L4 proto (Meta(L4PROTO) или ip protocol из IP-заголовка)
+			case (expectCmp == "l4proto" || expectCmp == "ipproto") && len(e.Data) == 1:
+				switch e.Data[0] {
+				case 6:
+					l4proto = "tcp"
+					matches = append(matches, "proto=tcp")
+				case 17:
+					l4proto = "udp"
+					matches = append(matches, "proto=udp")
+				case 1:
+					l4proto = "icmp"
+					matches = append(matches, "proto=icmp")
+				case 58:
+					l4proto = "icmpv6"
+					matches = append(matches, "proto=icmpv6")
+				default:
+					l4proto = fmt.Sprintf("0x%02x", e.Data[0])
+					matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
+				}
+				expectCmp = ""
 
-    // Порты
-    case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
-        port := be16(e.Data)
-        p := uint16(port)
-        if expectCmp == "spt" {
-            matches = append(matches, fmt.Sprintf("spt=%d", port))
-            lastField = "spt"
-            varSport = &p
-        } else {
-            matches = append(matches, fmt.Sprintf("dpt=%d", port))
-            lastField = "dpt"
-            varDport = &p
-        }
-        expectCmp = ""
+			// Порты
+			case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
+				port := be16(e.Data)
+				p := uint16(port)
+				if expectCmp == "spt" {
+					matches = append(matches, fmt.Sprintf("spt=%d", port))
+					lastField = "spt"
+					varSport = &p
+				} else {
+					matches = append(matches, fmt.Sprintf("dpt=%d", port))
+					lastField = "dpt"
+					varDport = &p
+				}
+				expectCmp = ""
 
-    // IP / IP6 адреса
-    case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
-        ip := net.IP(e.Data).String()
-        switch expectCmp {
-        case "ip_saddr", "ip6_saddr":
-            srcIP = ip
-            matches = append(matches, "src="+ip)
-        case "ip_daddr", "ip6_daddr":
-            dstIP = ip
-            matches = append(matches, "dst="+ip)
-        }
-        expectCmp = ""
+			// IP / IP6 адреса с учётом возможной маски (сети)
+			case ipMatchPending && (len(e.Data) == 4 || len(e.Data) == 16):
+				ip := net.IP(e.Data)
+				text := ip.String()
 
-    // IIF/OIF имя
-    case expectCmp == "iifname" || expectCmp == "oifname":
-        nameBytes := e.Data
-        if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
-            nameBytes = nameBytes[:idx]
-        }
-        name := string(nameBytes)
-        if expectCmp == "iifname" {
-            inIface = name
-            matches = append(matches, "iif="+name)
-        } else {
-            outIface = name
-            matches = append(matches, "oif="+name)
-        }
-        expectCmp = ""
+				if len(ipMask) > 0 {
+					mask := net.IPMask(ipMask)
+					ones, bits := mask.Size()
+					// Если маска не /32 и не /128 — показываем как сеть
+					if ones > 0 && bits > 0 && ones < bits {
+						text = (&net.IPNet{IP: ip, Mask: mask}).String()
+					}
+				}
 
-    // Ct state завершение
-    case ctSeen && len(e.Data) > 0:
-        ctValue = append([]byte(nil), e.Data...)
-        if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
-            if !contains(tags, TagEstablished) {
-                tags = append(tags, TagEstablished)
-            }
-            matches = append(matches, "ct=established")
-        }
-        ctSeen, ctMask, ctValue = false, nil, nil
-    }
+				switch expectCmp {
+				case "ip_saddr", "ip6_saddr":
+					srcIP = text
+					matches = append(matches, "src="+text)
+				case "ip_daddr", "ip6_daddr":
+					dstIP = text
+					matches = append(matches, "dst="+text)
+				}
 
+				expectCmp = ""
+				ipMatchPending = false
+				ipMask = nil
+
+			// Fallback: голые IP без маски (на всякий случай)
+			case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
+				ip := net.IP(e.Data).String()
+				switch expectCmp {
+				case "ip_saddr", "ip6_saddr":
+					srcIP = ip
+					matches = append(matches, "src="+ip)
+				case "ip_daddr", "ip6_daddr":
+					dstIP = ip
+					matches = append(matches, "dst="+ip)
+				}
+				expectCmp = ""
+				ipMatchPending = false
+				ipMask = nil
+
+			// IIF/OIF имя
+			case expectCmp == "iifname" || expectCmp == "oifname":
+				nameBytes := e.Data
+				if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
+					nameBytes = nameBytes[:idx]
+				}
+				name := string(nameBytes)
+				if expectCmp == "iifname" {
+					inIface = name
+					matches = append(matches, "iif="+name)
+				} else {
+					outIface = name
+					matches = append(matches, "oif="+name)
+				}
+				expectCmp = ""
+
+			// Ct state завершение
+			case ctSeen && len(e.Data) > 0:
+				ctValue = append([]byte(nil), e.Data...)
+				if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
+					if !contains(tags, TagEstablished) {
+						tags = append(tags, TagEstablished)
+					}
+					matches = append(matches, "ct=established")
+				}
+				ctSeen, ctMask, ctValue = false, nil, nil
+			}
 
 		case *expr.Verdict:
 			lastField = ""
@@ -1444,8 +1443,8 @@ case *expr.Cmp:
 					verdict = "JUMP"
 				}
 				if e.Chain != "" {
-	                jumpTarget = e.Chain   // <— ВОТ ЗДЕСЬ
-	            }
+					jumpTarget = e.Chain
+				}
 			default:
 				// оставляем как есть
 			}
@@ -1456,25 +1455,33 @@ case *expr.Cmp:
 		}
 	}
 
-        out := NFTRule{
-                Matches:  matches,
-                Verdict:  verdict,
-			    JumpTarget: jumpTarget,
-                Packets:  pkts,
-                Bytes:    byteCount,
-                Tags:     tags,
-                Proto:    l4proto,
-                Src:      srcIP,
-                Dst:      dstIP,
-                InIface:  inIface,
-                OutIface: outIface,
+	out := NFTRule{
+		Matches:    matches,
+		Verdict:    verdict,
+		JumpTarget: jumpTarget,
+		Packets:    pkts,
+		Bytes:      byteCount,
+		Tags:       tags,
+		Proto:      l4proto,
+		Src:        srcIP,
+		Dst:        dstIP,
+		InIface:    inIface,
+		OutIface:   outIface,
 	}
+
 	if varSport != nil {
 		out.Sport = varSport
 	}
 	if varDport != nil {
 		out.Dport = varDport
 	}
+
+	// Для NAT-правил (MASQUERADE/SNAT/DNAT) без явного протокола
+	// считаем протокол "all" — так ближе к выводу iptables.
+	if out.Proto == "" && (out.Verdict == "MASQUERADE" || out.Verdict == "SNAT" || out.Verdict == "DNAT") {
+		out.Proto = "all"
+	}
+
 	return out, warns
 }
 
