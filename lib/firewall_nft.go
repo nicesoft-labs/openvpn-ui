@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -18,7 +18,6 @@ import (
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -352,8 +351,8 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 
 			tableInfo := NFTTable{Name: tableName, Family: family}
 
-			sortChains(chains)
-			for _, ch := range chains {
+            sortChains(chains)
+            for _, ch := range chains {
 				chainInfo := NFTChain{Name: ch.Name, Hook: hookString(ch.Hooknum), Policy: policyString(ch.Policy)}
 				key := fmt.Sprintf("%s_%s", family, chainInfo.Hook)
 				summary.collectBasePolicy(key, chainInfo.Policy)
@@ -378,7 +377,7 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 				establishedSeen := false
 				narrowMatchSeen := false
 				for idx, rule := range rules {
-					parsed, pw := parseRule(rule, family, &setUsage, &mapUsage, unhandledTypes)
+                    parsed, pw := parseRule(rule, family, tableName, &setUsage, &mapUsage, unhandledTypes)
 					addWarnings(&info, "parser", pw)
 					parsed.Table = tableName
 					parsed.Chain = ch.Name
@@ -446,20 +445,18 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					if len(flatRules) < MaxFlatRules {
 						flatRules = append(flatRules, parsed)
 					}
-				}
+                } // <-- конец цикла по правилам
 
-					if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !info.HasEstablishedFastpath {
-						addWarning(&info, "policy", fmt.Sprintf("ESTABLISHED fastpath not early in base chain %s/%s", tableName, ch.Name))
-					}
-
-					if chainInfo.Policy == "DROP" && !hasAccept {
-						addWarning(&info, "policy", fmt.Sprintf("Блокирующая политика без исключений в %s/%s", tableName, ch.Name))
-					}
-
-					tableInfo.Chains = append(tableInfo.Chains, chainInfo)
-					info.Counts["chains_total"]++
-				}
-
+                // пост-эвристики по цепи
+                if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !info.HasEstablishedFastpath {
+                    addWarning(&info, "policy", fmt.Sprintf("ESTABLISHED fastpath not early in base chain %s/%s", tableName, ch.Name))
+                }
+                if chainInfo.Policy == "DROP" && !hasAccept {
+                    addWarning(&info, "policy", fmt.Sprintf("Блокирующая политика без исключений в %s/%s", tableName, ch.Name))
+                }
+                tableInfo.Chains = append(tableInfo.Chains, chainInfo)
+                info.Counts["chains_total"]++
+            }
 				// Collect sets
 				sets, err := listSetsOfTable(conn, tbl)
 				if err == nil {
@@ -486,8 +483,8 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 
 				// Collect maps, flowtables, fill usage if applicable
 
-				tableInfos = append(tableInfos, tableInfo)
-				info.Counts["tables_total"]++
+            	tableInfos = append(tableInfos, tableInfo)
+            	info.Counts["tables_total"]++
 			}
 
 			// Mark orphans for sets only, since usage filled
@@ -560,92 +557,118 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 
 // fallbackCollectViaNftJSON implements partial snapshot.
 func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+    ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+    defer cancel()
 
-	cmd := exec.CommandContext(ctx, "nft", "-j", "list", "ruleset")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		return FirewallInfo{}, fmt.Errorf("nft command failed: %v, stderr: %s", err, stderr.String())
-	}
+    cmd := exec.CommandContext(ctx, "nft", "-j", "list", "ruleset")
+    var stdout, stderr bytes.Buffer
+    cmd.Stdout = &stdout
+    cmd.Stderr = &stderr
+    if err := cmd.Run(); err != nil {
+        return FirewallInfo{}, fmt.Errorf("nft command failed: %v, stderr: %s", err, stderr.String())
+    }
 
-	var nftJSON struct {
-		Nftables []map[string]interface{} `json:"nftables"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &nftJSON); err != nil {
-		return FirewallInfo{}, err
-	}
+    var nftJSON struct {
+        Nftables []map[string]interface{} `json:"nftables"`
+    }
+    if err := json.Unmarshal(stdout.Bytes(), &nftJSON); err != nil {
+        return FirewallInfo{}, err
+    }
 
-	partialInfo := FirewallInfo{PartialMode: true}
-	tableMap := make(map[string]*NFTTable) // family:table -> table
-	for _, item := range nftJSON.Nftables {
-		if tbl, ok := item["table"].(map[string]interface{}); ok {
-			fam := tbl["family"].(string)
-			name := tbl["name"].(string)
-			fullName := fmt.Sprintf("%s %s", fam, name)
-			tableMap[fullName] = &NFTTable{Name: fullName, Family: fam}
-			partialInfo.Tables = append(partialInfo.Tables, *tableMap[fullName])
-		} else if ch, ok := item["chain"].(map[string]interface{}); ok {
-			fam := ch["family"].(string)
-			tblName := ch["table"].(string)
-			fullTblName := fmt.Sprintf("%s %s", fam, tblName)
-			name := ch["name"].(string)
-			hook := ""
-			if hnum, ok := ch["hooknum"].(float64); ok {
-				hook = hookString(&hnum)
-			}
-			policy := ""
-			if p, ok := ch["policy"].(string); ok {
-				policy = strings.ToUpper(p)
-			}
-			if tbl, ok := tableMap[fullTblName]; ok {
-				tbl.Chains = append(tbl.Chains, NFTChain{Name: name, Hook: hook, Policy: policy})
-			}
-		} else if rule, ok := item["rule"].(map[string]interface{}); ok {
-			fam := rule["family"].(string)
-			tblName := rule["table"].(string)
-			fullTblName := fmt.Sprintf("%s %s", fam, tblName)
-			chainName := rule["chain"].(string)
-			parsed := NFTRule{Table: fullTblName, Chain: chainName}
-			if exprs, ok := rule["expr"].([]interface{}); ok {
-				// Minimal parse
-				for _, eAny := range exprs {
-					e, _ := eAny.(map[string]interface{})
-					switch {
-					case e["meta"] != nil:
-						// Parse meta
-					case e["payload"] != nil:
-						// Parse payload
-					case e["ct"] != nil:
-						// Parse ct
-					case e["lookup"] != nil:
-						// Parse lookup
-					case e["verdict"] != nil:
-						v := e["verdict"].(map[string]interface{})
-						if kind, ok := v["kind"].(string); ok {
-							parsed.Verdict = strings.ToUpper(kind)
-						}
-					}
-				}
-			}
-			if tbl, ok := tableMap[fullTblName]; ok {
-				for i := range tbl.Chains {
-					if tbl.Chains[i].Name == chainName {
-						tbl.Chains[i].Rules = append(tbl.Chains[i].Rules, parsed)
-						break
-					}
-				}
-			}
-			partialInfo.FlatRules = append(partialInfo.FlatRules, parsed)
-		}
-		// Handle sets if present in JSON
-	}
+    partial := FirewallInfo{PartialMode: true}
+    tableMap := make(map[string]*NFTTable)
 
-	return partialInfo, nil
+    getTable := func(fam, name string) *NFTTable {
+        full := fam + " " + name
+        tbl, ok := tableMap[full]
+        if !ok {
+            tbl = &NFTTable{Name: full, Family: fam}
+            tableMap[full] = tbl
+        }
+        return tbl
+    }
+
+    for _, item := range nftJSON.Nftables {
+        if tbl, ok := item["table"].(map[string]interface{}); ok {
+            fam, _ := tbl["family"].(string)
+            name, _ := tbl["name"].(string)
+            _ = getTable(fam, name)
+            continue
+        }
+        if ch, ok := item["chain"].(map[string]interface{}); ok {
+            fam, _ := ch["family"].(string)
+            tname, _ := ch["table"].(string)
+            cname, _ := ch["name"].(string)
+            var hook, policy string
+            if hnum, ok := ch["hooknum"].(float64); ok {
+                hook = jsonHooknumToString(int(hnum))
+            }
+            if p, ok := ch["policy"].(string); ok {
+                policy = strings.ToUpper(p)
+            }
+            tbl := getTable(fam, tname)
+            tbl.Chains = append(tbl.Chains, NFTChain{Name: cname, Hook: hook, Policy: policy})
+            continue
+        }
+        if rule, ok := item["rule"].(map[string]interface{}); ok {
+            fam, _ := rule["family"].(string)
+            tname, _ := rule["table"].(string)
+            cname, _ := rule["chain"].(string)
+            parsed := NFTRule{Table: fam + " " + tname, Chain: cname}
+            if exprs, ok := rule["expr"].([]interface{}); ok {
+                for _, eAny := range exprs {
+                    e, _ := eAny.(map[string]interface{})
+                    if v, ok := e["verdict"].(map[string]interface{}); ok {
+                        if kind, ok := v["kind"].(string); ok {
+                            parsed.Verdict = strings.ToUpper(kind)
+                        }
+                    }
+                    // meta/payload/ct/lookup — можно дополнять по мере надобности
+                }
+            }
+            tbl := getTable(fam, tname)
+            // Найти цепь и добавить правило
+            for i := range tbl.Chains {
+                if tbl.Chains[i].Name == cname {
+                    tbl.Chains[i].Rules = append(tbl.Chains[i].Rules, parsed)
+                    break
+                }
+            }
+            partial.FlatRules = append(partial.FlatRules, parsed)
+        }
+        // sets/maps при желании добавить аналогично
+    }
+
+    // Разворачиваем map → slice, сохраняя детерминированный порядок
+    names := make([]string, 0, len(tableMap))
+    for k := range tableMap {
+        names = append(names, k)
+    }
+    sort.Strings(names)
+    for _, k := range names {
+        partial.Tables = append(partial.Tables, *tableMap[k])
+    }
+    return partial, nil
 }
+
+// jsonHooknumToString — соответствие номеров хуков строковым именам
+func jsonHooknumToString(n int) string {
+    switch n {
+    case 0:
+        return "prerouting"
+    case 1:
+        return "input"
+    case 2:
+        return "forward"
+    case 3:
+        return "output"
+    case 4:
+        return "postrouting"
+    default:
+        return ""
+    }
+}
+
 
 // getDefaultRouteInfo using netlink.
 func getDefaultRouteInfo() (bool, []string, error) {
@@ -797,3 +820,235 @@ func IsFirewallPermissionError(err error) bool {
 	}
 	return errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES)
 }
+
+func detectMTUMismatches(uplinks []string) []string {
+    if len(uplinks) == 0 {
+        return nil
+    }
+    up := uplinks[0]
+    ifaces, _ := net.Interfaces()
+    var upMTU int
+    tun := make(map[string]int)
+
+    for _, ifc := range ifaces {
+        if ifc.Name == up {
+            upMTU = ifc.MTU
+        }
+        if strings.HasPrefix(ifc.Name, "tun") || strings.HasPrefix(ifc.Name, "tap") || strings.HasPrefix(ifc.Name, "wg") {
+            tun[ifc.Name] = ifc.MTU
+        }
+    }
+
+    var warns []string
+    for name, mtu := range tun {
+        d := mtu - upMTU
+        if d < 0 { d = -d }
+        if d >= MTUThreshold && !containsInt(MTUAllowedDeltas, d) {
+            warns = append(warns, fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d", name, mtu, up, upMTU, d))
+        }
+    }
+    sort.Strings(warns)
+    return warns
+}
+
+func containsInt(list []int, v int) bool {
+    for _, i := range list {
+        if i == v {
+            return true
+        }
+    }
+    return false
+}
+
+func contains(ss []string, s string) bool {
+    for _, x := range ss { if x == s { return true } }
+    return false
+}
+
+
+// parseRule — минимальный парсер для нужд snapshot-а.
+// Главное: поддержка expr.Lookup с отметкой setUsage и человекочитаемым match.
+// Дополнительно: Counter, Verdict, Masq/Redir в виде вердиктов и тегов.
+func parseRule(
+	rule *nftables.Rule,
+	family string,
+	tableName string,
+	setUsage *map[string]bool,
+	mapUsage *map[string]bool,
+	unhandledTypes map[string]bool,
+) (NFTRule, []string) {
+
+	var (
+		matches []string
+		verdict string
+		pkts    uint64
+		bytes   uint64
+		tags    []string
+		warns   []string
+		// lastField можно заполнять в будущем при разборе payload/meta,
+		// чтобы формировать "dpt in table:set". Сейчас оставим пустым.
+		lastField string
+		// простая внутренняя «машинка» для ct state и l4-полей
+		l4proto   string        // "tcp"|"udp"|"..."
+		expectCmp string        // "spt"|"dpt" когда предшествовал payload соответствующего оффсета
+		ctSeen    bool          // видели Ct{Key:STATE}
+		ctMask    []byte
+		ctValue   []byte
+	)
+
+	_ = family
+	_ = mapUsage
+	
+	for _, ex := range rule.Exprs {
+		switch e := ex.(type) {
+
+		case *expr.Meta:
+			// l4proto / iif / oif и т.п.
+			if e.Key == expr.MetaKeyL4PROTO {
+				expectCmp = "l4proto"
+			}
+
+		case *expr.Payload:
+			// Транспортный заголовок: 0..1 sport, 2..3 dport
+			if e.Base == expr.PayloadBaseTransportHeader && e.Len == 2 {
+				switch e.Offset {
+				case 0:
+					expectCmp = "spt"
+				case 2:
+					expectCmp = "dpt"
+				}
+			}
+			
+		case *expr.Lookup:
+			// lookup по множеству/карте
+			setName := strings.TrimSpace(e.SetName)
+			if setName != "" {
+				// Ключ использования множества соответствует формату,
+				// который затем помечается как orphan/non-orphan: "table:set".
+				key := fmt.Sprintf("%s:%s", tableName, setName)
+				(*setUsage)[key] = true
+
+				if lastField != "" {
+					matches = append(matches, fmt.Sprintf("%s in %s", lastField, key))
+				} else {
+					matches = append(matches, fmt.Sprintf("lookup in %s", key))
+				}
+			}
+
+		case *expr.Counter:
+			pkts += e.Packets
+			bytes += e.Bytes
+
+		case *expr.Masq:
+			verdict = "MASQUERADE"
+			if !contains(tags, TagMasq) {
+				tags = append(tags, TagMasq)
+			}
+
+		case *expr.Redir:
+			verdict = "REDIRECT"
+			if !contains(tags, TagRedir) {
+				tags = append(tags, TagRedir)
+			}
+
+		case *expr.Ct:
+			// Начало шаблона ct state: Ct{Key:STATE} → Bitwise → Cmp
+			if e.Key == expr.CtKeySTATE {
+				ctSeen = true
+				// значения дочитываем в Bitwise/Cmp
+			}
+
+		case *expr.Bitwise:
+			// В nft для ct state обычно маска применяется битвайзом
+			if ctSeen && len(e.Mask) > 0 {
+				ctMask = append([]byte(nil), e.Mask...)
+			}
+
+		case *expr.Cmp:
+			// Вариант 1: это сравнение после Meta(L4PROTO)
+			if expectCmp == "l4proto" && len(e.Data) == 1 {
+				switch e.Data[0] {
+				case 6:
+					l4proto = "tcp"
+					matches = append(matches, "proto=tcp")
+				case 17:
+					l4proto = "udp"
+					matches = append(matches, "proto=udp")
+				default:
+					l4proto = fmt.Sprintf("0x%02x", e.Data[0])
+					matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
+				}
+				expectCmp = ""
+			// Вариант 2: сравнение порта после Payload(спорт/дпорт)
+			} else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
+				port := be16(e.Data)
+				if expectCmp == "spt" {
+					matches = append(matches, fmt.Sprintf("spt=%d", port))
+					lastField = "spt"
+				} else {
+					matches = append(matches, fmt.Sprintf("dpt=%d", port))
+					lastField = "dpt"
+				}
+				expectCmp = ""
+			// Вариант 3: завершение ct state (после Bitwise приходит Cmp со значением)
+			} else if ctSeen && len(e.Data) > 0 {
+				ctValue = append([]byte(nil), e.Data...)
+				// Простая проверка established: бит 0x02
+				if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
+					if !contains(tags, TagEstablished) {
+						tags = append(tags, TagEstablished)
+					}
+					matches = append(matches, "ct=established")
+				}
+				// Сбрасываем состояние ct-шаблона
+				ctSeen, ctMask, ctValue = false, nil, nil
+			}
+			
+		case *expr.Verdict:
+			switch e.Kind {
+			case expr.VerdictAccept:
+				verdict = "ACCEPT"
+			case expr.VerdictDrop:
+				verdict = "DROP"
+			case expr.VerdictReturn:
+				verdict = "RETURN"
+			case expr.VerdictJump:
+				// JUMP — не терминальный, но фиксируем для «тени» и анализа.
+				// Финальный verdict может прийти позже; не перетираем терминальный.
+				if verdict == "" {
+					verdict = "JUMP"
+				}
+			default:
+				// оставляем как есть
+			}
+
+		// TODO: разобрать ct-состояния:
+		// шаблон обычно: Ct{Key: CtKeySTATE} + Bitwise (маска) + Cmp (значение).
+		// При обнаружении Established/New добавить TagEstablished в tags.
+		// case *expr.Ct:
+		//   // отметим, что тут есть conntrack; реальную фазу определим на паре Bitwise+Cmp
+			
+		default:
+			// Мини-телеметрия о непокрытых типах
+			tn := fmt.Sprintf("%T", e)
+			unhandledTypes[tn] = true
+		}
+	}
+
+	// Собираем результат
+	out := NFTRule{
+		Matches: matches,
+		Verdict: verdict,
+		Packets: pkts,
+		Bytes:   bytes,
+		Tags:    tags,
+	}
+	return out, warns
+}
+
+// be16 — big-endian → uint16
+func be16(b []byte) uint16 {
+	if len(b) < 2 { return 0 }
+	return uint16(b[0])<<8 | uint16(b[1])
+}
+
