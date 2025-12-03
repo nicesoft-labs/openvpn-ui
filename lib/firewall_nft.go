@@ -44,7 +44,7 @@ const (
 
 	ProducerName    = "nft-snapshot"
 	ProducerVersion = "1.0.0"
-	ProducerAPI     = "grok4"
+	ProducerAPI     = "NiceVPN"
 )
 
 var (
