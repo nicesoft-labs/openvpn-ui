@@ -3,46 +3,123 @@
 {{define "head"}}
 <title>NiceSOFT NiceVPN UI — Сводка</title>
 <style>
-  :root{--bg:#f8f9fa; --card:#fff; --muted:#6c757d; --border:#e9ecef; --shadow:0 3px 10px rgba(0,0,0,.05)}
-  @media (prefers-color-scheme: dark){
-    :root{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark}
+  :root{
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --muted:#6c757d;
+    --border:#e3e6ef;
+    --shadow:0 4px 14px rgba(15,23,42,.06);
   }
-  .force-dark{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark; background:var(--bg) !important; color:#e6e8eb !important}
-  body{background:var(--bg)}
+
+  body{
+    background:var(--bg);
+  }
+
   /* ===== Корпоративный нейтральный стиль ===== */
-  .kpi-box{border-radius:14px; box-shadow:var(--shadow); padding:16px; background:var(--card); height:100%; border:1px solid var(--border)}
+
+  .kpi-row{margin-bottom:.25rem}
+  @media (min-width:1200px){
+    .kpi-row .col-xl-4{display:flex}
+    .kpi-row .kpi-box{width:100%}
+  }
+
+  .kpi-box{
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    padding:16px;
+    background:var(--card);
+    height:100%;
+    border:1px solid var(--border);
+  }
   .kpi-box__title{font-size:.9rem; color:var(--muted); margin-bottom:.25rem}
   .kpi-box__value{font-size:1.6rem; font-weight:700; line-height:1.1}
   .kpi-box__muted{color:var(--muted); font-size:.9rem}
-  .card-clean{border:1px solid var(--border); border-radius:14px; background:var(--card); box-shadow:var(--shadow)}
-  .card-clean .card-header{border-bottom:1px solid var(--border); background:var(--card); border-top-left-radius:14px; border-top-right-radius:14px}
+
+  .card-clean{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--card);
+    box-shadow:var(--shadow);
+  }
+  .card-clean .card-header{
+    border-bottom:1px solid var(--border);
+    background:var(--card);
+    border-top-left-radius:14px;
+    border-top-right-radius:14px;
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .card-clean .card-title{
+    font-size:.95rem;
+    font-weight:600;
+    margin:0;
+  }
   .card-clean .card-body{padding:16px}
-  .metric-card{border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,.03); background:var(--card)}
+
+  .metric-card{
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 2px 6px rgba(15,23,42,.04);
+    background:var(--card);
+  }
   .metric-card__header{font-weight:600; margin-bottom:8px}
   .metric-card .chart-wrap{position:relative; height:220px}
   .metric-card canvas{width:100% !important; height:100% !important}
-  .status-pill{display:inline-flex; align-items:center; padding:5px 12px; border-radius:999px; font-weight:700; font-size:.9rem; color:#fff; letter-spacing:.03em; text-transform:uppercase}
+
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    padding:5px 12px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:.9rem;
+    color:#fff;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+  }
   .pill-ok{background:#28a745}
   .pill-warn{background:#ffc107; color:#212529}
   .pill-bad{background:#dc3545}
+  .pill-muted{background:#6c757d; color:#fff}
+
   .small-muted{font-size:.85rem; color:var(--muted)}
-  .empty-state{display:none; align-items:center; justify-content:center; height:220px; border:2px dashed var(--border); border-radius:10px; color:var(--muted); font-size:.95rem; background:var(--bg)}
+
+  .empty-state{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    height:220px;
+    border:1px dashed var(--border);
+    border-radius:10px;
+    color:var(--muted);
+    font-size:.9rem;
+    background:rgba(248,249,250,.7);
+  }
   .empty-state .hint{font-size:.85rem; color:#9aa0a6; margin-left:.5rem}
+
   .progress-xs{height:10px}
   .progress-number{font-weight:600}
+
   .table thead th{white-space:nowrap}
+
   .button-transparent{background:transparent;border:0;padding:0;margin-left:6px}
   .clippy{opacity:.6}
   .clippy:hover{opacity:1}
-  .theme-toggle{position:fixed; right:16px; bottom:16px; z-index:999; border-radius:999px; box-shadow:var(--shadow);}
-  .pill-muted{background:#6c757d; color:#fff}
-  .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+
+  .mono{
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
 </style>
 {{end}}
 
 {{define "body"}}
-<div class="row">
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+
+<!-- ===== KPI: 1-й ряд ===== -->
+<div class="row kpi-row">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Подключённые клиенты</div>
       <div class="kpi-box__value">
@@ -67,7 +144,7 @@
     </div>
   </div>
 
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Нагрузка (Load Average)</div>
       <div class="kpi-box__value">1м: {{ .sysinfo.LoadAvg.One }}</div>
@@ -75,16 +152,23 @@
     </div>
   </div>
 
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Аптайм ОС</div>
       <div class="kpi-box__value">{{ .sysinfo.UptimeS }}</div>
       <div class="kpi-box__muted">Стабильность хоста</div>
-      <div>OpenVPN PID: <span class="kpi-box__value">{{ if .ovpid }}{{ .ovpid }}{{ else }}0{{ end }}</span></div>
+      <div>OpenVPN PID:
+        <span class="kpi-box__value">
+          {{ if .ovpid }}{{ .ovpid }}{{ else }}0{{ end }}
+        </span>
+      </div>
     </div>
   </div>
+</div>
 
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+<!-- ===== KPI: 2-й ряд ===== -->
+<div class="row kpi-row">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Процессы</div>
       <div class="kpi-box__value" id="process-count">{{ .sysinfo.Processes }}</div>
@@ -92,10 +176,10 @@
     </div>
   </div>
 
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Эффективность VPN</div>
-       <!-- data-* заполняем в JS -->
+      <!-- data-* заполняем в JS -->
       <div
         class="kpi-box__value"
         id="kpi-vpn-eff"
@@ -106,7 +190,7 @@
     </div>
   </div>
 
-  <div class="col-xl-2 col-lg-3 col-md-6 mb-3">
+  <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
     <div class="kpi-box">
       <div class="kpi-box__title">Шифр активных сессий</div>
       {{ $cipher := "" }}
@@ -128,7 +212,13 @@
             ОЗУ: <b>{{ printmb .sysinfo.Memory.Used }}</b> / {{ printmb .sysinfo.Memory.Total }} MB — {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%
           </span>
           <div class="progress progress-xs mt-2">
-            <div class="progress-bar bg-primary progress-bar-striped" role="progressbar" aria-valuenow="{{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}" aria-valuemin="0" aria-valuemax="100" style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%"></div>
+            <div class="progress-bar bg-primary progress-bar-striped"
+                 role="progressbar"
+                 aria-valuenow="{{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 style="width: {{percent .sysinfo.Memory.Used .sysinfo.Memory.Total}}%">
+            </div>
           </div>
         </div>
       </div>
@@ -142,7 +232,13 @@
             Swap: <b>{{ printmb .sysinfo.Swap.Used }}</b> / {{ printmb .sysinfo.Swap.Total }} MB — {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%
           </span>
           <div class="progress progress-xs mt-2">
-            <div class="progress-bar bg-secondary progress-bar-striped" role="progressbar" aria-valuenow="{{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}" aria-valuemin="0" aria-valuemax="100" style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%"></div>
+            <div class="progress-bar bg-secondary progress-bar-striped"
+                 role="progressbar"
+                 aria-valuenow="{{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 style="width: {{percent .sysinfo.Swap.Used .sysinfo.Swap.Total}}%">
+            </div>
           </div>
           {{ if eq .sysinfo.Swap.Total 0 }}
             <div class="small text-warning mt-2">Swap отключён — рекомендовано включить (zram).</div>
@@ -184,11 +280,11 @@
   </div>
 </div>
 
-  <div class="row">
-    <div class="col-md-12">
-      <div class="metric-card">
-        <div class="metric-card__header d-flex justify-content-between">
-          <span>Использование файловых систем</span>
+<div class="row">
+  <div class="col-md-12 mb-4">
+    <div class="metric-card">
+      <div class="metric-card__header d-flex justify-content-between">
+        <span>Использование файловых систем</span>
         <span class="small-muted">Заполненность</span>
       </div>
       <div class="chart-wrap">
@@ -287,7 +383,9 @@
       <div class="metric-card__header">Интерфейсы: RX/TX (MB)</div>
       <div class="chart-wrap"><canvas id="ifaceRxTxChart"></canvas></div>
       <div class="empty-state" data-empty-for="ifaceRxTxChart">Нет данных по интерфейсам</div>
-      <small class="text-muted d-block mt-2">Показывает объёмы RX/TX по интерфейсам eth*/en*/tun*/tap*/wg*.</small>
+      <small class="text-muted d-block mt-2">
+        Показывает объёмы RX/TX по интерфейсам eth*/en*/tun*/tap*/wg*.
+      </small>
     </div>
   </div>
 
@@ -297,7 +395,9 @@
       <div class="metric-card__header">UDP Health</div>
       <div class="chart-wrap"><canvas id="udpHealthChart"></canvas></div>
       <div class="empty-state" data-empty-for="udpHealthChart">Нет данных UDP</div>
-      <small class="text-muted d-block mt-2">Ключевые счётчики: In/OutDatagrams, NoPorts, InErrors, Rcvbuf/SndbufErrors, IgnoredMulti.</small>
+      <small class="text-muted d-block mt-2">
+        Ключевые счётчики: In/OutDatagrams, NoPorts, InErrors, Rcvbuf/SndbufErrors, IgnoredMulti.
+      </small>
     </div>
   </div>
 </div>
@@ -315,7 +415,7 @@
 <!-- Таблица: ключевые сетевые показатели -->
 <div class="card-clean mt-2">
   <div class="card-header">
-    <h3 class="card-title" style="margin:0">Сетевые показатели (снимок)</h3>
+    <h3 class="card-title">Сетевые показатели (снимок)</h3>
   </div>
   <div class="card-body">
     <div class="table-responsive">
@@ -341,7 +441,9 @@
 <div class="row mt-3">
   <div class="col-md-12">
     <div class="card-clean">
-      <div class="card-header"><h3 class="card-title" style="margin:0">Подключённые клиенты</h3></div>
+      <div class="card-header">
+        <h3 class="card-title">Подключённые клиенты</h3>
+      </div>
       <div class="card-body">
         {{if .ovstatus}}
           {{if gt (len .ovstatus.ClientList) 0}}
@@ -375,18 +477,28 @@
                     {{ end }}
                     <td>{{ if $last }}{{ $last }}{{ else }}—{{ end }}</td>
                     {{ $cipher := .DataCipher }}
-                    <td data-cipher="{{$cipher}}"><span class="badge bg-info text-dark">{{$cipher}}</span></td>
-                    <td><a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')" class="btn btn-xs btn-danger" title="Отключить">Откл.</a></td>
+                    <td data-cipher="{{$cipher}}">
+                      <span class="badge bg-info text-dark">{{$cipher}}</span>
+                    </td>
+                    <td>
+                      <a href="javascript:$.MyAPP.Disconnect('{{.CommonName}}')"
+                         class="btn btn-xs btn-danger"
+                         title="Отключить">Откл.</a>
+                    </td>
                   </tr>
                   {{end}}
                 </tbody>
               </table>
             </div>
           {{else}}
-            <div class="empty-state" style="display:flex; height:140px">Клиентов нет<span class="hint"> (активных сессий не обнаружено)</span></div>
+            <div class="empty-state" style="display:flex; height:140px">
+              Клиентов нет<span class="hint"> (активных сессий не обнаружено)</span>
+            </div>
           {{end}}
         {{else}}
-          <div class="empty-state" style="display:flex; height:140px">Нет данных статуса<span class="hint"> (проверьте management/status)</span></div>
+          <div class="empty-state" style="display:flex; height:140px">
+            Нет данных статуса<span class="hint"> (проверьте management/status)</span>
+          </div>
         {{end}}
       </div>
     </div>
@@ -398,7 +510,11 @@
   <div class="col-md-6 mb-3">
     <div class="card-clean">
       <div class="card-body d-flex align-items-center">
-        <img src="/static/img/openvpn-win.svg" alt="OpenVPN" width="40" height="40" style="opacity:.7; margin-right:12px">
+        <img src="/static/img/openvpn-win.svg"
+             alt="OpenVPN"
+             width="40"
+             height="40"
+             style="opacity:.7; margin-right:12px">
         <div>
           <div class="kpi-box__title">Версия OpenVPN</div>
           <!-- Важно: печатаем .ovversion целиком, чтобы не падать на interface{} -->
@@ -423,7 +539,9 @@
 
 <!-- ===== Отладка системных метрик ===== -->
 <div class="card-clean mt-3">
-  <div class="card-header"><h3 class="card-title" style="margin:0">Отладка системной информации</h3></div>
+  <div class="card-header">
+    <h3 class="card-title">Отладка системной информации</h3>
+  </div>
   <div class="card-body">
     <div class="row">
       <div class="col-md-4 mb-3">
@@ -444,8 +562,6 @@
   </div>
 </div>
 
-<button type="button" class="btn btn-light theme-toggle" id="theme-toggle">Тема</button>
-
 <!-- ===== Скрипты (без опросов) ===== -->
 <script src="/static/js/chart.umd.min.js"></script>
 <script>
@@ -456,19 +572,31 @@
 
   const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
   const CHARTS = {};
+
   function showEmpty(id, show=true){
     const canvas = document.getElementById(id);
     const empty = document.querySelector(`[data-empty-for="${id}"]`);
     if (canvas) canvas.style.display = show ? 'none' : 'block';
     if (empty)  empty.style.display  = show ? 'flex' : 'none';
   }
+
   function upsertChart(store, id, makeConfig){
     const ctx = document.getElementById(id); if(!ctx) return null;
     const cfg = makeConfig();
-    if (store[id]) { store[id].data = cfg.data; store[id].options = cfg.options||store[id].options; store[id].update(); return store[id]; }
-    store[id] = new Chart(ctx, cfg); return store[id];
+    if (store[id]) {
+      store[id].data = cfg.data;
+      store[id].options = cfg.options || store[id].options;
+      store[id].update();
+      return store[id];
+    }
+    store[id] = new Chart(ctx, cfg);
+    return store[id];
   }
-  function isAllZeroOrEmpty(arr){ return !arr || !arr.length || arr.every(v => v===null || v===undefined || v===0); }
+
+  function isAllZeroOrEmpty(arr){
+    return !arr || !arr.length || arr.every(v => v===null || v===undefined || v===0);
+  }
+
   function lazyChart(id, renderFn){
     const el = document.getElementById(id); if(!el) return;
     const io = new IntersectionObserver(es=>{
@@ -476,19 +604,74 @@
     }, {root:null, rootMargin:'200px', threshold:.01});
     io.observe(el);
   }
-  function safeTd(text){ const td=document.createElement('td'); td.textContent=String(text??''); return td; }
-  function addRow(tb, cells){ const tr=document.createElement('tr'); cells.forEach(c=>tr.appendChild(c instanceof Node? c : safeTd(c))); tb.appendChild(tr); }
+
+  function safeTd(text){
+    const td=document.createElement('td');
+    td.textContent=String(text??'');
+    return td;
+  }
+
+  function addRow(tb, cells){
+    const tr=document.createElement('tr');
+    cells.forEach(c=>tr.appendChild(c instanceof Node? c : safeTd(c)));
+    tb.appendChild(tr);
+  }
+
   const mb = (x)=> Math.round((Number(x||0)/1024/1024)*10)/10;
-  const percent = (part,total)=>{ if (!total) return 0; return Math.max(0, Math.min(100, (part/total)*100)); };
-  const makeNote = (text)=>{ const td=safeTd(text); td.classList.add('small-muted'); return td; };
-  const makeBadge = (val, dangerIfGtZero=true)=>{ const span=document.createElement('span'); const num=Number(val||0); span.className=(dangerIfGtZero && num>0)?'badge bg-danger':'badge bg-success'; span.textContent=String(num); if(!dangerIfGtZero && num!==0){ span.className='badge bg-secondary'; } return span; };
-  const makeBadgeCell = (val, dangerIfGtZero=true)=>{ const td=document.createElement('td'); td.appendChild(makeBadge(val, dangerIfGtZero)); return td; };
+  const percent = (part,total)=>{
+    if (!total) return 0;
+    return Math.max(0, Math.min(100, (part/total)*100));
+  };
+  const makeNote = (text)=>{
+    const td=safeTd(text);
+    td.classList.add('small-muted');
+    return td;
+  };
+  const makeBadge = (val, dangerIfGtZero=true)=>{
+    const span=document.createElement('span');
+    const num=Number(val||0);
+    span.className=(dangerIfGtZero && num>0)?'badge bg-danger':'badge bg-success';
+    span.textContent=String(num);
+    if(!dangerIfGtZero && num!==0){
+      span.className='badge bg-secondary';
+    }
+    return span;
+  };
+  const makeBadgeCell = (val, dangerIfGtZero=true)=>{
+    const td=document.createElement('td');
+    td.appendChild(makeBadge(val, dangerIfGtZero));
+    return td;
+  };
+
   // -------- Универсальные извлекатели из netinfo (структура или map) --------
   function first(a, b){ return a!==undefined ? a : b; }
-  function toNum(x){ const n=Number(x||0); return Number.isFinite(n)? n : 0; }
-  function fmtPackets(v){ const n=Number(v||0); if (n>=1e6) return `${(n/1e6).toFixed(1)}M`; if (n>=1e3) return `${(n/1e3).toFixed(1)}K`; return String(n); }
-  function fmtBytes(v){ const n=Number(v||0); const kb=1024, mb=kb*1024, gb=mb*1024; if (n>=gb) return `${(n/gb).toFixed(1)} GB`; if (n>=mb) return `${(n/mb).toFixed(1)} MB`; if (n>=kb) return `${(n/kb).toFixed(1)} KB`; return `${n} B`; }
-  function verdictColor(v){ switch((v||'').toUpperCase()){ case 'ACCEPT': return '#28a745'; case 'DROP': return '#dc3545'; case 'JUMP': return '#0d6efd'; case 'RETURN': return '#6f42c1'; default: return '#6c757d'; } }
+  function toNum(x){
+    const n=Number(x||0);
+    return Number.isFinite(n)? n : 0;
+  }
+  function fmtPackets(v){
+    const n=Number(v||0);
+    if (n>=1e6) return `${(n/1e6).toFixed(1)}M`;
+    if (n>=1e3) return `${(n/1e3).toFixed(1)}K`;
+    return String(n);
+  }
+  function fmtBytes(v){
+    const n=Number(v||0);
+    const kb=1024, mb=kb*1024, gb=mb*1024;
+    if (n>=gb) return `${(n/gb).toFixed(1)} GB`;
+    if (n>=mb) return `${(n/mb).toFixed(1)} MB`;
+    if (n>=kb) return `${(n/kb).toFixed(1)} KB`;
+    return `${n} B`;
+  }
+  function verdictColor(v){
+    switch((v||'').toUpperCase()){
+      case 'ACCEPT': return '#28a745';
+      case 'DROP': return '#dc3545';
+      case 'JUMP': return '#0d6efd';
+      case 'RETURN': return '#6f42c1';
+      default: return '#6c757d';
+    }
+  }
 
   function extractIfaceBytes(net){
     // ожидаем либо net.ifaces = [{name, rx_bytes, tx_bytes}, ...]
@@ -522,7 +705,11 @@
     const has = (udpErr>0) || (udpRcvErr>0) || (tcpTimeouts>0);
     const el = document.getElementById('net-degradation-alert');
     if (!el) return;
-    if (!has){ el.style.display='none'; el.textContent=''; return; }
+    if (!has){
+      el.style.display='none';
+      el.textContent='';
+      return;
+    }
     el.style.display = 'block';
     el.innerHTML = `Сетевая деградация: UDP InErrors=${udpErr}, RcvbufErrors=${udpRcvErr}, TCPTimeouts=${tcpTimeouts}.
       Проверьте MTU/MSS, rmem/wmem, фильтрацию 1194/UDP, потери в SG/NAT.`;
@@ -537,9 +724,13 @@
     upsertChart(CHARTS, id, () => ({
       type: 'bar',
       data: { labels, datasets },
-      options: { responsive:true, maintainAspectRatio:false, animation:false,
+      options: {
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
         scales:{ x:{ stacked }, y:{ stacked, beginAtZero:true } },
-        plugins:{ legend:{ position:'bottom' } } }
+        plugins:{ legend:{ position:'bottom' } }
+      }
     }));
   }
 
@@ -552,7 +743,11 @@
       const busy = total - (cpu?.Idle||0);
       return Math.round((busy/total)*1000)/10;
     });
-    renderBarOrEmpty({ id:'cpuUsageChart', labels, datasets:[{ label:'Загрузка (%)', data, backgroundColor:palette[0] }] });
+    renderBarOrEmpty({
+      id:'cpuUsageChart',
+      labels,
+      datasets:[{ label:'Загрузка (%)', data, backgroundColor:palette[0] }]
+    });
   }
 
   function renderFsUsage(info){
@@ -561,14 +756,21 @@
     const usedPctOf = (fs) => (fs.usedPercent ?? fs.UsedPercent ?? 0);
     const labels = fsList.map(labelOf);
     const data   = fsList.map(fs => Math.round(usedPctOf(fs)*10)/10);
-    renderBarOrEmpty({ id:'fsUsageChart', labels, datasets:[{ label:'Использовано (%)', data, backgroundColor:palette[2] }] });
+    renderBarOrEmpty({
+      id:'fsUsageChart',
+      labels,
+      datasets:[{ label:'Использовано (%)', data, backgroundColor:palette[2] }]
+    });
   }
 
   function renderServerTotals(stats){
     const inMB  = ((stats && stats.BytesIn)  || 0) / 1024 / 1024;
     const outMB = ((stats && stats.BytesOut) || 0) / 1024 / 1024;
-    renderBarOrEmpty({ id:'serverTotalsChart', labels:['Вход','Выход'],
-      datasets:[{ label:'MB', data:[inMB,outMB], backgroundColor:[palette[0],palette[1]] }] });
+    renderBarOrEmpty({
+      id:'serverTotalsChart',
+      labels:['Вход','Выход'],
+      datasets:[{ label:'MB', data:[inMB,outMB], backgroundColor:[palette[0],palette[1]] }]
+    });
   }
 
   function renderConntrackGauge(netinfo){
@@ -591,12 +793,20 @@
         {label:'Free %', data:[free]}
       ]},
       options:{
-        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
         animation:false,
-        scales:{x:{stacked:true, beginAtZero:true, max:100}, y:{stacked:true}},
-        plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{
-          label:(c)=> `${c.dataset.label}: ${c.parsed.x.toFixed(1)}% (${cnt}/${max})`
-        }}}
+        scales:{
+          x:{stacked:true, beginAtZero:true, max:100},
+          y:{stacked:true}
+        },
+        plugins:{
+          legend:{position:'bottom'},
+          tooltip:{callbacks:{
+            label:(c)=> `${c.dataset.label}: ${c.parsed.x.toFixed(1)}% (${cnt}/${max})`
+          }}
+        }
       }
     }));
   }
@@ -615,7 +825,10 @@
         {label:'dropped', data:dropped},
         {label:'time_squeezed', data:tsq}
       ]},
-      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
         scales:{x:{stacked:true}, y:{stacked:false, beginAtZero:true}},
         plugins:{legend:{position:'bottom'}}
       }
@@ -639,7 +852,10 @@
         {label:'RX MB', data:rx},
         {label:'TX MB', data:tx}
       ]},
-      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
         scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}},
         plugins:{legend:{position:'bottom'}}
       }
@@ -657,7 +873,10 @@
     upsertChart(CHARTS, id, () => ({
       type:'bar',
       data:{ labels: keys, datasets:[{label:'count', data: vals}]},
-      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
         plugins:{legend:{display:false}}
       }
     }));
@@ -670,29 +889,59 @@
     const snmp = netinfo?.snmp||{};
     const udp  = snmp.udp||{}, udp6=snmp.udp6||{};
     const te   = snmp.tcpext||{};
+
     addRow(tb, [safeTd('UDP'), safeTd('InDatagrams'), safeTd(udp.InDatagrams ?? '—'), makeNote('v4')]);
     addRow(tb, [safeTd('UDP'), safeTd('OutDatagrams'), safeTd(udp.OutDatagrams ?? '—'), makeNote('v4')]);
     addRow(tb, [safeTd('UDP'), safeTd('NoPorts'), makeBadgeCell(udp.NoPorts,false), makeNote('v4')]);
     addRow(tb, [safeTd('UDP'), safeTd('InErrors'), makeBadgeCell(udp.InErrors), makeNote('v4')]);
     addRow(tb, [safeTd('UDP'), safeTd('RcvbufErrors'), makeBadgeCell(udp.RcvbufErrors), makeNote('v4')]);
     addRow(tb, [safeTd('UDP'), safeTd('SndbufErrors'), makeBadgeCell(udp.SndbufErrors), makeNote('v4')]);
+
     if (Object.keys(udp6).length){
       addRow(tb, [safeTd('UDP6'), safeTd('InDatagrams'), safeTd(udp6.InDatagrams ?? '—'), makeNote('v6')]);
       addRow(tb, [safeTd('UDP6'), safeTd('OutDatagrams'), safeTd(udp6.OutDatagrams ?? '—'), makeNote('v6')]);
-      if (udp6.NoPorts!==undefined) addRow(tb, [safeTd('UDP6'), safeTd('NoPorts'), makeBadgeCell(udp6.NoPorts,false), makeNote('v6')]);
-      if (udp6.InErrors!==undefined) addRow(tb, [safeTd('UDP6'), safeTd('InErrors'), makeBadgeCell(udp6.InErrors), makeNote('v6')]);
+      if (udp6.NoPorts!==undefined)
+        addRow(tb, [safeTd('UDP6'), safeTd('NoPorts'), makeBadgeCell(udp6.NoPorts,false), makeNote('v6')]);
+      if (udp6.InErrors!==undefined)
+        addRow(tb, [safeTd('UDP6'), safeTd('InErrors'), makeBadgeCell(udp6.InErrors), makeNote('v6')]);
     }
-    if (te.ListenOverflows!==undefined) addRow(tb,[safeTd('TCP'),safeTd('ListenOverflows'),makeBadgeCell(te.ListenOverflows),makeNote('переполнение accept()')]);
-    if (te.ListenDrops!==undefined)     addRow(tb,[safeTd('TCP'),safeTd('ListenDrops'),makeBadgeCell(te.ListenDrops),makeNote('скидывали входящие')]);
-    if (te.RetransSegs!==undefined)     addRow(tb,[safeTd('TCP'),safeTd('RetransSegs'),safeTd(te.RetransSegs),makeNote('накопительно')]);
-    if (te.TCPTimeouts!==undefined)     addRow(tb,[safeTd('TCP'),safeTd('TCPTimeouts'),safeTd(te.TCPTimeouts),makeNote('RTO таймауты')]);
 
-    const ct=netinfo?.conntrack||{}; const used=Number(ct.count||0), max=Number(ct.max||0);
+    if (te.ListenOverflows!==undefined)
+      addRow(tb,[safeTd('TCP'),safeTd('ListenOverflows'),makeBadgeCell(te.ListenOverflows),makeNote('переполнение accept()')]);
+    if (te.ListenDrops!==undefined)
+      addRow(tb,[safeTd('TCP'),safeTd('ListenDrops'),makeBadgeCell(te.ListenDrops),makeNote('скидывали входящие')]);
+    if (te.RetransSegs!==undefined)
+      addRow(tb,[safeTd('TCP'),safeTd('RetransSegs'),safeTd(te.RetransSegs),makeNote('накопительно')]);
+    if (te.TCPTimeouts!==undefined)
+      addRow(tb,[safeTd('TCP'),safeTd('TCPTimeouts'),safeTd(te.TCPTimeouts),makeNote('RTO таймауты')]);
+
+    const ct=netinfo?.conntrack||{};
+    const used=Number(ct.count||0), max=Number(ct.max||0);
     const usedPct = max? Math.round((used/max)*1000)/10 : 0;
     addRow(tb,[safeTd('Conntrack'),safeTd('Count'),safeTd(used),makeNote('текущие записи')]);
     addRow(tb,[safeTd('Conntrack'),safeTd('Max'),safeTd(max),makeNote('лимит')]);
-    if (ct.buckets!==undefined) addRow(tb,[safeTd('Conntrack'),safeTd('Buckets'),safeTd(ct.buckets),makeNote('хэш-ёмкость')]);
-    addRow(tb,[safeTd('Conntrack'),safeTd('Used %'),(()=>{const td=document.createElement('td'); if (!max){ td.textContent='—'; } else { if (usedPct>=85){ const b=makeBadge(usedPct,true); b.className='badge bg-danger'; td.appendChild(b);} else {td.textContent=String(usedPct);} } return td;})(),makeNote('использование пула')]);
+    if (ct.buckets!==undefined)
+      addRow(tb,[safeTd('Conntrack'),safeTd('Buckets'),safeTd(ct.buckets),makeNote('хэш-ёмкость')]);
+    addRow(tb,[
+      safeTd('Conntrack'),
+      safeTd('Used %'),
+      (()=>{
+        const td=document.createElement('td');
+        if (!max){
+          td.textContent='—';
+        } else {
+          if (usedPct>=85){
+            const b=makeBadge(usedPct,true);
+            b.className='badge bg-danger';
+            td.appendChild(b);
+          } else {
+            td.textContent=String(usedPct);
+          }
+        }
+        return td;
+      })(),
+      makeNote('использование пула')
+    ]);
 
     const st=netinfo?.softnet?.total||{};
     addRow(tb,[safeTd('Softnet'),safeTd('Processed'),safeTd(st.processed ?? '—'),makeNote('обработано в softIRQ')]);
@@ -715,7 +964,8 @@
     addRow(tb,[safeTd('Sockstat'),safeTd('TCP inuse / tw / orphan'),safeTd(`${tcpIn} / ${tcpTw} / ${tcpOr}`),safeTd('')]);
     const udpIn=(s4.udp?.inuse||0)+(s6.udp?.inuse||0);
     addRow(tb,[safeTd('Sockstat'),safeTd('UDP inuse'),safeTd(udpIn),safeTd('')]);
-    if (s4.sockets_inuse!==undefined) addRow(tb,[safeTd('Sockstat'),safeTd('sockets_inuse (all)'),safeTd(s4.sockets_inuse),safeTd('')]);
+    if (s4.sockets_inuse!==undefined)
+      addRow(tb,[safeTd('Sockstat'),safeTd('sockets_inuse (all)'),safeTd(s4.sockets_inuse),safeTd('')]);
 
     const ifs=netinfo?.ifaces||[];
     const f = n => ifs.find(x=>x.name===n);
@@ -735,9 +985,18 @@
     if (wEl){
       wEl.innerHTML='';
       if (w.length){
-        const lbl=document.createElement('span'); lbl.textContent='Предупреждения: '; wEl.appendChild(lbl);
-        w.forEach(x=>{ const span=document.createElement('span'); span.className='badge bg-warning text-dark me-1'; span.textContent=x; wEl.appendChild(span); });
-      } else { wEl.textContent=''; }
+        const lbl=document.createElement('span');
+        lbl.textContent='Предупреждения: ';
+        wEl.appendChild(lbl);
+        w.forEach(x=>{
+          const span=document.createElement('span');
+          span.className='badge bg-warning text-dark me-1';
+          span.textContent=x;
+          wEl.appendChild(span);
+        });
+      } else {
+        wEl.textContent='';
+      }
     }
   }
 
@@ -754,7 +1013,10 @@
     const ctMax  = Number(d?.conntrack?.max||0);
     const tcpTotal = Number(d?.tcp_states?.total||0);
 
-    const set = (id, val) => { const el=document.getElementById(id); if (el) el.textContent = val; };
+    const set = (id, val) => {
+      const el=document.getElementById(id);
+      if (el) el.textContent = val;
+    };
     set('kpi-tcp-inuse', `${tcpIn} / ${tcpTw} / ${tcpOr}`);
     set('kpi-udp-inuse', `${udpIn}, mem=${udpMem}`);
     set('kpi-ct-used',   ctMax ? `${ctUsed} / ${ctMax}` : '—');
@@ -767,23 +1029,40 @@
     const labels=['LISTEN','ESTABLISHED','SYN-SENT','SYN-RECV','FIN-WAIT1','FIN-WAIT2','TIME-WAIT','CLOSE','CLOSE-WAIT','LAST-ACK','CLOSING','NEW-SYN-RECV','UNKNOWN'];
     const keys  =['listen','established','syn_sent','syn_recv','fin_wait1','fin_wait2','time_wait','close','close_wait','last_ack','closing','new_syn_recv','unknown'];
     const vals=keys.map(k=>Number(st[k]||0));
-    if (!vals.length || vals.every(v=>v===0)){ if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];} showEmpty(id,true); return; }
+    if (!vals.length || vals.every(v=>v===0)){
+      if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];}
+      showEmpty(id,true);
+      return;
+    }
     showEmpty(id,false);
     upsertChart(CHARTS, id, () => ({
       type:'doughnut',
       data:{labels,datasets:[{data:vals}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:'bottom'}}}
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{legend:{position:'bottom'}}
+      }
     }));
   }
 
   function renderTcpTopPortsChart(d){
     const id='tcpTopPortsChart';
     const ps=d?.tcp_socket_stats?.port_stats||[];
-    if (!ps.length){ if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];} showEmpty(id,true); return; }
+    if (!ps.length){
+      if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];}
+      showEmpty(id,true);
+      return;
+    }
     const labels=ps.map(p=>String(p.port));
     const rx=ps.map(p=>Number(p.rx_queue||0));
     const tx=ps.map(p=>Number(p.tx_queue||0));
-    if (rx.concat(tx).every(v=>v===0)){ if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];} showEmpty(id,true); return; }
+    if (rx.concat(tx).every(v=>v===0)){
+      if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];}
+      showEmpty(id,true);
+      return;
+    }
     showEmpty(id,false);
     upsertChart(CHARTS, id, () => ({
       type:'bar',
@@ -791,7 +1070,11 @@
         {label:'RX queue',data:rx},
         {label:'TX queue',data:tx},
       ]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
         scales:{x:{beginAtZero:true},y:{stacked:true}},
         plugins:{legend:{position:'bottom'}}
       }
@@ -801,12 +1084,20 @@
   function renderUdpTopPortsChart(d){
     const id='udpTopPortsChart';
     const ps=d?.udp_port_stats||[];
-    if (!ps.length){ if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];} showEmpty(id,true); return; }
+    if (!ps.length){
+      if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];}
+      showEmpty(id,true);
+      return;
+    }
     const labels=ps.map(p=>String(p.port));
     const rx=ps.map(p=>Number(p.rx_queue||0));
     const tx=ps.map(p=>Number(p.tx_queue||0));
     const drops=ps.map(p=>Number(p.drops||0));
-    if (rx.concat(tx).every(v=>v===0) && drops.every(v=>v===0)){ if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];} showEmpty(id,true); return; }
+    if (rx.concat(tx).every(v=>v===0) && drops.every(v=>v===0)){
+      if(CHARTS[id]){CHARTS[id].destroy(); delete CHARTS[id];}
+      showEmpty(id,true);
+      return;
+    }
     showEmpty(id,false);
     upsertChart(CHARTS, id, () => ({
       type:'bar',
@@ -815,8 +1106,16 @@
         {label:'TX queue',data:tx},
         {type:'line',label:'drops',data:drops,yAxisID:'y2'}
       ]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
-        scales:{x:{beginAtZero:true},y:{stacked:true},y2:{position:'right',beginAtZero:true,grid:{display:false}}},
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        scales:{
+          x:{beginAtZero:true},
+          y:{stacked:true},
+          y2:{position:'right',beginAtZero:true,grid:{display:false}}
+        },
         plugins:{legend:{position:'bottom'}}
       }
     }));
@@ -836,13 +1135,30 @@
       badgeWrap.innerHTML='';
       const cipherText=(activeCipher.textContent||'').trim();
       const tags=classify(cipherText);
-      tags.forEach(tag=>{ const b=document.createElement('span'); b.className = tag==='ГОСТ'?'badge bg-warning text-dark me-1': (tag==='AEAD'?'badge bg-success me-1':'badge bg-secondary me-1'); b.textContent=tag; badgeWrap.appendChild(b); });
-      if (!cipherText){ badgeWrap.textContent='—'; }
+      tags.forEach(tag=>{
+        const b=document.createElement('span');
+        b.className =
+          tag==='ГОСТ'
+            ? 'badge bg-warning text-dark me-1'
+            : (tag==='AEAD' ? 'badge bg-success me-1' : 'badge bg-secondary me-1');
+        b.textContent=tag;
+        badgeWrap.appendChild(b);
+      });
+      if (!cipherText){
+        badgeWrap.textContent='—';
+      }
     }
     document.querySelectorAll('td[data-cipher]').forEach(td=>{
       const cipher=td.getAttribute('data-cipher')||'';
       const tags=classify(cipher);
-      tags.forEach(tag=>{ const b=document.createElement('span'); b.className= tag==='ГОСТ'?'badge bg-warning text-dark ms-1':'badge bg-secondary ms-1'; b.textContent=tag; td.appendChild(b); });
+      tags.forEach(tag=>{
+        const b=document.createElement('span');
+        b.className= tag==='ГОСТ'
+          ? 'badge bg-warning text-dark ms-1'
+          : 'badge bg-secondary ms-1';
+        b.textContent=tag;
+        td.appendChild(b);
+      });
     });
   }
 
@@ -859,27 +1175,45 @@
       badge.className='badge bg-warning text-dark me-2';
       badge.textContent='DCO не активен';
       wrap.appendChild(badge);
-      const hint=document.createElement('span'); hint.className='small-muted'; hint.textContent='ускорение через ядро'; wrap.appendChild(hint);
+      const hint=document.createElement('span');
+      hint.className='small-muted';
+      hint.textContent='ускорение через ядро';
+      wrap.appendChild(hint);
     }
   }
 
   function computeEfficiency(){
     const el=document.getElementById('kpi-vpn-eff'); if(!el) return;
-    const ovIn=Number(el.dataset.ovIn||0); const ovOut=Number(el.dataset.ovOut||0);
-    const tunRx=Number(el.dataset.tunRx||0); const tunTx=Number(el.dataset.tunTx||0);
-    const ethRx=Number(el.dataset.ethRx||0); const ethTx=Number(el.dataset.ethTx||0);
-    let payload=0; if ((ovIn+ovOut)>0){ payload=ovIn+ovOut; } else if ((tunRx+tunTx)>0){ payload=tunRx+tunTx; }
+    const ovIn=Number(el.dataset.ovIn||0);
+    const ovOut=Number(el.dataset.ovOut||0);
+    const tunRx=Number(el.dataset.tunRx||0);
+    const tunTx=Number(el.dataset.tunTx||0);
+    const ethRx=Number(el.dataset.ethRx||0);
+    const ethTx=Number(el.dataset.ethTx||0);
+
+    let payload=0;
+    if ((ovIn+ovOut)>0){
+      payload=ovIn+ovOut;
+    } else if ((tunRx+tunTx)>0){
+      payload=tunRx+tunTx;
+    }
     const wire=ethRx+ethTx;
-    if (!payload || !wire){ el.textContent='—'; } else {
+    if (!payload || !wire){
+      el.textContent='—';
+    } else {
       const eff=Math.round((payload/Math.max(1,wire))*100);
       el.textContent=`${eff}%`;
     }
+
     const asym=document.getElementById('kpi-vpn-asym');
     const tunTotal=tunRx+tunTx;
-    if (asym){ asym.textContent = tunTotal? `${Math.round((tunTx/Math.max(1,tunTotal))*100)}% OUT` : '—'; }
+    if (asym){
+      asym.textContent = tunTotal
+        ? `${Math.round((tunTx/Math.max(1,tunTotal))*100)}% OUT`
+        : '—';
+    }
   }
 
-  
   function renderNetSection(){
     renderNetKPI(netinfoData);
     renderConntrackGauge(netinfoData);
@@ -913,27 +1247,12 @@
   applyCipherBadges();
   renderDcoBadge();
   renderDegradationAlert(netinfoData);
-  
-  new ResizeObserver(()=>Object.values(CHARTS).forEach(ch=>{ if (ch) ch.resize(); })).observe(document.body);
 
-  const themeBtn=document.getElementById('theme-toggle');
-  const applyTheme=(mode)=>{
-    if (mode==='dark'){ document.body.classList.add('force-dark'); }
-    else if(mode==='auto'){ document.body.classList.remove('force-dark'); if (window.matchMedia('(prefers-color-scheme: dark)').matches){ document.body.classList.add('force-dark'); }}
-    else { document.body.classList.remove('force-dark'); }
-  };
-  const storedTheme=localStorage.getItem('ui-theme')||'auto';
-  applyTheme(storedTheme);
-  if (themeBtn){
-    themeBtn.textContent = storedTheme==='dark' ? 'Тема: тёмная' : 'Тема: авто';
-    themeBtn.addEventListener('click', ()=>{
-      const current=localStorage.getItem('ui-theme')||'auto';
-      const next = current==='dark' ? 'auto' : 'dark';
-      localStorage.setItem('ui-theme', next);
-      applyTheme(next);
-      themeBtn.textContent = next==='dark' ? 'Тема: тёмная' : 'Тема: авто';
+  new ResizeObserver(()=>{
+    Object.values(CHARTS).forEach(ch=>{
+      if (ch) ch.resize();
     });
-  }
+  }).observe(document.body);
 
   (function(){
     const btns = document.querySelectorAll('.button-copy');
@@ -941,9 +1260,10 @@
       b.addEventListener('click', ()=>{
         const txt = b.getAttribute('data-clipboard-text') || '';
         if (!txt) return;
-        navigator.clipboard.writeText(txt).then(()=> {
+        navigator.clipboard.writeText(txt).then(()=>{
           const icon = b.querySelector('.clippy'); if (!icon) return;
-          icon.style.opacity = 1; setTimeout(()=>{ icon.style.opacity = .6; }, 800);
+          icon.style.opacity = 1;
+          setTimeout(()=>{ icon.style.opacity = .6; }, 800);
         });
       });
     });
