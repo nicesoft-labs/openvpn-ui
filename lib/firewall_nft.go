@@ -86,6 +86,10 @@ type summaryBuilder struct {
 	basePolicies map[string]string
 	verdicts     map[string]RuleCounters
 	totals       RuleCounters
+
+	iif     map[string]struct{}
+	oif     map[string]struct{}
+	tagsAgg map[string]RuleCounters
 }
 
 func newSummaryBuilder() *summaryBuilder {
@@ -93,6 +97,9 @@ func newSummaryBuilder() *summaryBuilder {
 		families:     make(map[string]struct{}),
 		basePolicies: make(map[string]string),
 		verdicts:     make(map[string]RuleCounters),
+		iif:          make(map[string]struct{}),
+		oif:          make(map[string]struct{}),
+		tagsAgg:      make(map[string]RuleCounters),
 	}
 }
 
@@ -104,15 +111,33 @@ func (s *summaryBuilder) addFamily(family string) {
 }
 
 func (s *summaryBuilder) collectRule(rule NFTRule) {
+	// Общие тоталы по всем правилам
 	s.totals.Packets += rule.Packets
 	s.totals.Bytes += rule.Bytes
-	if rule.Verdict == "" {
-		return
+
+	// Агрегация по вердикту
+	if rule.Verdict != "" {
+		agg := s.verdicts[rule.Verdict]
+		agg.Packets += rule.Packets
+		agg.Bytes += rule.Bytes
+		s.verdicts[rule.Verdict] = agg
 	}
-	agg := s.verdicts[rule.Verdict]
-	agg.Packets += rule.Packets
-	agg.Bytes += rule.Bytes
-	s.verdicts[rule.Verdict] = agg
+
+	// Покрытие интерфейсов
+	if rule.InIface != "" {
+		s.iif[rule.InIface] = struct{}{}
+	}
+	if rule.OutIface != "" {
+		s.oif[rule.OutIface] = struct{}{}
+	}
+
+	// Агрегация по тегам
+	for _, t := range rule.Tags {
+		agg := s.tagsAgg[t]
+		agg.Packets += rule.Packets
+		agg.Bytes += rule.Bytes
+		s.tagsAgg[t] = agg
+	}
 }
 
 // FirewallInfo represents nftables snapshot for UI.
@@ -230,6 +255,15 @@ type NFTRule struct {
 	Bytes       uint64   `json:"bytes"`
 	Tags        []string `json:"tags"`
 	Fingerprint string   `json:"fingerprint"`
+
+	// Для UI в стиле iptables и графиков
+	Proto    string  `json:"proto,omitempty"`     // tcp/udp/…
+	Src      string  `json:"src,omitempty"`       // source address
+	Dst      string  `json:"dst,omitempty"`       // destination address
+	Sport    *uint16 `json:"sport,omitempty"`     // source port
+	Dport    *uint16 `json:"dport,omitempty"`     // destination port
+	InIface  string  `json:"in_iface,omitempty"`  // iifname
+	OutIface string  `json:"out_iface,omitempty"` // oifname
 }
 
 // NFTSet represents nftables set.
@@ -308,7 +342,6 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 			info.Tables = partialInfo.Tables
 			info.FlatRules = partialInfo.FlatRules
 			info.Sets = partialInfo.Sets
-			// etc
 			partial = true
 			info.PartialMode = true
 			info.Summary.Meta.FallbackMode = true
@@ -485,7 +518,7 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					if len(flatRules) < MaxFlatRules {
 						flatRules = append(flatRules, parsed)
 					}
-				} // <-- конец цикла по правилам
+				} // конец цикла по правилам
 
 				// пост-эвристики по цепи
 				if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !chainHasFastpath {
@@ -512,11 +545,9 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 							break
 						}
 						var val string
-						// Для наборов портов ключ обычно 2-байтовый BE-integer.
 						if len(elem.Key) == 2 {
 							val = strconv.Itoa(int(be16(elem.Key)))
 						} else {
-							// Для остальных типов пусть остаётся как раньше.
 							val = fmt.Sprintf("%v", elem.Key)
 						}
 						preview = append(preview, val)
@@ -786,11 +817,9 @@ func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
 			cname, _ := ch["name"].(string)
 
 			var hook, policy string
-			// nft -j обычно даёт строковый hook ("input", "forward", ...)
 			if h, ok := ch["hook"].(string); ok {
 				hook = strings.ToLower(h)
 			} else if hnum, ok := ch["hooknum"].(float64); ok {
-				// fallback на случай, если когда-то понадобится.
 				hook = jsonHooknumToString(int(hnum))
 			}
 
@@ -819,11 +848,9 @@ func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
 							parsed.Verdict = strings.ToUpper(kind)
 						}
 					}
-					// meta/payload/ct/lookup — можно дополнять по мере надобности
 				}
 			}
 			tbl := getTable(fam, tname)
-			// Найти цепь и добавить правило
 			for i := range tbl.Chains {
 				if tbl.Chains[i].Name == cname {
 					tbl.Chains[i].Rules = append(tbl.Chains[i].Rules, parsed)
@@ -832,10 +859,8 @@ func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
 			}
 			partial.FlatRules = append(partial.FlatRules, parsed)
 		}
-		// sets/maps при желании добавить аналогично
 	}
 
-	// Разворачиваем map → slice, сохраняя детерминированный порядок
 	names := make([]string, 0, len(tableMap))
 	for k := range tableMap {
 		names = append(names, k)
@@ -847,7 +872,6 @@ func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
 	return partial, nil
 }
 
-// jsonHooknumToString — соответствие номеров хуков строковым именам
 func jsonHooknumToString(n int) string {
 	switch n {
 	case 0:
@@ -890,11 +914,9 @@ func getDefaultRouteInfo() (bool, []string, error) {
 	}
 	sort.Strings(uplinkList)
 	if len(uplinkList) == 0 {
-		// Если вообще ни один вызов RouteList не удался — это уже probe failed.
 		if lastErr != nil {
 			return false, nil, lastErr
 		}
-		// Нет дефолтного маршрута — валидное состояние, не ошибка.
 		return false, nil, nil
 	}
 	return true, uplinkList, nil
@@ -941,14 +963,13 @@ func portCovered(matches []string, port uint16, fieldPrefix string, setPreviews 
 
 // normalizeFingerprint with ordered fields.
 func normalizeFingerprint(matches []string, verdict string) string {
-	// Order: ct, ip/ip6 saddr/daddr, proto, spt/dpt, ranges, sets
 	var ct, ip, proto, ports, ranges, sets []string
 	for _, m := range matches {
 		norm := normalizeMatch(m)
-		norm = strings.Join(strings.Fields(norm), " ") // Collapse spaces
+		norm = strings.Join(strings.Fields(norm), " ")
 		if strings.HasPrefix(norm, "ct=") {
 			ct = append(ct, norm)
-		} else if strings.HasPrefix(norm, "ip ") || strings.HasPrefix(norm, "ip6 ") {
+		} else if strings.HasPrefix(norm, "ip ") || strings.HasPrefix(norm, "ip6 ") || strings.HasPrefix(norm, "src=") || strings.HasPrefix(norm, "dst=") {
 			ip = append(ip, norm)
 		} else if strings.HasPrefix(norm, "proto=") {
 			proto = append(proto, norm)
@@ -977,7 +998,6 @@ func normalizeFingerprint(matches []string, verdict string) string {
 	return expr
 }
 
-// In summary.finalize, only terminal verdicts
 func (s *summaryBuilder) finalize() FirewallStats {
 	families := make([]string, 0, len(s.families))
 	for f := range s.families {
@@ -1002,15 +1022,66 @@ func (s *summaryBuilder) finalize() FirewallStats {
 		byVerdict = append(byVerdict, VerdictAgg{Verdict: v, Packets: agg.Packets, Bytes: agg.Bytes})
 	}
 
+	// Покрытие интерфейсов
+	iifList := make([]string, 0, len(s.iif))
+	for k := range s.iif {
+		iifList = append(iifList, k)
+	}
+	sort.Strings(iifList)
+
+	oifList := make([]string, 0, len(s.oif))
+	for k := range s.oif {
+		oifList = append(oifList, k)
+	}
+	sort.Strings(oifList)
+
+	allSet := make(map[string]struct{})
+	for _, k := range iifList {
+		allSet[k] = struct{}{}
+	}
+	for _, k := range oifList {
+		allSet[k] = struct{}{}
+	}
+	allList := make([]string, 0, len(allSet))
+	for k := range allSet {
+		allList = append(allList, k)
+	}
+	sort.Strings(allList)
+
+	ifaceCoverage := IfaceCoverage{
+		IIF: iifList,
+		OIF: oifList,
+		All: allList,
+	}
+
+	// Агрегация по тегам
+	tagKeys := make([]string, 0, len(s.tagsAgg))
+	for k := range s.tagsAgg {
+		tagKeys = append(tagKeys, k)
+	}
+	sort.Strings(tagKeys)
+
+	tagsAgg := make([]TagAgg, 0, len(tagKeys))
+	for _, k := range tagKeys {
+		agg := s.tagsAgg[k]
+		tagsAgg = append(tagsAgg, TagAgg{
+			Tag:     k,
+			Packets: agg.Packets,
+			Bytes:   agg.Bytes,
+		})
+	}
+
 	return FirewallStats{
-		Families:     families,
-		BasePolicies: basePolicies,
-		Totals:       s.totals,
-		ByVerdict:    byVerdict,
+		Families:      families,
+		BasePolicies:  basePolicies,
+		Totals:        s.totals,
+		ByVerdict:     byVerdict,
+		IfaceCoverage: ifaceCoverage,
+		TagsAgg:       tagsAgg,
 	}
 }
 
-// (s *summaryBuilder) collectBasePolicy prioritize inet
+// collectBasePolicy prioritize inet
 func (s *summaryBuilder) collectBasePolicy(key, policy string) {
 	parts := strings.SplitN(key, "_", 2)
 	if len(parts) != 2 {
@@ -1024,8 +1095,6 @@ func (s *summaryBuilder) collectBasePolicy(key, policy string) {
 		s.basePolicies[hook] = policy
 	}
 }
-
-// Other functions as before.
 
 func addWarning(info *FirewallInfo, cat, warn string) {
 	if len(info.Warnings[cat]) < MaxWarningsPerCategory {
@@ -1073,11 +1142,9 @@ func detectMTUMismatches(uplinks []string) []string {
 		if d == 0 {
 			continue
 		}
-		// Явно whitelisted дельты (PPPoE, L2TP, GRE, WG и т.д.) — не трогаем.
 		if containsInt(MTUAllowedDeltas, d) {
 			continue
 		}
-		// Всё остальное, что заметно отличается по MTU, подсвечиваем.
 		if d >= MTUThreshold {
 			warns = append(warns,
 				fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d",
@@ -1106,9 +1173,7 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-// parseRule — минимальный парсер для нужд snapshot-а.
-// Главное: поддержка expr.Lookup с отметкой setUsage и человекочитаемым match.
-// Дополнительно: Counter, Verdict, Masq/Redir в виде вердиктов и тегов.
+// parseRule — парсер правила с извлечением proto/src/dst/портов/iif/oif.
 func parseRule(
 	rule *nftables.Rule,
 	family string,
@@ -1125,31 +1190,45 @@ func parseRule(
 		bytes   uint64
 		tags    []string
 		warns   []string
-		// lastField можно заполнять в будущем при разборе payload/meta,
-		// чтобы формировать "dpt in table:set". Сейчас оставим пустым.
+
 		lastField string
-		// простая внутренняя «машинка» для ct state и l4-полей
-		l4proto   string // "tcp"|"udp"|"..."
-		expectCmp string // "spt"|"dpt" когда предшествовал payload соответствующего оффсета
-		ctSeen    bool   // видели Ct{Key:STATE}
-		ctMask    []byte
-		ctValue   []byte
+
+		l4proto string
+		srcIP   string
+		dstIP   string
+		varSport *uint16
+		varDport *uint16
+		inIface  string
+		outIface string
+
+		expectCmp string
+
+		ctSeen  bool
+		ctMask  []byte
+		ctValue []byte
 	)
 
 	_ = family
+	_ = tableName
 	_ = mapUsage
 
 	for _, ex := range rule.Exprs {
 		switch e := ex.(type) {
 
 		case *expr.Meta:
-			// l4proto / iif / oif и т.п.
-			if e.Key == expr.MetaKeyL4PROTO {
+			switch e.Key {
+			case expr.MetaKeyL4PROTO:
 				expectCmp = "l4proto"
+			case expr.MetaKeyIIFNAME:
+				expectCmp = "iifname"
+			case expr.MetaKeyOIFNAME:
+				expectCmp = "oifname"
+			default:
+				// другие meta пока не трогаем
 			}
 
 		case *expr.Payload:
-			// Транспортный заголовок: 0..1 sport, 2..3 dport
+			// L4 порты
 			if e.Base == expr.PayloadBaseTransportHeader && e.Len == 2 {
 				switch e.Offset {
 				case 0:
@@ -1159,12 +1238,28 @@ func parseRule(
 				}
 			}
 
+			// IPv4/IPv6 адреса
+			if e.Base == expr.PayloadBaseNetworkHeader {
+				if e.Len == 4 {
+					switch e.Offset {
+					case 12:
+						expectCmp = "ip_saddr"
+					case 16:
+						expectCmp = "ip_daddr"
+					}
+				} else if e.Len == 16 {
+					switch e.Offset {
+					case 8:
+						expectCmp = "ip6_saddr"
+					case 24:
+						expectCmp = "ip6_daddr"
+					}
+				}
+			}
+
 		case *expr.Lookup:
-			// lookup по множеству/карте
 			setName := strings.TrimSpace(e.SetName)
 			if setName != "" {
-				// Ключ использования множества соответствует формату,
-				// который затем помечается как orphan/non-orphan: "table:set".
 				key := fmt.Sprintf("%s:%s", tableName, setName)
 				(*setUsage)[key] = true
 
@@ -1192,21 +1287,19 @@ func parseRule(
 			}
 
 		case *expr.Ct:
-			// Начало шаблона ct state: Ct{Key:STATE} → Bitwise → Cmp
 			if e.Key == expr.CtKeySTATE {
 				ctSeen = true
-				// значения дочитываем в Bitwise/Cmp
 			}
 
 		case *expr.Bitwise:
-			// В nft для ct state обычно маска применяется битвайзом
 			if ctSeen && len(e.Mask) > 0 {
 				ctMask = append([]byte(nil), e.Mask...)
 			}
 
 		case *expr.Cmp:
-			// Вариант 1: это сравнение после Meta(L4PROTO)
-			if expectCmp == "l4proto" && len(e.Data) == 1 {
+			switch {
+			// L4 proto
+			case expectCmp == "l4proto" && len(e.Data) == 1:
 				switch e.Data[0] {
 				case 6:
 					l4proto = "tcp"
@@ -1219,28 +1312,60 @@ func parseRule(
 					matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
 				}
 				expectCmp = ""
-				// Вариант 2: сравнение порта после Payload(спорт/дпорт)
-			} else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
+
+			// Порты
+			case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
 				port := be16(e.Data)
+				p := uint16(port)
 				if expectCmp == "spt" {
 					matches = append(matches, fmt.Sprintf("spt=%d", port))
 					lastField = "spt"
+					varSport = &p
 				} else {
 					matches = append(matches, fmt.Sprintf("dpt=%d", port))
 					lastField = "dpt"
+					varDport = &p
 				}
 				expectCmp = ""
-				// Вариант 3: завершение ct state (после Bitwise приходит Cmp со значением)
-			} else if ctSeen && len(e.Data) > 0 {
+
+			// IP / IP6 адреса
+			case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
+				ip := net.IP(e.Data).String()
+				switch expectCmp {
+				case "ip_saddr", "ip6_saddr":
+					srcIP = ip
+					matches = append(matches, "src="+ip)
+				case "ip_daddr", "ip6_daddr":
+					dstIP = ip
+					matches = append(matches, "dst="+ip)
+				}
+				expectCmp = ""
+
+			// IIF/OIF имя
+			case expectCmp == "iifname" || expectCmp == "oifname":
+				nameBytes := e.Data
+				if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
+					nameBytes = nameBytes[:idx]
+				}
+				name := string(nameBytes)
+				if expectCmp == "iifname" {
+					inIface = name
+					matches = append(matches, "iif="+name)
+				} else {
+					outIface = name
+					matches = append(matches, "oif="+name)
+				}
+				expectCmp = ""
+
+			// Ct state завершение
+			case ctSeen && len(e.Data) > 0:
 				ctValue = append([]byte(nil), e.Data...)
-				// Простая проверка established: бит 0x02
 				if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
 					if !contains(tags, TagEstablished) {
 						tags = append(tags, TagEstablished)
 					}
 					matches = append(matches, "ct=established")
 				}
-				// Сбрасываем состояние ct-шаблона
 				ctSeen, ctMask, ctValue = false, nil, nil
 			}
 
@@ -1254,8 +1379,6 @@ func parseRule(
 			case expr.VerdictReturn:
 				verdict = "RETURN"
 			case expr.VerdictJump:
-				// JUMP — не терминальный, но фиксируем для «тени» и анализа.
-				// Финальный verdict может прийти позже; не перетираем терминальный.
 				if verdict == "" {
 					verdict = "JUMP"
 				}
@@ -1263,26 +1386,29 @@ func parseRule(
 				// оставляем как есть
 			}
 
-		// TODO: разобрать ct-состояния:
-		// шаблон обычно: Ct{Key: CtKeySTATE} + Bitwise (маска) + Cmp (значение).
-		// При обнаружении Established/New добавить TagEstablished в tags.
-		// case *expr.Ct:
-		//   // отметим, что тут есть conntrack; реальную фазу определим на паре Bitwise+Cmp
-
 		default:
-			// Мини-телеметрия о непокрытых типах
 			tn := fmt.Sprintf("%T", e)
 			unhandledTypes[tn] = true
 		}
 	}
 
-	// Собираем результат
 	out := NFTRule{
-		Matches: matches,
-		Verdict: verdict,
-		Packets: pkts,
-		Bytes:   bytes,
-		Tags:    tags,
+		Matches:  matches,
+		Verdict:  verdict,
+		Packets:  pkts,
+		Bytes:    bytes,
+		Tags:     tags,
+		Proto:    l4proto,
+		Src:      srcIP,
+		Dst:      dstIP,
+		InIface:  inIface,
+		OutIface: outIface,
+	}
+	if varSport != nil {
+		out.Sport = varSport
+	}
+	if varDport != nil {
+		out.Dport = varDport
 	}
 	return out, warns
 }
