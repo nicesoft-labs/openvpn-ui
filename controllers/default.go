@@ -95,5 +95,14 @@ func (c *MainController) Get() {
 		"firewall":  firewallInfo,
 	}
 
+	// Позволяем вернуть метрики как JSON, если запрошен API-режим.
+	// Это полезно для отладки и для интеграции со сторонними дашбордами,
+	// когда HTML не нужен, а нужны сами данные.
+	if c.Ctx.Input.Header("Accept") == "application/json" || c.GetString("format") == "json" {
+		c.Data["json"] = c.Data["metrics"]
+		_ = c.ServeJSON()
+		return
+	}
+
 	c.TplName = "index.html"
 }
