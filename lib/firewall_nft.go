@@ -1217,7 +1217,6 @@ func parseRule(
 		natTargetSeen bool
 	)
 
-	_ = family
 	_ = tableName
 	_ = mapUsage
 
@@ -1539,8 +1538,33 @@ func parseRule(
         out.Dport = varDport
     }
 
-    if out.Proto == "" && (out.Verdict == "MASQUERADE" || out.Verdict == "SNAT" || out.Verdict == "DNAT") {
+    // iptables-like синтез для NAT-правил:
+    // если протокол/адреса не заданы явно, считаем их "all" и 0.0.0.0/0|::/0.
+    isNAT := out.Verdict == "MASQUERADE" ||
+        out.Verdict == "SNAT" ||
+        out.Verdict == "DNAT" ||
+        out.Verdict == "REDIRECT"
+
+    if isNAT && out.Proto == "" {
         out.Proto = "all"
+    }
+
+    // Если матчей по IP не было, но правило NAT — это эквивалент "любой адрес".
+    if isNAT && out.Src == "" {
+        switch family {
+        case "ip6":
+            out.Src = "::/0"
+        default: // "ip", "inet", всё остальное
+            out.Src = "0.0.0.0/0"
+        }
+    }
+    if isNAT && out.Dst == "" {
+        switch family {
+        case "ip6":
+            out.Dst = "::/0"
+        default:
+            out.Dst = "0.0.0.0/0"
+        }
     }
 
     return out, warns
