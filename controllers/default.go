@@ -56,9 +56,9 @@ func (c *MainController) Get() {
 		logs.Error(err)
 		logs.Warn(fmt.Sprintf("passed client line: %s", client))
 		logs.Warn(fmt.Sprintf("error: %s", err))
-	} else {
-		c.Data["ovstatus"] = status
+		status = &mi.Status{}
 	}
+	c.Data["ovstatus"] = status
 	lib.Dump(status)
 
 	version, err := client.GetVersion()
@@ -80,9 +80,9 @@ func (c *MainController) Get() {
 	loadStats, err := client.GetLoadStats()
 	if err != nil {
 		logs.Error(err)
-	} else {
-		c.Data["ovstats"] = loadStats
+		loadStats = &mi.LoadStats{}
 	}
+	c.Data["ovstats"] = loadStats
 	lib.Dump(loadStats)
 
 	c.Data["metrics"] = map[string]interface{}{
