@@ -1367,10 +1367,26 @@ func parseRule(
 				matches = append(matches, "target="+name)
 			}
 
-		case *expr.Ct:
-			if e.Key == expr.CtKeySTATE {
-				ctSeen = true
-			}
+        case *expr.Ct:
+            switch e.Key {
+            case expr.CtKeySTATE:
+                // ct state (ESTABLISHED и т.п.)
+                ctSeen = true
+
+            // В NAT / построутинге iptables-nft часто
+            // описывает сети через ct saddr/daddr.
+            case expr.CtKeySRC:
+                // ct saddr → дальше ждём Cmp с IP
+                expectCmp = "ct_saddr"
+                ipMatchPending = true
+                ipMask = nil
+
+            case expr.CtKeyDST:
+                // ct daddr → дальше ждём Cmp с IP
+                expectCmp = "ct_daddr"
+                ipMatchPending = true
+                ipMask = nil
+            }
 
 		case *expr.Bitwise:
 			// Ct state маска
@@ -1421,7 +1437,7 @@ func parseRule(
 				expectCmp = ""
 
 			// IP / IP6 адреса с учётом возможной маски (сети)
-			case ipMatchPending && (len(e.Data) == 4 || len(e.Data) == 16):
+            case ipMatchPending && (len(e.Data) == 4 || len(e.Data) == 16):
 				ip := net.IP(e.Data)
 				text := ip.String()
 
@@ -1435,9 +1451,11 @@ func parseRule(
 
 				switch expectCmp {
 				case "ip_saddr", "ip6_saddr":
+                switch expectCmp {
+                case "ip_saddr", "ip6_saddr", "ct_saddr":
 					srcIP = text
 					matches = append(matches, "src="+text)
-				case "ip_daddr", "ip6_daddr":
+				case "ip_daddr", "ip6_daddr", "ct_daddr":
 					dstIP = text
 					matches = append(matches, "dst="+text)
 				}
@@ -1447,13 +1465,14 @@ func parseRule(
 				ipMask = nil
 
 			// Fallback: голые IP без маски
-			case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
+            case (strings.HasPrefix(expectCmp, "ip") || strings.HasPrefix(expectCmp, "ct_")) &&
+                (len(e.Data) == 4 || len(e.Data) == 16):
 				ip := net.IP(e.Data).String()
-				switch expectCmp {
-				case "ip_saddr", "ip6_saddr":
+                switch expectCmp {
+                case "ip_saddr", "ip6_saddr", "ct_saddr":
 					srcIP = ip
 					matches = append(matches, "src="+ip)
-				case "ip_daddr", "ip6_daddr":
+				case "ip_daddr", "ip6_daddr", "ct_daddr":
 					dstIP = ip
 					matches = append(matches, "dst="+ip)
 				}
