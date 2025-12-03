@@ -24,20 +24,31 @@ func (c *MainController) NestPrepare() {
 }
 
 func (c *MainController) Get() {
-    sysinfo := lib.GetSystemInfo()
-    // передаём контекст запроса в сборщик сетевой телеметрии
-    netinfo, errNet := lib.CollectNetInfo(c.Ctx.Request.Context())
-    if errNet != nil {
-        logs.Warn("collect net info: %v", errNet)
-    }
+	sysinfo := lib.GetSystemInfo()
+	// передаём контекст запроса в сборщик сетевой телеметрии
+	netinfo, errNet := lib.CollectNetInfo(c.Ctx.Request.Context())
+	if errNet != nil {
+		logs.Warn("collect net info: %v", errNet)
+	}
 	// выводим предупреждения, которые твой сборщик собрал в NetInfo.Warnings
 	if len(netinfo.Warnings) > 0 {
 		for _, w := range netinfo.Warnings {
 			logs.Warn("netinfo warning: %s", w)
 		}
 	}
+	firewallInfo, errFw := lib.CollectFirewallInfo(c.Ctx.Request.Context(), lib.Config{})
+	if errFw != nil {
+		logs.Warn("collect firewall info: %v", errFw)
+	}
+	if len(firewallInfo.Warnings) > 0 {
+		for _, w := range firewallInfo.Warnings {
+			logs.Warn("firewall warning: %s", w)
+		}
+	}
+
 	c.Data["sysinfo"] = sysinfo
 	c.Data["netinfo"] = netinfo
+	c.Data["firewall"] = firewallInfo
 	lib.Dump(sysinfo)
 	client := mi.NewClient(state.GlobalCfg.MINetwork, state.GlobalCfg.MIAddress)
 	status, err := client.GetStatus()
@@ -81,6 +92,7 @@ func (c *MainController) Get() {
 		"ovversion": version,
 		"ovpid":     pid,
 		"ovstats":   loadStats,
+		"firewall":  firewallInfo,
 	}
 
 	c.TplName = "index.html"

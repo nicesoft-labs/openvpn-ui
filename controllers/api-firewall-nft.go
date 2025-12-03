@@ -14,9 +14,12 @@ type APIFirewallNFTController struct {
 // Snapshot returns nftables snapshot.
 // @router /api/firewall/nft/snapshot [get]
 func (c *APIFirewallNFTController) Snapshot() {
-	info, err := lib.CollectFirewallInfo(c.Ctx.Request.Context())
+	info, err := lib.CollectFirewallInfo(c.Ctx.Request.Context(), lib.Config{})
 	if err != nil {
-		warnings := append([]string{}, info.Warnings...)
+		var warnings []string
+		for _, w := range info.Warnings {
+			warnings = append(warnings, w...)
+		}
 		if lib.IsFirewallPermissionError(err) {
 			warnings = append(warnings, "need CAP_NET_ADMIN")
 		}

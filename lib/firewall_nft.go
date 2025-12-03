@@ -38,14 +38,17 @@ const (
 	MaxFlatRules           = 1000
 	MaxSetPreview          = 5
 
-	MTUThreshold     = 100
-	MTUAllowedDeltas = []int{8, 20, 28, 80} // PPPoE, L2TP, GRE, WG
+	MTUThreshold = 100
 
 	SchemaVersion = 2
 
 	ProducerName    = "nft-snapshot"
 	ProducerVersion = "1.0.0"
 	ProducerAPI     = "grok4"
+)
+
+var (
+	MTUAllowedDeltas = []int{8, 20, 28, 80} // PPPoE, L2TP, GRE, WG
 )
 
 // VPNPort represents a protocol and port pair for VPN.
@@ -77,29 +80,64 @@ func ApplyDefaults(cfg *Config) {
 	}
 }
 
+// summaryBuilder aggregates counters while parsing rules.
+type summaryBuilder struct {
+	families     map[string]struct{}
+	basePolicies map[string]string
+	verdicts     map[string]RuleCounters
+	totals       RuleCounters
+}
+
+func newSummaryBuilder() *summaryBuilder {
+	return &summaryBuilder{
+		families:     make(map[string]struct{}),
+		basePolicies: make(map[string]string),
+		verdicts:     make(map[string]RuleCounters),
+	}
+}
+
+func (s *summaryBuilder) addFamily(family string) {
+	if family == "" {
+		return
+	}
+	s.families[family] = struct{}{}
+}
+
+func (s *summaryBuilder) collectRule(rule NFTRule) {
+	s.totals.Packets += rule.Packets
+	s.totals.Bytes += rule.Bytes
+	if rule.Verdict == "" {
+		return
+	}
+	agg := s.verdicts[rule.Verdict]
+	agg.Packets += rule.Packets
+	agg.Bytes += rule.Bytes
+	s.verdicts[rule.Verdict] = agg
+}
+
 // FirewallInfo represents nftables snapshot for UI.
 type FirewallInfo struct {
-	Kind                    string              `json:"kind"`
-	SchemaVersion           int                 `json:"schema_version"`
-	TakenAt                 string              `json:"taken_at"`
-	Hostname                string              `json:"hostname"`
-	Summary                 FirewallStats       `json:"summary"`
-	Tables                  []NFTTable          `json:"tables"`
-	FlatRules               []NFTRule           `json:"flat_rules"`
-	Sets                    []NFTSet            `json:"sets,omitempty"`
-	Maps                    []NFTMap            `json:"maps,omitempty"`
-	Flowtables              []NFTFlowtable      `json:"flowtables,omitempty"`
-	Warnings                map[string][]string `json:"warnings,omitempty"`
-	HasDefaultRoute         bool                `json:"has_default_route"`
-	UplinkIfaces            []string            `json:"uplink_ifaces,omitempty"`
-	MTUMismatchDetected     bool                `json:"mtu_mismatch_detected"`
-	ChainCountersMode       string              `json:"chain_counters_mode"`
-	PartialMode             bool                `json:"partial_mode,omitempty"`
-	HasEstablishedFastpath  bool                `json:"has_established_fastpath"`
-	HasForwardPolicyAccept   bool                `json:"has_forward_policy_accept"`
-	HasForwardPolicyDrop     bool                `json:"has_forward_policy_drop"`
-	Counts                  map[string]int      `json:"counts,omitempty"` // rules_total, rules_shown, chains_total, tables_total, sets_total, etc.
-	Producer                ProducerInfo        `json:"producer"`
+	Kind                   string              `json:"kind"`
+	SchemaVersion          int                 `json:"schema_version"`
+	TakenAt                string              `json:"taken_at"`
+	Hostname               string              `json:"hostname"`
+	Summary                FirewallStats       `json:"summary"`
+	Tables                 []NFTTable          `json:"tables"`
+	FlatRules              []NFTRule           `json:"flat_rules"`
+	Sets                   []NFTSet            `json:"sets,omitempty"`
+	Maps                   []NFTMap            `json:"maps,omitempty"`
+	Flowtables             []NFTFlowtable      `json:"flowtables,omitempty"`
+	Warnings               map[string][]string `json:"warnings,omitempty"`
+	HasDefaultRoute        bool                `json:"has_default_route"`
+	UplinkIfaces           []string            `json:"uplink_ifaces,omitempty"`
+	MTUMismatchDetected    bool                `json:"mtu_mismatch_detected"`
+	ChainCountersMode      string              `json:"chain_counters_mode"`
+	PartialMode            bool                `json:"partial_mode,omitempty"`
+	HasEstablishedFastpath bool                `json:"has_established_fastpath"`
+	HasForwardPolicyAccept bool                `json:"has_forward_policy_accept"`
+	HasForwardPolicyDrop   bool                `json:"has_forward_policy_drop"`
+	Counts                 map[string]int      `json:"counts,omitempty"` // rules_total, rules_shown, chains_total, tables_total, sets_total, etc.
+	Producer               ProducerInfo        `json:"producer"`
 }
 
 // ProducerInfo holds producer metadata.
@@ -111,21 +149,21 @@ type ProducerInfo struct {
 
 // FirewallStats aggregates summary metrics.
 type FirewallStats struct {
-	Families     []string     `json:"families,omitempty"`
-	BasePolicies map[string]string `json:"base_policies,omitempty"`
-	Totals       RuleCounters `json:"totals"`
-	ByVerdict    []VerdictAgg `json:"by_verdict,omitempty"`
-	IfaceCoverage IfaceCoverage `json:"iface_coverage"`
-	TagsAgg      []TagAgg     `json:"tags_agg,omitempty"`
-	Meta         StatsMeta    `json:"meta,omitempty"`
+	Families      []string          `json:"families,omitempty"`
+	BasePolicies  map[string]string `json:"base_policies,omitempty"`
+	Totals        RuleCounters      `json:"totals"`
+	ByVerdict     []VerdictAgg      `json:"by_verdict,omitempty"`
+	IfaceCoverage IfaceCoverage     `json:"iface_coverage"`
+	TagsAgg       []TagAgg          `json:"tags_agg,omitempty"`
+	Meta          StatsMeta         `json:"meta,omitempty"`
 }
 
 // StatsMeta holds metadata for stats.
 type StatsMeta struct {
-	CountersMode string `json:"counters_mode,omitempty"`
-	FallbackMode bool   `json:"fallback_mode,omitempty"`
-	APILevel     string `json:"api_level,omitempty"`
-	Note         string `json:"note,omitempty"`
+	CountersMode string     `json:"counters_mode,omitempty"`
+	FallbackMode bool       `json:"fallback_mode,omitempty"`
+	APILevel     string     `json:"api_level,omitempty"`
+	Note         string     `json:"note,omitempty"`
 	Confidence   Confidence `json:"confidence,omitempty"`
 }
 
@@ -164,20 +202,20 @@ type TagAgg struct {
 
 // NFTTable represents nftables table.
 type NFTTable struct {
-	Name    string     `json:"name"`
-	Family  string     `json:"family"`
-	Chains  []NFTChain `json:"chains"`
+	Name   string     `json:"name"`
+	Family string     `json:"family"`
+	Chains []NFTChain `json:"chains"`
 }
 
 // NFTChain represents nftables chain.
 type NFTChain struct {
-	Name        string   `json:"name"`
-	Hook        string   `json:"hook"`
-	Policy      string   `json:"policy"`
-	PacketCount uint64   `json:"packet_count"`
-	ByteCount   uint64   `json:"byte_count"`
+	Name        string    `json:"name"`
+	Hook        string    `json:"hook"`
+	Policy      string    `json:"policy"`
+	PacketCount uint64    `json:"packet_count"`
+	ByteCount   uint64    `json:"byte_count"`
 	Rules       []NFTRule `json:"rules"`
-	Orphan      bool     `json:"orphan,omitempty"`
+	Orphan      bool      `json:"orphan,omitempty"`
 }
 
 // NFTRule represents nftables rule.
@@ -208,14 +246,14 @@ type NFTSet struct {
 
 // NFTMap represents nftables map.
 type NFTMap struct {
-	Name     string   `json:"name"`
-	Family   string   `json:"family"`
-	Table    string   `json:"table"`
-	Type     string   `json:"type"`
-	KeyType  string   `json:"key_type,omitempty"`
-	MapType  string   `json:"map_type,omitempty"`
-	Elements int      `json:"elements"`
-	Orphan   bool     `json:"orphan,omitempty"`
+	Name     string `json:"name"`
+	Family   string `json:"family"`
+	Table    string `json:"table"`
+	Type     string `json:"type"`
+	KeyType  string `json:"key_type,omitempty"`
+	MapType  string `json:"map_type,omitempty"`
+	Elements int    `json:"elements"`
+	Orphan   bool   `json:"orphan,omitempty"`
 }
 
 // NFTFlowtable represents nftables flowtable.
@@ -283,7 +321,7 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 			return info, err
 		}
 	} else {
-		defer conn.Close()
+		defer conn.CloseLasting()
 		info.Summary.Meta.APILevel = "full"
 	}
 
@@ -302,7 +340,6 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 	chainUsage := make(map[string]bool)
 	setUsage := make(map[string]bool)
 	mapUsage := make(map[string]bool)
-	flowtableUsage := make(map[string]bool)
 
 	unhandledTypes := make(map[string]bool)
 	setPreviews := make(map[string][]string) // "table:set" -> preview
@@ -343,7 +380,7 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 			family := familyString(tbl.Family)
 			summary.addFamily(family)
 
-			chains, err := conn.ListChainsOfTable(tbl)
+			chains, err := listChainsOfTable(conn, tbl)
 			if err != nil {
 				addWarning(&info, "parser", fmt.Sprintf("list chains for %s: %v", tableName, err))
 				continue
@@ -351,9 +388,11 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 
 			tableInfo := NFTTable{Name: tableName, Family: family}
 
-            sortChains(chains)
-            for _, ch := range chains {
-				chainInfo := NFTChain{Name: ch.Name, Hook: hookString(ch.Hooknum), Policy: policyString(ch.Policy)}
+			sortChains(chains)
+			for _, ch := range chains {
+				hook := hookString(ch.Hooknum)
+				policy := policyString(ch.Policy)
+				chainInfo := NFTChain{Name: ch.Name, Hook: hook, Policy: policy}
 				key := fmt.Sprintf("%s_%s", family, chainInfo.Hook)
 				summary.collectBasePolicy(key, chainInfo.Policy)
 
@@ -371,14 +410,14 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					continue
 				}
 
-		       hasAccept := false
-		       broadDropSeen := false
-		       shadowWarned := false
-		       establishedSeen := false
-		       narrowMatchSeen := false
-		       chainHasFastpath := false
+				hasAccept := false
+				broadDropSeen := false
+				shadowWarned := false
+				establishedSeen := false
+				narrowMatchSeen := false
+				chainHasFastpath := false
 				for idx, rule := range rules {
-                    parsed, pw := parseRule(rule, family, tableName, &setUsage, &mapUsage, unhandledTypes)
+					parsed, pw := parseRule(rule, family, tableName, &setUsage, &mapUsage, unhandledTypes)
 					addWarnings(&info, "parser", pw)
 					parsed.Table = tableName
 					parsed.Chain = ch.Name
@@ -446,257 +485,390 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					if len(flatRules) < MaxFlatRules {
 						flatRules = append(flatRules, parsed)
 					}
-                } // <-- конец цикла по правилам
+				} // <-- конец цикла по правилам
 
-                // пост-эвристики по цепи
-		        if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !chainHasFastpath {
-                    addWarning(&info, "policy", fmt.Sprintf("ESTABLISHED fastpath not early in base chain %s/%s", tableName, ch.Name))
-                }
-		       if chainHasFastpath {
-		           info.HasEstablishedFastpath = true
-		       }
-                if chainInfo.Policy == "DROP" && !hasAccept {
-                    addWarning(&info, "policy", fmt.Sprintf("Блокирующая политика без исключений в %s/%s", tableName, ch.Name))
-                }
-                tableInfo.Chains = append(tableInfo.Chains, chainInfo)
-                info.Counts["chains_total"]++
-            }
-				// Collect sets
-				sets, err := listSetsOfTable(conn, tbl)
-				if err == nil {
-					for _, s := range sets {
-						elements, _ := conn.GetSetElements(s)
-						count := len(elements)
-						preview := make([]string, 0, MaxSetPreview)
-						for i, elem := range elements {
-							if i >= MaxSetPreview {
-								break
-							}
-                           var val string
-                           // Для наборов портов ключ обычно 2-байтовый BE-integer.
-                           if len(elem.Key) == 2 {
-                               val = strconv.Itoa(int(be16(elem.Key)))
-                           } else {
-                               // Для остальных типов пусть остаётся как раньше.
-                               val = fmt.Sprintf("%v", elem.Key)
-                           }
-                           preview = append(preview, val)
+				// пост-эвристики по цепи
+				if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !chainHasFastpath {
+					addWarning(&info, "policy", fmt.Sprintf("ESTABLISHED fastpath not early in base chain %s/%s", tableName, ch.Name))
+				}
+				if chainHasFastpath {
+					info.HasEstablishedFastpath = true
+				}
+				if chainInfo.Policy == "DROP" && !hasAccept {
+					addWarning(&info, "policy", fmt.Sprintf("Блокирующая политика без исключений в %s/%s", tableName, ch.Name))
+				}
+				tableInfo.Chains = append(tableInfo.Chains, chainInfo)
+				info.Counts["chains_total"]++
+			}
+			// Collect sets
+			sets, err := listSetsOfTable(conn, tbl)
+			if err == nil {
+				for _, s := range sets {
+					elements, _ := conn.GetSetElements(s)
+					count := len(elements)
+					preview := make([]string, 0, MaxSetPreview)
+					for i, elem := range elements {
+						if i >= MaxSetPreview {
+							break
 						}
-						keyType := fmt.Sprintf("%v", s.KeyType)
-						set := NFTSet{Name: s.Name, Family: family, Table: tableName, Type: "set", KeyType: keyType, Elements: count, Preview: preview}
-						info.Sets = append(info.Sets, set)
-						setKey := fmt.Sprintf("%s:%s", tableName, s.Name)
-						setPreviews[setKey] = preview
-						info.Counts["sets_total"]++
+						var val string
+						// Для наборов портов ключ обычно 2-байтовый BE-integer.
+						if len(elem.Key) == 2 {
+							val = strconv.Itoa(int(be16(elem.Key)))
+						} else {
+							// Для остальных типов пусть остаётся как раньше.
+							val = fmt.Sprintf("%v", elem.Key)
+						}
+						preview = append(preview, val)
 					}
-				} else {
-					addWarning(&info, "objects", fmt.Sprintf("list sets for %s: %v", tableName, err))
+					keyType := fmt.Sprintf("%v", s.KeyType)
+					set := NFTSet{Name: s.Name, Family: family, Table: tableName, Type: "set", KeyType: keyType, Elements: count, Preview: preview}
+					info.Sets = append(info.Sets, set)
+					setKey := fmt.Sprintf("%s:%s", tableName, s.Name)
+					setPreviews[setKey] = preview
+					info.Counts["sets_total"]++
 				}
-
-				// Collect maps, flowtables, fill usage if applicable
-
-            	tableInfos = append(tableInfos, tableInfo)
-            	info.Counts["tables_total"]++
-			}
-
-			// Mark orphans for sets only, since usage filled
-			for i := range info.Sets {
-				key := fmt.Sprintf("%s:%s", info.Sets[i].Table, info.Sets[i].Name)
-				if !setUsage[key] {
-					info.Sets[i].Orphan = true
-					addWarning(&info, "objects", fmt.Sprintf("orphan set: %s", key))
-				}
-			}
-			// No orphan for maps/flowtables until usage filled
-
-			// VPN warnings
-			if cfg.DeploymentRole != "vpn_client_only" {
-				for key, found := range vpnAcceptFound {
-					if !found {
-						missingVPN = append(missingVPN, strings.Replace(key, "_", "/", -1))
-					}
-				}
-				sort.Strings(missingVPN)
-				if len(missingVPN) > 0 {
-					addWarning(&info, "openvpn", fmt.Sprintf("Не найдено ACCEPT для VPN портов: %s (INPUT/prerouting)", strings.Join(missingVPN, ", ")))
-				}
-				unknownList := setToSortedSlice(vpnUnknownCoverage)
-				if len(unknownList) > 0 {
-					addWarning(&info, "openvpn", fmt.Sprintf("Не могу подтвердить покрытие для портов: %s (множество большое/обрезано; предпросмотр обрезан до %d элементов)", strings.Join(unknownList, ", "), MaxSetPreview))
-				}
-			}
-
-			if *cfg.WarnNoNat && cfg.DeploymentRole == "vpn_gateway_nat" && !hasMasq {
-				addWarning(&info, "nat", "Не обнаружен MASQUERADE (NAT) — возможно, трафик из туннеля не выходит")
-			}
-
-			// Unhandled types
-			unhandledList := setToSortedSlice(unhandledTypes)
-			if len(unhandledList) > MaxUnhandledTypes {
-				addWarning(&info, "parser", fmt.Sprintf("Unhandled expression types: %s and %d more", strings.Join(unhandledList[:MaxUnhandledTypes], ", "), len(unhandledList)-MaxUnhandledTypes))
 			} else {
-				for _, t := range unhandledList {
-					addWarning(&info, "parser", fmt.Sprintf("unhandled expression type: %s", t))
+				addWarning(&info, "objects", fmt.Sprintf("list sets for %s: %v", tableName, err))
+			}
+
+			// Collect maps, flowtables, fill usage if applicable
+
+			tableInfos = append(tableInfos, tableInfo)
+			info.Counts["tables_total"]++
+		}
+
+		// Mark orphans for sets only, since usage filled
+		for i := range info.Sets {
+			key := fmt.Sprintf("%s:%s", info.Sets[i].Table, info.Sets[i].Name)
+			if !setUsage[key] {
+				info.Sets[i].Orphan = true
+				addWarning(&info, "objects", fmt.Sprintf("orphan set: %s", key))
+			}
+		}
+		// No orphan for maps/flowtables until usage filled
+
+		// VPN warnings
+		if cfg.DeploymentRole != "vpn_client_only" {
+			for key, found := range vpnAcceptFound {
+				if !found {
+					missingVPN = append(missingVPN, strings.Replace(key, "_", "/", -1))
 				}
 			}
-
-			info.Tables = tableInfos
-			info.FlatRules = flatRules
-			info.Summary = summary.finalize()
-			info.Counts["rules_shown"] = len(flatRules)
-			if info.Counts["rules_total"] > MaxFlatRules {
-				addWarning(&info, "parser", fmt.Sprintf("Flat rules truncated to %d; shown %d of %d total", MaxFlatRules, info.Counts["rules_shown"], info.Counts["rules_total"]))
+			sort.Strings(missingVPN)
+			if len(missingVPN) > 0 {
+				addWarning(&info, "openvpn", fmt.Sprintf("Не найдено ACCEPT для VPN портов: %s (INPUT/prerouting)", strings.Join(missingVPN, ", ")))
+			}
+			unknownList := setToSortedSliceStruct(vpnUnknownCoverage)
+			if len(unknownList) > 0 {
+				addWarning(&info, "openvpn", fmt.Sprintf("Не могу подтвердить покрытие для портов: %s (множество большое/обрезано; предпросмотр обрезан до %d элементов)", strings.Join(unknownList, ", "), MaxSetPreview))
 			}
 		}
 
-		// Routing context
-		hasRoute, uplinks, routeErr := getDefaultRouteInfo()
-		info.HasDefaultRoute = hasRoute
-		info.UplinkIfaces = uplinks
-		mtuMismatches := detectMTUMismatches(uplinks)
-		info.MTUMismatchDetected = len(mtuMismatches) > 0
-		if info.MTUMismatchDetected {
-			addWarnings(&info, "routing", mtuMismatches)
-		}
-		if routeErr != nil {
-			addWarning(&info, "routing", "probe failed")
-		} else if !hasRoute {
-			addWarning(&info, "routing", "No default route detected (IPv4 or IPv6)")
+		if *cfg.WarnNoNat && cfg.DeploymentRole == "vpn_gateway_nat" && !hasMasq {
+			addWarning(&info, "nat", "Не обнаружен MASQUERADE (NAT) — возможно, трафик из туннеля не выходит")
 		}
 
-		return info, nil
+		// Unhandled types
+		unhandledList := setToSortedSliceBool(unhandledTypes)
+		if len(unhandledList) > MaxUnhandledTypes {
+			addWarning(&info, "parser", fmt.Sprintf("Unhandled expression types: %s and %d more", strings.Join(unhandledList[:MaxUnhandledTypes], ", "), len(unhandledList)-MaxUnhandledTypes))
+		} else {
+			for _, t := range unhandledList {
+				addWarning(&info, "parser", fmt.Sprintf("unhandled expression type: %s", t))
+			}
+		}
+
+		info.Tables = tableInfos
+		info.FlatRules = flatRules
+		info.Summary = summary.finalize()
+		info.Counts["rules_shown"] = len(flatRules)
+		if info.Counts["rules_total"] > MaxFlatRules {
+			addWarning(&info, "parser", fmt.Sprintf("Flat rules truncated to %d; shown %d of %d total", MaxFlatRules, info.Counts["rules_shown"], info.Counts["rules_total"]))
+		}
+	}
+
+	// Routing context
+	hasRoute, uplinks, routeErr := getDefaultRouteInfo()
+	info.HasDefaultRoute = hasRoute
+	info.UplinkIfaces = uplinks
+	mtuMismatches := detectMTUMismatches(uplinks)
+	info.MTUMismatchDetected = len(mtuMismatches) > 0
+	if info.MTUMismatchDetected {
+		addWarnings(&info, "routing", mtuMismatches)
+	}
+	if routeErr != nil {
+		addWarning(&info, "routing", "probe failed")
+	} else if !hasRoute {
+		addWarning(&info, "routing", "No default route detected (IPv4 or IPv6)")
+	}
+
+	return info, nil
+}
+
+func listChainsOfTable(conn *nftables.Conn, tbl *nftables.Table) ([]*nftables.Chain, error) {
+	chains, err := conn.ListChains()
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]*nftables.Chain, 0)
+	for _, ch := range chains {
+		if ch.Table != nil && ch.Table.Name == tbl.Name && ch.Table.Family == tbl.Family {
+			filtered = append(filtered, ch)
+		}
+	}
+	return filtered, nil
+}
+
+func sortTables(tables []*nftables.Table) {
+	sort.Slice(tables, func(i, j int) bool {
+		if tables[i].Family == tables[j].Family {
+			return tables[i].Name < tables[j].Name
+		}
+		return tables[i].Family < tables[j].Family
+	})
+}
+
+func sortChains(chains []*nftables.Chain) {
+	sort.Slice(chains, func(i, j int) bool {
+		hi := hookString(chains[i].Hooknum)
+		hj := hookString(chains[j].Hooknum)
+		if hi == hj {
+			return chains[i].Name < chains[j].Name
+		}
+		return hi < hj
+	})
+}
+
+func tableFullName(tbl *nftables.Table) string {
+	return fmt.Sprintf("%s/%s", familyString(tbl.Family), tbl.Name)
+}
+
+func familyString(f nftables.TableFamily) string {
+	switch f {
+	case nftables.TableFamilyINet:
+		return "inet"
+	case nftables.TableFamilyIPv4:
+		return "ip"
+	case nftables.TableFamilyIPv6:
+		return "ip6"
+	case nftables.TableFamilyARP:
+		return "arp"
+	case nftables.TableFamilyBridge:
+		return "bridge"
+	case nftables.TableFamilyNetdev:
+		return "netdev"
+	default:
+		return fmt.Sprintf("%d", f)
+	}
+}
+
+func hookString(h *nftables.ChainHook) string {
+	switch h {
+	case nil:
+		return ""
+	case nftables.ChainHookPrerouting:
+		return "prerouting"
+	case nftables.ChainHookInput:
+		return "input"
+	case nftables.ChainHookForward:
+		return "forward"
+	case nftables.ChainHookOutput:
+		return "output"
+	case nftables.ChainHookPostrouting:
+		return "postrouting"
+	case nftables.ChainHookIngress:
+		return "ingress"
+	default:
+		if h == nil {
+			return ""
+		}
+		return fmt.Sprintf("%d", *h)
+	}
+}
+
+func policyString(p *nftables.ChainPolicy) string {
+	if p == nil {
+		return ""
+	}
+	switch *p {
+	case nftables.ChainPolicyAccept:
+		return "ACCEPT"
+	case nftables.ChainPolicyDrop:
+		return "DROP"
+	default:
+		return ""
+	}
+}
+
+func buildExpr(matches []string, verdict string) string {
+	expr := strings.Join(matches, " ")
+	if verdict != "" {
+		if expr != "" {
+			expr += " -> "
+		}
+		expr += verdict
+	}
+	return expr
+}
+
+func normalizeMatch(m string) string {
+	return m
+}
+
+func listSetsOfTable(conn *nftables.Conn, tbl *nftables.Table) ([]*nftables.Set, error) {
+	_ = conn
+	_ = tbl
+	return []*nftables.Set{}, nil
+}
+
+func setToSortedSliceBool(m map[string]bool) []string {
+	res := make([]string, 0, len(m))
+	for k := range m {
+		res = append(res, k)
+	}
+	sort.Strings(res)
+	return res
+}
+
+func setToSortedSliceStruct(m map[string]struct{}) []string {
+	res := make([]string, 0, len(m))
+	for k := range m {
+		res = append(res, k)
+	}
+	sort.Strings(res)
+	return res
 }
 
 // fallbackCollectViaNftJSON implements partial snapshot.
 func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
-    ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-    cmd := exec.CommandContext(ctx, "nft", "-j", "list", "ruleset")
-    var stdout, stderr bytes.Buffer
-    cmd.Stdout = &stdout
-    cmd.Stderr = &stderr
-    if err := cmd.Run(); err != nil {
-        return FirewallInfo{}, fmt.Errorf("nft command failed: %v, stderr: %s", err, stderr.String())
-    }
+	cmd := exec.CommandContext(ctx, "nft", "-j", "list", "ruleset")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return FirewallInfo{}, fmt.Errorf("nft command failed: %v, stderr: %s", err, stderr.String())
+	}
 
-    var nftJSON struct {
-        Nftables []map[string]interface{} `json:"nftables"`
-    }
-    if err := json.Unmarshal(stdout.Bytes(), &nftJSON); err != nil {
-        return FirewallInfo{}, err
-    }
+	var nftJSON struct {
+		Nftables []map[string]interface{} `json:"nftables"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &nftJSON); err != nil {
+		return FirewallInfo{}, err
+	}
 
-    partial := FirewallInfo{PartialMode: true}
-    tableMap := make(map[string]*NFTTable)
+	partial := FirewallInfo{PartialMode: true}
+	tableMap := make(map[string]*NFTTable)
 
-    getTable := func(fam, name string) *NFTTable {
-        full := fam + " " + name
-        tbl, ok := tableMap[full]
-        if !ok {
-            tbl = &NFTTable{Name: full, Family: fam}
-            tableMap[full] = tbl
-        }
-        return tbl
-    }
+	getTable := func(fam, name string) *NFTTable {
+		full := fam + " " + name
+		tbl, ok := tableMap[full]
+		if !ok {
+			tbl = &NFTTable{Name: full, Family: fam}
+			tableMap[full] = tbl
+		}
+		return tbl
+	}
 
-    for _, item := range nftJSON.Nftables {
-        if tbl, ok := item["table"].(map[string]interface{}); ok {
-            fam, _ := tbl["family"].(string)
-            name, _ := tbl["name"].(string)
-            _ = getTable(fam, name)
-            continue
-        }
-        if ch, ok := item["chain"].(map[string]interface{}); ok {
-            fam, _ := ch["family"].(string)
-            tname, _ := ch["table"].(string)
-            cname, _ := ch["name"].(string)
+	for _, item := range nftJSON.Nftables {
+		if tbl, ok := item["table"].(map[string]interface{}); ok {
+			fam, _ := tbl["family"].(string)
+			name, _ := tbl["name"].(string)
+			_ = getTable(fam, name)
+			continue
+		}
+		if ch, ok := item["chain"].(map[string]interface{}); ok {
+			fam, _ := ch["family"].(string)
+			tname, _ := ch["table"].(string)
+			cname, _ := ch["name"].(string)
 
-            var hook, policy string
-            // nft -j обычно даёт строковый hook ("input", "forward", ...)
-            if h, ok := ch["hook"].(string); ok {
-                hook = strings.ToLower(h)
-            } else if hnum, ok := ch["hooknum"].(float64); ok {
-                // fallback на случай, если когда-то понадобится.
-                hook = jsonHooknumToString(int(hnum))
-            }
+			var hook, policy string
+			// nft -j обычно даёт строковый hook ("input", "forward", ...)
+			if h, ok := ch["hook"].(string); ok {
+				hook = strings.ToLower(h)
+			} else if hnum, ok := ch["hooknum"].(float64); ok {
+				// fallback на случай, если когда-то понадобится.
+				hook = jsonHooknumToString(int(hnum))
+			}
 
-            if p, ok := ch["policy"].(string); ok {
-                policy = strings.ToUpper(p)
-            }
+			if p, ok := ch["policy"].(string); ok {
+				policy = strings.ToUpper(p)
+			}
 
-            tbl := getTable(fam, tname)
-            tbl.Chains = append(tbl.Chains, NFTChain{
-                Name:   cname,
-                Hook:   hook,
-                Policy: policy,
-            })
-            continue
-        }
-        if rule, ok := item["rule"].(map[string]interface{}); ok {
-            fam, _ := rule["family"].(string)
-            tname, _ := rule["table"].(string)
-            cname, _ := rule["chain"].(string)
-            parsed := NFTRule{Table: fam + " " + tname, Chain: cname}
-            if exprs, ok := rule["expr"].([]interface{}); ok {
-                for _, eAny := range exprs {
-                    e, _ := eAny.(map[string]interface{})
-                    if v, ok := e["verdict"].(map[string]interface{}); ok {
-                        if kind, ok := v["kind"].(string); ok {
-                            parsed.Verdict = strings.ToUpper(kind)
-                        }
-                    }
-                    // meta/payload/ct/lookup — можно дополнять по мере надобности
-                }
-            }
-            tbl := getTable(fam, tname)
-            // Найти цепь и добавить правило
-            for i := range tbl.Chains {
-                if tbl.Chains[i].Name == cname {
-                    tbl.Chains[i].Rules = append(tbl.Chains[i].Rules, parsed)
-                    break
-                }
-            }
-            partial.FlatRules = append(partial.FlatRules, parsed)
-        }
-        // sets/maps при желании добавить аналогично
-    }
+			tbl := getTable(fam, tname)
+			tbl.Chains = append(tbl.Chains, NFTChain{
+				Name:   cname,
+				Hook:   hook,
+				Policy: policy,
+			})
+			continue
+		}
+		if rule, ok := item["rule"].(map[string]interface{}); ok {
+			fam, _ := rule["family"].(string)
+			tname, _ := rule["table"].(string)
+			cname, _ := rule["chain"].(string)
+			parsed := NFTRule{Table: fam + " " + tname, Chain: cname}
+			if exprs, ok := rule["expr"].([]interface{}); ok {
+				for _, eAny := range exprs {
+					e, _ := eAny.(map[string]interface{})
+					if v, ok := e["verdict"].(map[string]interface{}); ok {
+						if kind, ok := v["kind"].(string); ok {
+							parsed.Verdict = strings.ToUpper(kind)
+						}
+					}
+					// meta/payload/ct/lookup — можно дополнять по мере надобности
+				}
+			}
+			tbl := getTable(fam, tname)
+			// Найти цепь и добавить правило
+			for i := range tbl.Chains {
+				if tbl.Chains[i].Name == cname {
+					tbl.Chains[i].Rules = append(tbl.Chains[i].Rules, parsed)
+					break
+				}
+			}
+			partial.FlatRules = append(partial.FlatRules, parsed)
+		}
+		// sets/maps при желании добавить аналогично
+	}
 
-    // Разворачиваем map → slice, сохраняя детерминированный порядок
-    names := make([]string, 0, len(tableMap))
-    for k := range tableMap {
-        names = append(names, k)
-    }
-    sort.Strings(names)
-    for _, k := range names {
-        partial.Tables = append(partial.Tables, *tableMap[k])
-    }
-    return partial, nil
+	// Разворачиваем map → slice, сохраняя детерминированный порядок
+	names := make([]string, 0, len(tableMap))
+	for k := range tableMap {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		partial.Tables = append(partial.Tables, *tableMap[k])
+	}
+	return partial, nil
 }
 
 // jsonHooknumToString — соответствие номеров хуков строковым именам
 func jsonHooknumToString(n int) string {
-    switch n {
-    case 0:
-        return "prerouting"
-    case 1:
-        return "input"
-    case 2:
-        return "forward"
-    case 3:
-        return "output"
-    case 4:
-        return "postrouting"
-    default:
-        return ""
-    }
+	switch n {
+	case 0:
+		return "prerouting"
+	case 1:
+		return "input"
+	case 2:
+		return "forward"
+	case 3:
+		return "output"
+	case 4:
+		return "postrouting"
+	default:
+		return ""
+	}
 }
-
 
 // getDefaultRouteInfo using netlink.
 func getDefaultRouteInfo() (bool, []string, error) {
 	uplinks := make(map[string]bool)
-   var lastErr error
+	var lastErr error
 	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
 		routes, err := netlink.RouteList(nil, family)
 		if err != nil {
@@ -717,15 +889,15 @@ func getDefaultRouteInfo() (bool, []string, error) {
 		uplinkList = append(uplinkList, up)
 	}
 	sort.Strings(uplinkList)
-   if len(uplinkList) == 0 {
-       // Если вообще ни один вызов RouteList не удался — это уже probe failed.
-       if lastErr != nil {
-           return false, nil, lastErr
-       }
-       // Нет дефолтного маршрута — валидное состояние, не ошибка.
-       return false, nil, nil
-   }
-   return true, uplinkList, nil
+	if len(uplinkList) == 0 {
+		// Если вообще ни один вызов RouteList не удался — это уже probe failed.
+		if lastErr != nil {
+			return false, nil, lastErr
+		}
+		// Нет дефолтного маршрута — валидное состояние, не ошибка.
+		return false, nil, nil
+	}
+	return true, uplinkList, nil
 }
 
 // portCovered with unknown.
@@ -807,35 +979,50 @@ func normalizeFingerprint(matches []string, verdict string) string {
 
 // In summary.finalize, only terminal verdicts
 func (s *summaryBuilder) finalize() FirewallStats {
-	stats := FirewallStats{
-		// ...
+	families := make([]string, 0, len(s.families))
+	for f := range s.families {
+		families = append(families, f)
 	}
-	verdicts := []string{"ACCEPT", "DROP", "RETURN", "MASQUERADE", "REDIRECT"}
-	for _, v := range verdicts {
-		if agg, ok := s.verdicts[v]; ok {
-			stats.ByVerdict = append(stats.ByVerdict, VerdictAgg{Verdict: v, Packets: agg.Packets, Bytes: agg.Bytes})
-		}
+	sort.Strings(families)
+
+	basePolicies := make(map[string]string, len(s.basePolicies))
+	for k, v := range s.basePolicies {
+		basePolicies[k] = v
 	}
-	// ...
-	return stats
+
+	verdictKeys := make([]string, 0, len(s.verdicts))
+	for k := range s.verdicts {
+		verdictKeys = append(verdictKeys, k)
+	}
+	sort.Strings(verdictKeys)
+
+	byVerdict := make([]VerdictAgg, 0, len(verdictKeys))
+	for _, v := range verdictKeys {
+		agg := s.verdicts[v]
+		byVerdict = append(byVerdict, VerdictAgg{Verdict: v, Packets: agg.Packets, Bytes: agg.Bytes})
+	}
+
+	return FirewallStats{
+		Families:     families,
+		BasePolicies: basePolicies,
+		Totals:       s.totals,
+		ByVerdict:    byVerdict,
+	}
 }
 
 // (s *summaryBuilder) collectBasePolicy prioritize inet
 func (s *summaryBuilder) collectBasePolicy(key, policy string) {
-   // key ожидается в формате "<family>_<hook>", например "inet_forward".
-   parts := strings.SplitN(key, "_", 2)
-   if len(parts) != 2 {
-       return
-   }
-   fam, hook := parts[0], parts[1]
+	parts := strings.SplitN(key, "_", 2)
+	if len(parts) != 2 {
+		return
+	}
+	fam, hook := parts[0], parts[1]
 
-   if fam == "inet" {
-       // inet-таблицы считаем источником истины для base policy.
-       s.basePolicies[hook] = policy
-   } else if _, ok := s.basePolicies[hook]; !ok {
-       // ip/ip6 заполняют только если inet ещё не задавал политику.
-       s.basePolicies[hook] = policy
-   }
+	if fam == "inet" {
+		s.basePolicies[hook] = policy
+	} else if _, ok := s.basePolicies[hook]; !ok {
+		s.basePolicies[hook] = policy
+	}
 }
 
 // Other functions as before.
@@ -860,61 +1047,64 @@ func IsFirewallPermissionError(err error) bool {
 }
 
 func detectMTUMismatches(uplinks []string) []string {
-    if len(uplinks) == 0 {
-        return nil
-    }
-    up := uplinks[0]
-    ifaces, _ := net.Interfaces()
-    var upMTU int
-    tun := make(map[string]int)
+	if len(uplinks) == 0 {
+		return nil
+	}
+	up := uplinks[0]
+	ifaces, _ := net.Interfaces()
+	var upMTU int
+	tun := make(map[string]int)
 
-    for _, ifc := range ifaces {
-        if ifc.Name == up {
-            upMTU = ifc.MTU
-        }
-        if strings.HasPrefix(ifc.Name, "tun") || strings.HasPrefix(ifc.Name, "tap") || strings.HasPrefix(ifc.Name, "wg") {
-            tun[ifc.Name] = ifc.MTU
-        }
-    }
+	for _, ifc := range ifaces {
+		if ifc.Name == up {
+			upMTU = ifc.MTU
+		}
+		if strings.HasPrefix(ifc.Name, "tun") || strings.HasPrefix(ifc.Name, "tap") || strings.HasPrefix(ifc.Name, "wg") {
+			tun[ifc.Name] = ifc.MTU
+		}
+	}
 
-    var warns []string
-    for name, mtu := range tun {
-       d := mtu - upMTU
-       if d < 0 {
-           d = -d
-       }
-       if d == 0 {
-           continue
-       }
-       // Явно whitelisted дельты (PPPoE, L2TP, GRE, WG и т.д.) — не трогаем.
-       if containsInt(MTUAllowedDeltas, d) {
-           continue
-       }
-       // Всё остальное, что заметно отличается по MTU, подсвечиваем.
-       if d >= MTUThreshold {
-           warns = append(warns,
-               fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d",
-                   name, mtu, up, upMTU, d))
-       }
-    }
-    sort.Strings(warns)
-    return warns
+	var warns []string
+	for name, mtu := range tun {
+		d := mtu - upMTU
+		if d < 0 {
+			d = -d
+		}
+		if d == 0 {
+			continue
+		}
+		// Явно whitelisted дельты (PPPoE, L2TP, GRE, WG и т.д.) — не трогаем.
+		if containsInt(MTUAllowedDeltas, d) {
+			continue
+		}
+		// Всё остальное, что заметно отличается по MTU, подсвечиваем.
+		if d >= MTUThreshold {
+			warns = append(warns,
+				fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d",
+					name, mtu, up, upMTU, d))
+		}
+	}
+	sort.Strings(warns)
+	return warns
 }
 
 func containsInt(list []int, v int) bool {
-    for _, i := range list {
-        if i == v {
-            return true
-        }
-    }
-    return false
+	for _, i := range list {
+		if i == v {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(ss []string, s string) bool {
-    for _, x := range ss { if x == s { return true } }
-    return false
+	for _, x := range ss {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
-
 
 // parseRule — минимальный парсер для нужд snapshot-а.
 // Главное: поддержка expr.Lookup с отметкой setUsage и человекочитаемым match.
@@ -939,16 +1129,16 @@ func parseRule(
 		// чтобы формировать "dpt in table:set". Сейчас оставим пустым.
 		lastField string
 		// простая внутренняя «машинка» для ct state и l4-полей
-		l4proto   string        // "tcp"|"udp"|"..."
-		expectCmp string        // "spt"|"dpt" когда предшествовал payload соответствующего оффсета
-		ctSeen    bool          // видели Ct{Key:STATE}
+		l4proto   string // "tcp"|"udp"|"..."
+		expectCmp string // "spt"|"dpt" когда предшествовал payload соответствующего оффсета
+		ctSeen    bool   // видели Ct{Key:STATE}
 		ctMask    []byte
 		ctValue   []byte
 	)
 
 	_ = family
 	_ = mapUsage
-	
+
 	for _, ex := range rule.Exprs {
 		switch e := ex.(type) {
 
@@ -968,7 +1158,7 @@ func parseRule(
 					expectCmp = "dpt"
 				}
 			}
-			
+
 		case *expr.Lookup:
 			// lookup по множеству/карте
 			setName := strings.TrimSpace(e.SetName)
@@ -1029,8 +1219,8 @@ func parseRule(
 					matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
 				}
 				expectCmp = ""
-			// Вариант 2: сравнение порта после Payload(спорт/дпорт)
-            } else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
+				// Вариант 2: сравнение порта после Payload(спорт/дпорт)
+			} else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
 				port := be16(e.Data)
 				if expectCmp == "spt" {
 					matches = append(matches, fmt.Sprintf("spt=%d", port))
@@ -1040,7 +1230,7 @@ func parseRule(
 					lastField = "dpt"
 				}
 				expectCmp = ""
-			// Вариант 3: завершение ct state (после Bitwise приходит Cmp со значением)
+				// Вариант 3: завершение ct state (после Bitwise приходит Cmp со значением)
 			} else if ctSeen && len(e.Data) > 0 {
 				ctValue = append([]byte(nil), e.Data...)
 				// Простая проверка established: бит 0x02
@@ -1053,7 +1243,7 @@ func parseRule(
 				// Сбрасываем состояние ct-шаблона
 				ctSeen, ctMask, ctValue = false, nil, nil
 			}
-			
+
 		case *expr.Verdict:
 			lastField = ""
 			switch e.Kind {
@@ -1078,7 +1268,7 @@ func parseRule(
 		// При обнаружении Established/New добавить TagEstablished в tags.
 		// case *expr.Ct:
 		//   // отметим, что тут есть conntrack; реальную фазу определим на паре Bitwise+Cmp
-			
+
 		default:
 			// Мини-телеметрия о непокрытых типах
 			tn := fmt.Sprintf("%T", e)
@@ -1099,7 +1289,8 @@ func parseRule(
 
 // be16 — big-endian → uint16
 func be16(b []byte) uint16 {
-	if len(b) < 2 { return 0 }
+	if len(b) < 2 {
+		return 0
+	}
 	return uint16(b[0])<<8 | uint16(b[1])
 }
-
