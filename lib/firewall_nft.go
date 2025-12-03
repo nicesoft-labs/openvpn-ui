@@ -371,11 +371,12 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					continue
 				}
 
-				hasAccept := false
-				broadDropSeen := false
-				shadowWarned := false
-				establishedSeen := false
-				narrowMatchSeen := false
+		       hasAccept := false
+		       broadDropSeen := false
+		       shadowWarned := false
+		       establishedSeen := false
+		       narrowMatchSeen := false
+		       chainHasFastpath := false
 				for idx, rule := range rules {
                     parsed, pw := parseRule(rule, family, tableName, &setUsage, &mapUsage, unhandledTypes)
 					addWarnings(&info, "parser", pw)
@@ -396,7 +397,7 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 					if contains(parsed.Tags, TagEstablished) {
 						establishedSeen = true
 						if (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !narrowMatchSeen {
-							info.HasEstablishedFastpath = true
+							chainHasFastpath = true
 						}
 					}
 
@@ -448,9 +449,12 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
                 } // <-- конец цикла по правилам
 
                 // пост-эвристики по цепи
-                if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !info.HasEstablishedFastpath {
+		        if establishedSeen && (chainInfo.Hook == "input" || chainInfo.Hook == "forward" || chainInfo.Hook == "output") && !chainHasFastpath {
                     addWarning(&info, "policy", fmt.Sprintf("ESTABLISHED fastpath not early in base chain %s/%s", tableName, ch.Name))
                 }
+		       if chainHasFastpath {
+		           info.HasEstablishedFastpath = true
+		       }
                 if chainInfo.Policy == "DROP" && !hasAccept {
                     addWarning(&info, "policy", fmt.Sprintf("Блокирующая политика без исключений в %s/%s", tableName, ch.Name))
                 }
@@ -468,7 +472,15 @@ func CollectFirewallInfo(ctx context.Context, cfg Config) (FirewallInfo, error) 
 							if i >= MaxSetPreview {
 								break
 							}
-							preview = append(preview, fmt.Sprintf("%v", elem.Key))
+                           var val string
+                           // Для наборов портов ключ обычно 2-байтовый BE-integer.
+                           if len(elem.Key) == 2 {
+                               val = strconv.Itoa(int(be16(elem.Key)))
+                           } else {
+                               // Для остальных типов пусть остаётся как раньше.
+                               val = fmt.Sprintf("%v", elem.Key)
+                           }
+                           preview = append(preview, val)
 						}
 						keyType := fmt.Sprintf("%v", s.KeyType)
 						set := NFTSet{Name: s.Name, Family: family, Table: tableName, Type: "set", KeyType: keyType, Elements: count, Preview: preview}
@@ -599,15 +611,26 @@ func fallbackCollectViaNftJSON(ctx context.Context) (FirewallInfo, error) {
             fam, _ := ch["family"].(string)
             tname, _ := ch["table"].(string)
             cname, _ := ch["name"].(string)
+
             var hook, policy string
-            if hnum, ok := ch["hooknum"].(float64); ok {
+            // nft -j обычно даёт строковый hook ("input", "forward", ...)
+            if h, ok := ch["hook"].(string); ok {
+                hook = strings.ToLower(h)
+            } else if hnum, ok := ch["hooknum"].(float64); ok {
+                // fallback на случай, если когда-то понадобится.
                 hook = jsonHooknumToString(int(hnum))
             }
+
             if p, ok := ch["policy"].(string); ok {
                 policy = strings.ToUpper(p)
             }
+
             tbl := getTable(fam, tname)
-            tbl.Chains = append(tbl.Chains, NFTChain{Name: cname, Hook: hook, Policy: policy})
+            tbl.Chains = append(tbl.Chains, NFTChain{
+                Name:   cname,
+                Hook:   hook,
+                Policy: policy,
+            })
             continue
         }
         if rule, ok := item["rule"].(map[string]interface{}); ok {
@@ -673,9 +696,11 @@ func jsonHooknumToString(n int) string {
 // getDefaultRouteInfo using netlink.
 func getDefaultRouteInfo() (bool, []string, error) {
 	uplinks := make(map[string]bool)
+   var lastErr error
 	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
 		routes, err := netlink.RouteList(nil, family)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		for _, route := range routes {
@@ -692,10 +717,15 @@ func getDefaultRouteInfo() (bool, []string, error) {
 		uplinkList = append(uplinkList, up)
 	}
 	sort.Strings(uplinkList)
-	if len(uplinkList) == 0 {
-		return false, nil, fmt.Errorf("no routes found")
-	}
-	return true, uplinkList, nil
+   if len(uplinkList) == 0 {
+       // Если вообще ни один вызов RouteList не удался — это уже probe failed.
+       if lastErr != nil {
+           return false, nil, lastErr
+       }
+       // Нет дефолтного маршрута — валидное состояние, не ошибка.
+       return false, nil, nil
+   }
+   return true, uplinkList, nil
 }
 
 // portCovered with unknown.
@@ -792,12 +822,20 @@ func (s *summaryBuilder) finalize() FirewallStats {
 
 // (s *summaryBuilder) collectBasePolicy prioritize inet
 func (s *summaryBuilder) collectBasePolicy(key, policy string) {
-	hook := strings.TrimPrefix(key, "inet_")
-	if strings.HasPrefix(key, "inet_") {
-		s.basePolicies[hook] = policy // Prioritize inet
-	} else if _, ok := s.basePolicies[hook]; !ok {
-		s.basePolicies[hook] = policy
-	}
+   // key ожидается в формате "<family>_<hook>", например "inet_forward".
+   parts := strings.SplitN(key, "_", 2)
+   if len(parts) != 2 {
+       return
+   }
+   fam, hook := parts[0], parts[1]
+
+   if fam == "inet" {
+       // inet-таблицы считаем источником истины для base policy.
+       s.basePolicies[hook] = policy
+   } else if _, ok := s.basePolicies[hook]; !ok {
+       // ip/ip6 заполняют только если inet ещё не задавал политику.
+       s.basePolicies[hook] = policy
+   }
 }
 
 // Other functions as before.
@@ -841,11 +879,23 @@ func detectMTUMismatches(uplinks []string) []string {
 
     var warns []string
     for name, mtu := range tun {
-        d := mtu - upMTU
-        if d < 0 { d = -d }
-        if d >= MTUThreshold && !containsInt(MTUAllowedDeltas, d) {
-            warns = append(warns, fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d", name, mtu, up, upMTU, d))
-        }
+       d := mtu - upMTU
+       if d < 0 {
+           d = -d
+       }
+       if d == 0 {
+           continue
+       }
+       // Явно whitelisted дельты (PPPoE, L2TP, GRE, WG и т.д.) — не трогаем.
+       if containsInt(MTUAllowedDeltas, d) {
+           continue
+       }
+       // Всё остальное, что заметно отличается по MTU, подсвечиваем.
+       if d >= MTUThreshold {
+           warns = append(warns,
+               fmt.Sprintf("MTU mismatch: %s (%d) vs %s (%d), delta %d",
+                   name, mtu, up, upMTU, d))
+       }
     }
     sort.Strings(warns)
     return warns
@@ -980,7 +1030,7 @@ func parseRule(
 				}
 				expectCmp = ""
 			// Вариант 2: сравнение порта после Payload(спорт/дпорт)
-			} else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
+            } else if (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2 {
 				port := be16(e.Data)
 				if expectCmp == "spt" {
 					matches = append(matches, fmt.Sprintf("spt=%d", port))
@@ -1005,6 +1055,7 @@ func parseRule(
 			}
 			
 		case *expr.Verdict:
+			lastField = ""
 			switch e.Kind {
 			case expr.VerdictAccept:
 				verdict = "ACCEPT"
