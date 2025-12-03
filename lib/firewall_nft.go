@@ -1296,60 +1296,37 @@ func parseRule(
 			pkts += e.Packets
 			byteCount += e.Bytes
 
-		case *expr.Masq:
-			// Явный MASQUERADE
-			verdict = "MASQUERADE"
-			if !contains(tags, TagMasq) {
-				tags = append(tags, TagMasq)
-			}
-			natTargetSeen = true
+        case *expr.Masq:
+            // Нативный MASQUERADE
+            verdict = "MASQUERADE"
+            if !contains(tags, TagMasq) {
+                tags = append(tags, TagMasq)
+            }
+            natTargetSeen = true
 
-		case *expr.NAT:
-			// NAT-экшены: SNAT/DNAT/MASQUERADE
-			switch e.Type {
-			case expr.NATTypeSource:
-				// Source NAT (SNAT / MASQUERADE)
-				if e.Flags&expr.NATFlagMasq != 0 {
-					verdict = "MASQUERADE"
-					if !contains(tags, TagMasq) {
-						tags = append(tags, TagMasq)
-					}
-				} else {
-					verdict = "SNAT"
-				}
-			case expr.NATTypeDest:
-				// Destination NAT (DNAT)
-				verdict = "DNAT"
-			default:
-				// на всякий случай
-				if verdict == "" {
-					verdict = "NAT"
-				}
-			}
-			natTargetSeen = true
-
-			
         case *expr.Redir:
-            // Нативный nft redirect
+            // Нативный redirect
             verdict = "REDIRECT"
             if !contains(tags, TagRedir) {
                 tags = append(tags, TagRedir)
             }
+            natTargetSeen = true
 
         case *expr.Target:
             // iptables-nft совместимый слой:
-            // MASQUERADE / DNAT / SNAT / REDIRECT / LOG / REJECT / и т.д.
+            // -j MASQUERADE / DNAT / SNAT / REDIRECT / LOG / REJECT / ...
             name := strings.ToUpper(e.Name)
 
             switch name {
             case "MASQUERADE":
-                // iptables: -j MASQUERADE в nat POSTROUTING
+                // iptables: -t nat -A POSTROUTING ... -j MASQUERADE
                 if verdict == "" {
                     verdict = "MASQUERADE"
                 }
                 if !contains(tags, TagMasq) {
                     tags = append(tags, TagMasq)
                 }
+                natTargetSeen = true
 
             case "REDIRECT":
                 // iptables: -j REDIRECT
@@ -1359,21 +1336,23 @@ func parseRule(
                 if !contains(tags, TagRedir) {
                     tags = append(tags, TagRedir)
                 }
+                natTargetSeen = true
 
             case "DNAT", "SNAT", "NETMAP":
-                // iptables: -j DNAT / SNAT / NETMAP
-                // В iptables это именно "target" колонка, поэтому
+                // iptables: -j DNAT/SNAT/NETMAP
+                // В iptables это именно target-колонка, поэтому
                 // просто кладём в Verdict, чтобы UI совпадал.
                 if verdict == "" {
                     verdict = name
                 }
+                natTargetSeen = true
 
             case "LOG":
                 // iptables: -j LOG
                 if verdict == "" {
                     verdict = "LOG"
                 }
-                // Чтоб в Expr было видно, что тут именно логирование
+                // Чтобы в Expr было видно, что тут логирование
                 matches = append(matches, "target=LOG")
 
             case "REJECT":
@@ -1386,6 +1365,154 @@ func parseRule(
                 // Незнакомый таргет — хотя бы отобразим его в Expr,
                 // чтобы не потерять информацию.
                 matches = append(matches, "target="+name)
+            }
+
+        case *expr.Ct:
+            if e.Key == expr.CtKeySTATE {
+                ctSeen = true
+            }
+
+        case *expr.Bitwise:
+            // Ct state маска
+            if ctSeen && len(e.Mask) > 0 {
+                ctMask = append([]byte(nil), e.Mask...)
+            }
+            // Маска для IP-адреса (сеть)
+            if ipMatchPending && len(e.Mask) > 0 {
+                ipMask = append([]byte(nil), e.Mask...)
+            }
+
+        case *expr.Cmp:
+            switch {
+            // L4 proto (Meta(L4PROTO) или ip protocol из IP-заголовка)
+            case (expectCmp == "l4proto" || expectCmp == "ipproto") && len(e.Data) == 1:
+                switch e.Data[0] {
+                case 6:
+                    l4proto = "tcp"
+                    matches = append(matches, "proto=tcp")
+                case 17:
+                    l4proto = "udp"
+                    matches = append(matches, "proto=udp")
+                case 1:
+                    l4proto = "icmp"
+                    matches = append(matches, "proto=icmp")
+                case 58:
+                    l4proto = "icmpv6"
+                    matches = append(matches, "proto=icmpv6")
+                default:
+                    l4proto = fmt.Sprintf("0x%02x", e.Data[0])
+                    matches = append(matches, fmt.Sprintf("proto=%s", l4proto))
+                }
+                expectCmp = ""
+
+            // Порты
+            case (expectCmp == "spt" || expectCmp == "dpt") && len(e.Data) == 2:
+                port := be16(e.Data)
+                p := uint16(port)
+                if expectCmp == "spt" {
+                    matches = append(matches, fmt.Sprintf("spt=%d", port))
+                    lastField = "spt"
+                    varSport = &p
+                } else {
+                    matches = append(matches, fmt.Sprintf("dpt=%d", port))
+                    lastField = "dpt"
+                    varDport = &p
+                }
+                expectCmp = ""
+
+            // IP / IP6 адреса с учётом возможной маски (сети)
+            case ipMatchPending && (len(e.Data) == 4 || len(e.Data) == 16):
+                ip := net.IP(e.Data)
+                text := ip.String()
+
+                if len(ipMask) > 0 {
+                    mask := net.IPMask(ipMask)
+                    ones, bits := mask.Size()
+                    // Если маска не /32 и не /128 — показываем как сеть
+                    if ones > 0 && bits > 0 && ones < bits {
+                        text = (&net.IPNet{IP: ip, Mask: mask}).String()
+                    }
+                }
+
+                switch expectCmp {
+                case "ip_saddr", "ip6_saddr":
+                    srcIP = text
+                    matches = append(matches, "src="+text)
+                case "ip_daddr", "ip6_daddr":
+                    dstIP = text
+                    matches = append(matches, "dst="+text)
+                }
+
+                expectCmp = ""
+                ipMatchPending = false
+                ipMask = nil
+
+            // Fallback: голые IP без маски (на всякий случай)
+            case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
+                ip := net.IP(e.Data).String()
+                switch expectCmp {
+                case "ip_saddr", "ip6_saddr":
+                    srcIP = ip
+                    matches = append(matches, "src="+ip)
+                case "ip_daddr", "ip6_daddr":
+                    dstIP = ip
+                    matches = append(matches, "dst="+ip)
+                }
+                expectCmp = ""
+                ipMatchPending = false
+                ipMask = nil
+
+            // IIF/OIF имя
+            case expectCmp == "iifname" || expectCmp == "oifname":
+                nameBytes := e.Data
+                if idx := bytes.IndexByte(nameBytes, 0); idx >= 0 {
+                    nameBytes = nameBytes[:idx]
+                }
+                name := string(nameBytes)
+                if expectCmp == "iifname" {
+                    inIface = name
+                    matches = append(matches, "iif="+name)
+                } else {
+                    outIface = name
+                    matches = append(matches, "oif="+name)
+                }
+                expectCmp = ""
+
+            // Ct state завершение
+            case ctSeen && len(e.Data) > 0:
+                ctValue = append([]byte(nil), e.Data...)
+                if len(ctMask) > 0 && (ctValue[0]&ctMask[0])&0x02 == 0x02 {
+                    if !contains(tags, TagEstablished) {
+                        tags = append(tags, TagEstablished)
+                    }
+                    matches = append(matches, "ct=established")
+                }
+                ctSeen, ctMask, ctValue = false, nil, nil
+            }
+
+        case *expr.Verdict:
+            lastField = ""
+            // Если уже увидели NAT-таргет (MASQUERADE/SNAT/DNAT/REDIRECT),
+            // не перетираем его ACCEPT/RETURN и т.п.
+            if natTargetSeen {
+                break
+            }
+            switch e.Kind {
+            case expr.VerdictAccept:
+                verdict = "ACCEPT"
+            case expr.VerdictDrop:
+                verdict = "DROP"
+            case expr.VerdictReturn:
+                verdict = "RETURN"
+            case expr.VerdictJump:
+                if verdict == "" {
+                    verdict = "JUMP"
+                }
+                if e.Chain != "" {
+                    jumpTarget = e.Chain
+                }
+            default:
+                // оставляем как есть
             }
 
 
