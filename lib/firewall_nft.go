@@ -1294,17 +1294,72 @@ func parseRule(
 			pkts += e.Packets
 			byteCount += e.Bytes
 
-		case *expr.Masq:
-			verdict = "MASQUERADE"
-			if !contains(tags, TagMasq) {
-				tags = append(tags, TagMasq)
-			}
+        case *expr.Masq:
+            // Нативный nft masquerade
+            verdict = "MASQUERADE"
+            if !contains(tags, TagMasq) {
+                tags = append(tags, TagMasq)
+            }
 
-		case *expr.Redir:
-			verdict = "REDIRECT"
-			if !contains(tags, TagRedir) {
-				tags = append(tags, TagRedir)
-			}
+        case *expr.Redir:
+            // Нативный nft redirect
+            verdict = "REDIRECT"
+            if !contains(tags, TagRedir) {
+                tags = append(tags, TagRedir)
+            }
+
+        case *expr.Target:
+            // iptables-nft совместимый слой:
+            // MASQUERADE / DNAT / SNAT / REDIRECT / LOG / REJECT / и т.д.
+            name := strings.ToUpper(e.Name)
+
+            switch name {
+            case "MASQUERADE":
+                // iptables: -j MASQUERADE в nat POSTROUTING
+                if verdict == "" {
+                    verdict = "MASQUERADE"
+                }
+                if !contains(tags, TagMasq) {
+                    tags = append(tags, TagMasq)
+                }
+
+            case "REDIRECT":
+                // iptables: -j REDIRECT
+                if verdict == "" {
+                    verdict = "REDIRECT"
+                }
+                if !contains(tags, TagRedir) {
+                    tags = append(tags, TagRedir)
+                }
+
+            case "DNAT", "SNAT", "NETMAP":
+                // iptables: -j DNAT / SNAT / NETMAP
+                // В iptables это именно "target" колонка, поэтому
+                // просто кладём в Verdict, чтобы UI совпадал.
+                if verdict == "" {
+                    verdict = name
+                }
+
+            case "LOG":
+                // iptables: -j LOG
+                if verdict == "" {
+                    verdict = "LOG"
+                }
+                // Чтоб в Expr было видно, что тут именно логирование
+                matches = append(matches, "target=LOG")
+
+            case "REJECT":
+                // iptables: -j REJECT
+                if verdict == "" {
+                    verdict = "REJECT"
+                }
+
+            default:
+                // Незнакомый таргет — хотя бы отобразим его в Expr,
+                // чтобы не потерять информацию.
+                matches = append(matches, "target="+name)
+            }
+
 
 		case *expr.Ct:
 			if e.Key == expr.CtKeySTATE {
