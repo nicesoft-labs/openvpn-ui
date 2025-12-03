@@ -1184,12 +1184,12 @@ func parseRule(
 ) (NFTRule, []string) {
 
 	var (
-		matches []string
-		verdict string
-		pkts    uint64
-		bytes   uint64
-		tags    []string
-		warns   []string
+                matches   []string
+                verdict   string
+                pkts      uint64
+                byteCount uint64
+                tags      []string
+                warns     []string
 
 		lastField string
 
@@ -1271,8 +1271,8 @@ func parseRule(
 			}
 
 		case *expr.Counter:
-			pkts += e.Packets
-			bytes += e.Bytes
+                        pkts += e.Packets
+                        byteCount += e.Bytes
 
 		case *expr.Masq:
 			verdict = "MASQUERADE"
@@ -1392,17 +1392,17 @@ func parseRule(
 		}
 	}
 
-	out := NFTRule{
-		Matches:  matches,
-		Verdict:  verdict,
-		Packets:  pkts,
-		Bytes:    bytes,
-		Tags:     tags,
-		Proto:    l4proto,
-		Src:      srcIP,
-		Dst:      dstIP,
-		InIface:  inIface,
-		OutIface: outIface,
+        out := NFTRule{
+                Matches:  matches,
+                Verdict:  verdict,
+                Packets:  pkts,
+                Bytes:    byteCount,
+                Tags:     tags,
+                Proto:    l4proto,
+                Src:      srcIP,
+                Dst:      dstIP,
+                InIface:  inIface,
+                OutIface: outIface,
 	}
 	if varSport != nil {
 		out.Sport = varSport
