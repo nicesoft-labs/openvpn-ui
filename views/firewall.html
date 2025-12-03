@@ -3,39 +3,102 @@
 {{define "head"}}
 <title>NiceSOFT NiceVPN UI — Firewall</title>
 <style>
-  :root{--bg:#f8f9fa; --card:#fff; --muted:#6c757d; --border:#e9ecef; --shadow:0 3px 10px rgba(0,0,0,.05)}
-  @media (prefers-color-scheme: dark){
-    :root{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark}
+  :root{
+    --bg:#f8f9fa;
+    --card:#fff;
+    --muted:#6c757d;
+    --border:#e9ecef;
+    --shadow:0 3px 10px rgba(0,0,0,.05);
   }
-  .force-dark{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark; background:var(--bg) !important; color:#e6e8eb !important}
   body{background:var(--bg)}
-  .kpi-box{border-radius:14px; box-shadow:var(--shadow); padding:16px; background:var(--card); height:100%; border:1px solid var(--border)}
+
+  .kpi-box{
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    padding:16px;
+    background:var(--card);
+    height:100%;
+    border:1px solid var(--border);
+  }
   .kpi-box__title{font-size:.9rem; color:var(--muted); margin-bottom:.25rem}
   .kpi-box__value{font-size:1.6rem; font-weight:700; line-height:1.1}
   .kpi-box__muted{color:var(--muted); font-size:.9rem}
-  .card-clean{border:1px solid var(--border); border-radius:14px; background:var(--card); box-shadow:var(--shadow)}
-  .card-clean .card-header{border-bottom:1px solid var(--border); background:var(--card); border-top-left-radius:14px; border-top-right-radius:14px}
+
+  .card-clean{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--card);
+    box-shadow:var(--shadow);
+  }
+  .card-clean .card-header{
+    border-bottom:1px solid var(--border);
+    background:var(--card);
+    border-top-left-radius:14px;
+    border-top-right-radius:14px;
+  }
   .card-clean .card-body{padding:16px}
-  .metric-card{border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,.03); background:var(--card)}
+
+  .metric-card{
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 2px 6px rgba(0,0,0,.03);
+    background:var(--card);
+  }
   .metric-card__header{font-weight:600; margin-bottom:8px}
   .metric-card .chart-wrap{position:relative; height:220px}
   .metric-card canvas{width:100% !important; height:100% !important}
-  .status-pill{display:inline-flex; align-items:center; padding:5px 12px; border-radius:999px; font-weight:700; font-size:.9rem; color:#fff; letter-spacing:.03em; text-transform:uppercase}
+
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    padding:5px 12px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:.9rem;
+    color:#fff;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+  }
   .pill-ok{background:#28a745}
   .pill-warn{background:#ffc107; color:#212529}
   .pill-bad{background:#dc3545}
+  .pill-muted{background:#6c757d; color:#fff}
+
   .small-muted{font-size:.85rem; color:var(--muted)}
-  .empty-state{display:none; align-items:center; justify-content:center; height:220px; border:2px dashed var(--border); border-radius:10px; color:var(--muted); font-size:.95rem; background:var(--bg)}
+
+  .empty-state{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    height:220px;
+    border:2px dashed var(--border);
+    border-radius:10px;
+    color:var(--muted);
+    font-size:.95rem;
+    background:var(--bg);
+  }
   .empty-state .hint{font-size:.85rem; color:#9aa0a6; margin-left:.5rem}
+
   .progress-xs{height:10px}
+
   .button-transparent{background:transparent;border:0;padding:0;margin-left:6px}
   .clippy{opacity:.6}
   .clippy:hover{opacity:1}
-  .theme-toggle{position:fixed; right:16px; bottom:16px; z-index:999; border-radius:999px; box-shadow:var(--shadow);}
+
   .fw-nav{gap:8px; flex-wrap:wrap}
-  .fw-nav a{padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); box-shadow:var(--shadow); color:inherit; text-decoration:none; font-weight:600;}
+  .fw-nav a{
+    padding:6px 10px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--card);
+    box-shadow:var(--shadow);
+    color:inherit;
+    text-decoration:none;
+    font-weight:600;
+  }
   .fw-section{scroll-margin-top:80px;}
-  .pill-muted{background:#6c757d; color:#fff}
+
   .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
 </style>
 {{end}}
@@ -50,23 +113,86 @@
   <a href="#fw-nat">NAT</a>
   <a href="#fw-docker">Docker</a>
   <a href="#fw-ipv6">IPv6</a>
+  <a href="#fw-ifaces">Interfaces</a>
   <a href="#fw-diagnostics">Diagnostics</a>
 </div>
 
 <!-- ===== Firewall Overview ===== -->
 <div id="fw-overview" class="fw-section">
+  <!-- Основные KPI -->
   <div class="row mb-3">
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Всего пакетов</div><div class="kpi-box__value mono" id="fw-kpi-total-packets">—</div></div></div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Всего байтов</div><div class="kpi-box__value mono" id="fw-kpi-total-bytes">—</div></div></div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Verdicts (pkt)</div><div class="kpi-box__value" id="fw-kpi-verdicts">—</div></div></div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Chains / Rules</div><div class="kpi-box__value" id="fw-kpi-chains-rules">—</div></div></div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Forward policy</div><div class="kpi-box__value" id="fw-kpi-forward-policy">—</div></div></div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Default route</div><div class="kpi-box__value" id="fw-kpi-default-route">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Всего пакетов</div>
+        <div class="kpi-box__value mono" id="fw-kpi-total-packets">—</div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Всего байтов</div>
+        <div class="kpi-box__value mono" id="fw-kpi-total-bytes">—</div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Verdicts (pkt)</div>
+        <div class="kpi-box__value" id="fw-kpi-verdicts">—</div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Chains / Rules</div>
+        <div class="kpi-box__value" id="fw-kpi-chains-rules">—</div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Forward policy (IPv4/IPv6)</div>
+        <div class="kpi-box__value" id="fw-kpi-forward-policy">—</div>
+      </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">NAT MASQUERADE</div>
+        <div class="kpi-box__value mono" id="fw-kpi-nat-masq">—</div>
+        <div class="kpi-box__muted" id="fw-kpi-nat-masq-notes">—</div>
+      </div>
+    </div>
   </div>
+
+  <!-- Расширенные KPI -->
+  <div class="row mb-3">
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">IPv4 / IPv6 трафик</div>
+        <div class="kpi-box__value" id="fw-kpi-family-traffic">—</div>
+        <div class="kpi-box__muted" id="fw-kpi-family-traffic-bytes">—</div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Docker firewall</div>
+        <div class="kpi-box__value mono" id="fw-kpi-docker">—</div>
+        <div class="kpi-box__muted" id="fw-kpi-docker-notes">—</div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Здоровье правил</div>
+        <div class="kpi-box__value mono" id="fw-kpi-rules-health">—</div>
+        <div class="kpi-box__muted" id="fw-kpi-rules-health-notes">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Основные графики -->
   <div class="row mb-3">
     <div class="col-lg-6 col-md-12 mb-4">
       <div class="metric-card">
-        <div class="metric-card__header d-flex justify-content-between align-items-center">Verdict distribution <span class="small-muted" id="fw-metric-toggle" data-metric="packets">packets</span></div>
+        <div class="metric-card__header d-flex justify-content-between align-items-center">
+          <span>Verdict distribution</span>
+          <span class="small-muted" id="fw-metric-toggle" data-metric="packets">packets</span>
+        </div>
         <div class="chart-wrap"><canvas id="fw-verdict-donut"></canvas></div>
         <div class="empty-state" data-empty-for="fw-verdict-donut">Нет данных verdicts</div>
         <div class="mt-2 small-muted">По байтам: <span id="fw-verdict-bytes-mini">—</span></div>
@@ -74,14 +200,42 @@
     </div>
     <div class="col-lg-6 col-md-12 mb-4">
       <div class="metric-card">
-        <div class="metric-card__header d-flex justify-content-between align-items-center">Top chains <button class="btn btn-xs btn-outline-secondary" id="fw-top-metric">packets</button></div>
+        <div class="metric-card__header d-flex justify-content-between align-items-center">
+          <span>Top chains</span>
+          <button class="btn btn-xs btn-outline-secondary" id="fw-top-metric">packets</button>
+        </div>
         <div class="chart-wrap"><canvas id="fw-top-chains"></canvas></div>
         <div class="empty-state" data-empty-for="fw-top-chains">Нет данных по цепочкам</div>
       </div>
     </div>
   </div>
+
+  <!-- Дополнительные графики -->
+  <div class="row mb-3">
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between align-items-center">
+          <span>Трафик по таблицам</span>
+          <span class="small-muted">filter / nat / raw</span>
+        </div>
+        <div class="chart-wrap"><canvas id="fw-table-traffic"></canvas></div>
+        <div class="empty-state" data-empty-for="fw-table-traffic">Нет данных по таблицам</div>
+      </div>
+    </div>
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between align-items-center">
+          <span>Потоки по hook</span>
+          <span class="small-muted">IPv4 / IPv6</span>
+        </div>
+        <div class="chart-wrap"><canvas id="fw-hook-pipeline"></canvas></div>
+        <div class="empty-state" data-empty-for="fw-hook-pipeline">Нет данных по hook</div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- ===== Chains ===== -->
 <div id="fw-chains" class="fw-section card-clean mb-3">
   <div class="card-header d-flex align-items-center justify-content-between">
     <h3 class="card-title mb-0">Chains</h3>
@@ -89,14 +243,53 @@
   </div>
   <div class="card-body">
     <div class="row">
-      <div class="col-md-3 mb-2"><label class="small text-muted">Family</label><select class="form-control form-control-sm" id="fw-filter-family"><option value="both">both</option><option value="ip">ip</option><option value="ip6">ip6</option></select></div>
-      <div class="col-md-3 mb-2"><label class="small text-muted">Hook</label><select class="form-control form-control-sm" id="fw-filter-hook"><option value="all">все</option><option value="0">PREROUTING</option><option value="1">INPUT</option><option value="2">FORWARD</option><option value="3">OUTPUT</option><option value="4">POSTROUTING</option></select></div>
-      <div class="col-md-3 mb-2"><label class="small text-muted">Policy</label><select class="form-control form-control-sm" id="fw-filter-policy"><option value="any">any</option><option value="ACCEPT">ACCEPT</option><option value="DROP">DROP</option><option value="none">—</option></select></div>
-      <div class="col-md-3 mb-2"><label class="small text-muted">Packets &gt;=</label><input type="number" class="form-control form-control-sm" id="fw-filter-packets" placeholder="0"></div>
+      <div class="col-md-3 mb-2">
+        <label class="small text-muted">Family</label>
+        <select class="form-control form-control-sm" id="fw-filter-family">
+          <option value="both">both</option>
+          <option value="ip">ip</option>
+          <option value="ip6">ip6</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <label class="small text-muted">Hook</label>
+        <select class="form-control form-control-sm" id="fw-filter-hook">
+          <option value="all">все</option>
+          <option value="0">PREROUTING</option>
+          <option value="1">INPUT</option>
+          <option value="2">FORWARD</option>
+          <option value="3">OUTPUT</option>
+          <option value="4">POSTROUTING</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <label class="small text-muted">Policy</label>
+        <select class="form-control form-control-sm" id="fw-filter-policy">
+          <option value="any">any</option>
+          <option value="ACCEPT">ACCEPT</option>
+          <option value="DROP">DROP</option>
+          <option value="none">—</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <label class="small text-muted">Packets &gt;=</label>
+        <input type="number" class="form-control form-control-sm" id="fw-filter-packets" placeholder="0">
+      </div>
     </div>
     <div class="table-responsive">
       <table class="table table-sm" id="fw-chains-table">
-        <thead><tr><th>Family</th><th>Table/Chain</th><th>Hook</th><th>Policy</th><th>Packets</th><th>Bytes</th><th>Rules</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Table/Chain</th>
+            <th>Hook</th>
+            <th>Policy</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+            <th>Rules</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
@@ -104,84 +297,220 @@
   </div>
 </div>
 
+<!-- ===== Rules ===== -->
 <div id="fw-rules" class="fw-section card-clean mb-3">
   <div class="card-header">
     <h3 class="card-title mb-0">Rules</h3>
   </div>
   <div class="card-body">
     <div class="row mb-2">
-      <div class="col-md-6 mb-2"><input type="search" class="form-control" id="fw-rules-search" placeholder="Поиск по Expr/Matches"></div>
-      <div class="col-md-6 mb-2"><select class="form-control" id="fw-rules-preset"><option value="">— быстрый фильтр —</option><option value="INPUT-dpt">INPUT &amp; dpt=*</option><option value="DOCKER">DOCKER-*</option><option value="ip-nat">ip/nat (PREROUTING/POSTROUTING)</option><option value="ipv6">IPv6 only</option><option value="DROP">DROP only</option></select></div>
+      <div class="col-md-6 mb-2">
+        <input type="search" class="form-control" id="fw-rules-search" placeholder="Поиск по Expr/Matches">
+      </div>
+      <div class="col-md-6 mb-2">
+        <select class="form-control" id="fw-rules-preset">
+          <option value="">— быстрый фильтр —</option>
+          <option value="INPUT-dpt">INPUT &amp; dpt=*</option>
+          <option value="DOCKER">DOCKER-*</option>
+          <option value="ip-nat">ip/nat (PREROUTING/POSTROUTING)</option>
+          <option value="ipv6">IPv6 only</option>
+          <option value="DROP">DROP only</option>
+        </select>
+      </div>
     </div>
     <div class="table-responsive" style="max-height:420px; overflow:auto">
       <table class="table table-sm" id="fw-rules-table">
-        <thead><tr><th>Family</th><th>Table</th><th>Chain</th><th>Index</th><th>Expr</th><th>Matches</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Table</th>
+            <th>Chain</th>
+            <th>Index</th>
+            <th>Expr</th>
+            <th>Matches</th>
+            <th>Verdict</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+          </tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ===== Ports ===== -->
+<!-- ===== Ports IPv4 ===== -->
 <div id="fw-ports" class="fw-section card-clean mb-3">
-  <div class="card-header"><h3 class="card-title mb-0">Ports (IPv4/INPUT)</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">Ports (IPv4/INPUT)</h3>
+  </div>
+  <div class="card-body">
+    <div class="metric-card mb-3">
+      <div class="metric-card__header d-flex justify-content-between align-items-center">
+        <span>Топ портов (IPv4/INPUT)</span>
+        <span class="small-muted">по трафику</span>
+      </div>
+      <div class="chart-wrap"><canvas id="fw-ports-top-chart"></canvas></div>
+      <div class="empty-state" data-empty-for="fw-ports-top-chart">Нет данных по портам</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-ports-input-table">
+        <thead>
+          <tr>
+            <th>Port</th>
+            <th>Proto</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+            <th>Rules</th>
+            <th>Traffic</th>
+            <th>Jump path</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Ports IPv6 ===== -->
+<div id="fw-ports6" class="fw-section card-clean mb-3">
+  <div class="card-header">
+    <h3 class="card-title mb-0">Ports (IPv6/INPUT)</h3>
+  </div>
   <div class="card-body">
     <div class="table-responsive">
-      <table class="table table-sm" id="fw-ports-input-table"><thead><tr><th>Port</th><th>Proto</th><th>Packets</th><th>Bytes</th><th>Rules</th><th>Traffic</th><th>Jump path</th></tr></thead><tbody></tbody></table>
+      <table class="table table-sm" id="fw-ports-input6-table">
+        <thead>
+          <tr>
+            <th>Port</th>
+            <th>Proto</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+            <th>Rules</th>
+            <th>Traffic</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <!-- ===== NAT ===== -->
 <div id="fw-nat" class="fw-section card-clean mb-3">
-  <div class="card-header"><h3 class="card-title mb-0">NAT</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">NAT</h3>
+  </div>
   <div class="card-body">
     <div id="fw-nat-cards" class="row mb-3"></div>
     <div class="table-responsive">
-      <table class="table table-sm" id="fw-nat-table"><thead><tr><th>Chain</th><th>Index</th><th>Expr</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead><tbody></tbody></table>
+      <table class="table table-sm" id="fw-nat-table">
+        <thead>
+          <tr>
+            <th>Chain</th>
+            <th>Index</th>
+            <th>Expr</th>
+            <th>Verdict</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <!-- ===== Docker ===== -->
 <div id="fw-docker" class="fw-section card-clean mb-3">
-  <div class="card-header"><h3 class="card-title mb-0">Docker</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">Docker</h3>
+  </div>
   <div class="card-body">
     <div id="fw-docker-flow" class="mb-3"></div>
     <div class="table-responsive">
-      <table class="table table-sm" id="fw-docker-table"><thead><tr><th>Chain</th><th>Packets</th><th>Bytes</th><th>Rules</th><th>Notes</th></tr></thead><tbody></tbody></table>
+      <table class="table table-sm" id="fw-docker-table">
+        <thead>
+          <tr>
+            <th>Chain</th>
+            <th>Packets</th>
+            <th>Bytes</th>
+            <th>Rules</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <!-- ===== IPv6 ===== -->
 <div id="fw-ipv6" class="fw-section card-clean mb-3">
-  <div class="card-header"><h3 class="card-title mb-0">IPv6</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">IPv6</h3>
+  </div>
   <div class="card-body">
     <div id="fw-ipv6-cards" class="row mb-3"></div>
-    <div class="metric-card"><div class="chart-wrap"><canvas id="fw-ipv6-verdict-donut"></canvas></div><div class="empty-state" data-empty-for="fw-ipv6-verdict-donut">Нет данных IPv6</div></div>
+    <div class="metric-card">
+      <div class="chart-wrap"><canvas id="fw-ipv6-verdict-donut"></canvas></div>
+      <div class="empty-state" data-empty-for="fw-ipv6-verdict-donut">Нет данных IPv6</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Interface coverage ===== -->
+<div id="fw-ifaces" class="fw-section card-clean mb-3">
+  <div class="card-header">
+    <h3 class="card-title mb-0">Interface coverage</h3>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-iface-coverage-table">
+        <thead>
+          <tr>
+            <th>Интерфейс</th>
+            <th>Вход (iif)</th>
+            <th>Выход (oif)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <!-- ===== Diagnostics ===== -->
 <div id="fw-diagnostics" class="fw-section card-clean mb-4">
-  <div class="card-header"><h3 class="card-title mb-0">Diagnostics</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">Diagnostics</h3>
+  </div>
   <div class="card-body">
     <div id="fw-alerts" class="mb-3"></div>
     <div class="table-responsive">
-      <table class="table table-sm" id="fw-policy-matrix"><thead><tr><th>Hook</th><th>IPv4</th><th>IPv6</th></tr></thead><tbody></tbody></table>
+      <table class="table table-sm" id="fw-policy-matrix">
+        <thead>
+          <tr>
+            <th>Hook</th>
+            <th>IPv4</th>
+            <th>IPv6</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </div>
 
+<!-- ===== Debug ===== -->
 <div class="card-clean mt-3 mb-4">
-  <div class="card-header"><h3 class="card-title mb-0">Отладка метрик firewall</h3></div>
+  <div class="card-header">
+    <h3 class="card-title mb-0">Отладка метрик firewall</h3>
+  </div>
   <div class="card-body">
     <pre id="firewall-debug" class="bg-light p-3 small" style="max-height:320px; overflow:auto">{{ tojson .firewall }}</pre>
   </div>
 </div>
-
-<button type="button" class="btn btn-light theme-toggle" id="theme-toggle">Тема</button>
 
 <script src="/static/js/chart.umd.min.js"></script>
 <script>
@@ -198,8 +527,14 @@
   function upsertChart(store, id, makeConfig){
     const ctx = document.getElementById(id); if(!ctx) return null;
     const cfg = makeConfig();
-    if (store[id]) { store[id].data = cfg.data; store[id].options = cfg.options||store[id].options; store[id].update(); return store[id]; }
-    store[id] = new Chart(ctx, cfg); return store[id];
+    if (store[id]) {
+      store[id].data = cfg.data;
+      store[id].options = cfg.options || store[id].options;
+      store[id].update();
+      return store[id];
+    }
+    store[id] = new Chart(ctx, cfg);
+    return store[id];
   }
   function lazyChart(id, renderFn){
     const el = document.getElementById(id); if(!el) return;
@@ -208,51 +543,789 @@
     }, {root:null, rootMargin:'200px', threshold:.01});
     io.observe(el);
   }
+
   const percent = (part,total)=>{ if (!total) return 0; return Math.max(0, Math.min(100, (part/total)*100)); };
   const toNum = (x)=>{ const n=Number(x||0); return Number.isFinite(n)? n : 0; };
   const fmtPackets = (v)=>{ const n=Number(v||0); if (n>=1e6) return `${(n/1e6).toFixed(1)}M`; if (n>=1e3) return `${(n/1e3).toFixed(1)}K`; return String(n); };
   const fmtBytes = (v)=>{ const n=Number(v||0); const kb=1024, mb=kb*1024, gb=mb*1024; if (n>=gb) return `${(n/gb).toFixed(1)} GB`; if (n>=mb) return `${(n/mb).toFixed(1)} MB`; if (n>=kb) return `${(n/kb).toFixed(1)} KB`; return `${n} B`; };
-  const verdictColor = (v)=>{ switch((v||'').toUpperCase()){ case 'ACCEPT': return '#28a745'; case 'DROP': return '#dc3545'; case 'JUMP': return '#0d6efd'; case 'RETURN': return '#6f42c1'; default: return '#6c757d'; } };
-  const hookNames = {"0":"PREROUTING","1":"INPUT","2":"FORWARD","3":"OUTPUT","4":"POSTROUTING","":""};
-  const makePolicyBadge = (pol)=>{ if(!pol) return '—'; const cls = pol==='ACCEPT'?'badge bg-success':'badge bg-danger'; return `<span class="${cls}">${pol}</span>`; };
-  const flattenChains = ()=>{ const out=[]; (fw.tables||[]).forEach(t=>{ (t.chains||[]).forEach(c=>out.push({table:t.name,family:t.family,...c})); }); return out; };
+  const verdictColor = (v)=>{ switch((v||'').toUpperCase()){ case 'ACCEPT': return '#28a745'; case 'DROP': return '#dc3545'; case 'JUMP': return '#0d6efd'; case 'RETURN': return '#6f42c1'; case 'MASQUERADE': return '#20c997'; default: return '#6c757d'; } };
 
-  function ensureFwAvailable(){ const has = fw && fw.summary; if (has) return true; document.querySelectorAll('.fw-section').forEach(s=>{ s.querySelectorAll('.empty-state').forEach(es=>es.style.display='flex'); }); return false; }
-  function renderFwKpis(){ if(!ensureFwAvailable()) return; const totals=fw.summary?.totals||{}; document.getElementById('fw-kpi-total-packets').textContent=fmtPackets(totals.packets); document.getElementById('fw-kpi-total-bytes').textContent=fmtBytes(totals.bytes); const verdicts=fw.summary?.by_verdict||[]; const totalPkt=verdicts.reduce((s,v)=>s+toNum(v.packets),0)||1; const pct = (v)=>Math.round((toNum(v)/totalPkt)*100); const a=verdicts.find(v=>v.verdict==='ACCEPT')||{}; const j=verdicts.find(v=>v.verdict==='JUMP')||{}; const d=verdicts.find(v=>v.verdict==='DROP')||{}; const r=verdicts.find(v=>v.verdict==='RETURN')||{}; document.getElementById('fw-kpi-verdicts').textContent=`A ${pct(a.packets||0)}% • J ${pct(j.packets||0)}% • D ${pct(d.packets||0)}%`; const counts=fw.counts||{}; document.getElementById('fw-kpi-chains-rules').textContent=`${counts.chains_total||0} / ${counts.rules_total||counts.rules_shown||0}`; const fwd=document.getElementById('fw-kpi-forward-policy'); if(fw.has_forward_policy_accept){ fwd.innerHTML='<span class="badge bg-success">ACCEPT</span>'; } else if(fw.has_forward_policy_drop){ fwd.innerHTML='<span class="badge bg-danger">DROP</span>'; } else { fwd.textContent='—'; } const def=document.getElementById('fw-kpi-default-route'); if(def){ const has=!!fw.has_default_route; def.innerHTML=`<span class="badge ${has?'pill-ok':'pill-warn'}">${has?'on':'off'}</span>`; } }
-  function renderFwVerdicts(){ const id='fw-verdict-donut'; if(!ensureFwAvailable()) { showEmpty(id,true); return; } const verdicts=fw.summary?.by_verdict||[]; const packets=verdicts.map(v=>toNum(v.packets)); if(!packets.length || packets.every(v=>v===0)){ showEmpty(id,true); return; } showEmpty(id,false); const labels=verdicts.map(v=>v.verdict); const colors=labels.map(verdictColor); const bytes=verdicts.map(v=>toNum(v.bytes)); document.getElementById('fw-verdict-bytes-mini').textContent = verdicts.map((v,i)=>`${v.verdict} ${percent(bytes[i], bytes.reduce((s,x)=>s+x,0)||1).toFixed(0)}%`).join(' • '); upsertChart(CHARTS, id, ()=>({ type:'doughnut', data:{ labels, datasets:[{ data:packets, backgroundColor:colors }]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }})); }
-  function renderTopChains(metric){ const id='fw-top-chains'; if(!ensureFwAvailable()) { showEmpty(id,true); return; } const chains=flattenChains().filter(c=>toNum(c.packet_count)+toNum(c.byte_count)>0); const sorted=chains.sort((a,b)=> toNum(b[metric]) - toNum(a[metric])).slice(0,10); if(!sorted.length){ showEmpty(id,true); return; } showEmpty(id,false); const labels=sorted.map(c=>`${c.table}/${c.name}`); const data=sorted.map(c=>toNum(c[metric])); upsertChart(CHARTS,id,()=>({ type:'bar', data:{labels, datasets:[{label:metric, data, backgroundColor:palette[0]}]}, options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}} }})); }
-  function renderChainsTable(){ if(!ensureFwAvailable()) return; const famSel=document.getElementById('fw-filter-family').value; const hookSel=document.getElementById('fw-filter-hook').value; const polSel=document.getElementById('fw-filter-policy').value; const pktThr=toNum(document.getElementById('fw-filter-packets').value||0); const tb=document.querySelector('#fw-chains-table tbody'); tb.innerHTML=''; flattenChains().forEach(ch=>{ if(famSel!=='both' && ch.family!==famSel) return; if(hookSel!=='all' && String(ch.hook||'')!==hookSel) return; const pol=(ch.policy||''); if(polSel==='none' && pol) return; if(polSel!=='any' && polSel!=='none' && pol!==polSel) return; if(toNum(ch.packet_count)<pktThr && toNum(ch.byte_count)<pktThr) return; const tr=document.createElement('tr'); const rulesLen=(ch.rules||[]).length; tr.innerHTML=`<td>${ch.family}</td><td>${ch.table}/${ch.name}</td><td>${hookNames[ch.hook||'']||''}</td><td>${makePolicyBadge(pol)}</td><td class="mono">${fmtPackets(ch.packet_count)}</td><td class="mono">${fmtBytes(ch.byte_count)}</td><td>${rulesLen}</td><td><button class="btn btn-xs btn-outline-primary" data-chain="${ch.table}/${ch.name}">Открыть</button></td>`; tb.appendChild(tr); }); }
-  function renderChainDetail(chainKey){ const wrap=document.getElementById('fw-chain-detail'); if(!wrap) return; wrap.innerHTML=''; if(!chainKey) return; const [table,name]=chainKey.split('/'); const ch=flattenChains().find(c=>c.table===table && c.name===name); if(!ch){ wrap.textContent='Chain not found'; return; } const meta=`${ch.table}/${ch.name} • ${hookNames[ch.hook||'']||''} • policy ${ch.policy||'—'}`; const counters=`Packets ${fmtPackets(ch.packet_count)} • Bytes ${fmtBytes(ch.byte_count)}`; const ruleBar=(ch.rules||[]).map(r=>r.verdict||'').reduce((acc,v)=>{ acc[v]=(acc[v]||0)+1; return acc; },{}); const barHTML=Object.entries(ruleBar).map(([k,v])=>`<span class="badge me-1" style="background:${verdictColor(k)}">${k}: ${v}</span>`).join(''); wrap.innerHTML=`<div class="card-clean"><div class="card-body"><div class="mb-1"><b>${meta}</b></div><div class="small-muted mb-2">${counters}</div><div class="mb-2">${barHTML||''}</div><div class="table-responsive" style="max-height:260px; overflow:auto"><table class="table table-sm"><thead><tr><th>#</th><th>Expr</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead><tbody>${(ch.rules||[]).map(r=>`<tr><td>${r.index}</td><td><span title="${r.expr||''}">${r.expr||''}</span></td><td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`).join('')}</tbody></table></div></div></div>`; }
-  function renderRulesTable(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-rules-table tbody'); const term=(document.getElementById('fw-rules-search').value||'').toLowerCase(); const preset=document.getElementById('fw-rules-preset').value; const rules=fw.flat_rules||[]; const filtered=rules.filter(r=>{ const expr=(r.expr||'').toLowerCase(); const matches=(r.matches||[]).join(' ').toLowerCase(); const family=r.table?.split('/')[0]; if(term && !expr.includes(term) && !matches.includes(term)) return false; switch(preset){ case 'INPUT-dpt': return r.chain==='INPUT' && expr.includes('dpt='); case 'DOCKER': return r.chain?.startsWith('DOCKER'); case 'ip-nat': return r.table==='ip/nat' && (r.chain==='PREROUTING' || r.chain==='POSTROUTING'); case 'ipv6': return family==='ip6'; case 'DROP': return (r.verdict||'').toUpperCase()==='DROP'; default: return true; } }); tb.innerHTML=filtered.map(r=>{ const family=(r.table||'').split('/')[0]; const matches=(r.matches||[]).join(', '); return `<tr><td>${family}</td><td>${r.table}</td><td>${r.chain}</td><td>${r.index}</td><td><span title="${r.expr||''}">${r.expr||''}</span></td><td>${matches}</td><td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`; }).join(''); }
-  function renderPortsTable(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-ports-input-table tbody'); const rules=(fw.flat_rules||[]).filter(r=>r.table==='ip/filter' && r.chain==='INPUT'); const groups={}; rules.forEach(r=>{ const text=`${r.matches||''} ${r.expr||''}`; const m=text.match(/dpt=(\d+)/); if(!m) return; const port=m[1]; const protoMatch=text.match(/proto=(tcp|udp)/); const proto=protoMatch?protoMatch[1]:'—'; const key=`${port}-${proto}`; if(!groups[key]) groups[key]={port,proto,packets:0,bytes:0,count:0,jump:text.includes('JUMP')}; groups[key].packets+=toNum(r.packets); groups[key].bytes+=toNum(r.bytes); groups[key].count+=1; }); tb.innerHTML=Object.values(groups).sort((a,b)=>b.packets-a.packets).map(g=>`<tr><td class="mono">${g.port}</td><td>${g.proto}</td><td class="mono">${fmtPackets(g.packets)}</td><td class="mono">${fmtBytes(g.bytes)}</td><td>${g.count}</td><td><span class="badge ${g.packets>0?'bg-success':'bg-secondary'}">${g.packets>0?'traffic':'mute'}</span></td><td>${g.jump?'JUMP':'direct'}</td></tr>`).join(''); }
-  function renderNat(){ if(!ensureFwAvailable()) return; const natCards=document.getElementById('fw-nat-cards'); natCards.innerHTML=''; const natTables=(fw.tables||[]).filter(t=>t.name==='ip/nat'); if(!natTables.length) return; const chainNames=['PREROUTING','POSTROUTING','OUTPUT']; chainNames.forEach(name=>{ const ch=natTables[0].chains?.find(c=>c.name===name); const card=document.createElement('div'); card.className='col-md-4 mb-3'; card.innerHTML=`<div class="kpi-box"><div class="kpi-box__title">${name}</div><div class="kpi-box__value mono">${fmtPackets(ch?.packet_count)}</div><div class="kpi-box__muted">${fmtBytes(ch?.byte_count)}</div></div>`; natCards.appendChild(card); }); const tb=document.querySelector('#fw-nat-table tbody'); tb.innerHTML=''; (natTables[0].chains||[]).filter(c=>['PREROUTING','POSTROUTING','OUTPUT'].includes(c.name)).forEach(c=>{ (c.rules||[]).forEach(r=>{ tb.innerHTML += `<tr><td>${c.name}</td><td>${r.index}</td><td>${r.expr||''}</td><td>${r.verdict||''}</td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`; }); }); }
-  function renderDocker(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-docker-table tbody'); const dockerChains=flattenChains().filter(c=>c.name && c.name.startsWith('DOCKER')); tb.innerHTML=dockerChains.map(c=>{ const rlen=(c.rules||[]).length; return `<tr><td>${c.table}/${c.name}</td><td class=\"mono\">${fmtPackets(c.packet_count)}</td><td class=\"mono\">${fmtBytes(c.byte_count)}</td><td>${rlen}</td><td>${c.packet_count?'' :'изолирующая цепь, трафика нет'}</td></tr>`; }).join(''); const flow=document.getElementById('fw-docker-flow'); const fwd=flattenChains().find(c=>c.name==='DOCKER-FORWARD'); if(flow){ const rules=(fwd?.rules||[]).map(r=>`${r.verdict} (${fmtPackets(r.packets)}/${fmtBytes(r.bytes)})`).join(' → '); flow.textContent = rules || 'Нет данных по DOCKER-FORWARD'; } }
-  function renderIpv6(){ if(!ensureFwAvailable()) return; const cards=document.getElementById('fw-ipv6-cards'); cards.innerHTML=''; const t=(fw.tables||[]).find(t=>t.name==='ip6/filter'); if(!t) return; const names=['INPUT','FORWARD','OUTPUT']; names.forEach(n=>{ const ch=t.chains?.find(c=>c.name===n); const col=document.createElement('div'); col.className='col-md-4 mb-3'; const policy=ch?.policy||''; const badge=makePolicyBadge(policy); col.innerHTML=`<div class="kpi-box"><div class="kpi-box__title">ip6/filter/${n}</div><div class="kpi-box__value">${badge}</div><div class="kpi-box__muted">${fmtPackets(ch?.packet_count)} / ${fmtBytes(ch?.byte_count)}</div></div>`; cards.appendChild(col); }); const id='fw-ipv6-verdict-donut'; const rules=(t.chains||[]).flatMap(c=>c.rules||[]); const agg=rules.reduce((acc,r)=>{ const v=r.verdict||'other'; acc[v]=(acc[v]||0)+toNum(r.packets); return acc; },{}); const labels=Object.keys(agg); const data=Object.values(agg); if(!data.length){ showEmpty(id,true); return; } showEmpty(id,false); upsertChart(CHARTS,id,()=>({type:'doughnut', data:{labels,datasets:[{data,backgroundColor:labels.map(verdictColor)}]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})); }
-  function renderDiagnostics(){ if(!ensureFwAvailable()) return; const alerts=document.getElementById('fw-alerts'); const warn=fw.warnings||{}; const make=(type,msg)=>`<div class="alert ${type==='Critical'?'alert-danger':type==='Warning'?'alert-warning':'alert-info'}">${msg}</div>`; alerts.innerHTML=''; (warn.openvpn||[]).forEach(m=>alerts.innerHTML+=make('Critical',m)); (warn.policy||[]).forEach(m=>alerts.innerHTML+=make('Warning',m)); (warn.routing||[]).forEach(m=>alerts.innerHTML+=make('Warning',m)); (warn.parser||[]).forEach(m=>alerts.innerHTML+=make('Info',m)); const matrix=document.querySelector('#fw-policy-matrix tbody'); matrix.innerHTML=''; ['0','1','2','3','4'].forEach(h=>{ const row=document.createElement('tr'); const ipv4=flattenChains().find(c=>c.family==='ip' && String(c.hook||'')===h); const ipv6=flattenChains().find(c=>c.family==='ip6' && String(c.hook||'')===h); row.innerHTML=`<td>${hookNames[h]}</td><td>${makePolicyBadge(ipv4?.policy||'')}</td><td>${makePolicyBadge(ipv6?.policy||'')}</td>`; matrix.appendChild(row); }); }
-  function renderFirewall(){ if(!fw || Object.keys(fw).length===0){ ensureFwAvailable(); return; } renderFwKpis(); lazyChart('fw-verdict-donut', renderFwVerdicts); let metric='packet_count'; const topBtn=document.getElementById('fw-top-metric'); if(topBtn){ topBtn.addEventListener('click',()=>{ metric= metric==='packet_count' ? 'byte_count' : 'packet_count'; topBtn.textContent = metric==='packet_count'?'packets':'bytes'; renderTopChains(metric); }); }
-    renderTopChains(metric); ['fw-filter-family','fw-filter-hook','fw-filter-policy','fw-filter-packets'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',()=>renderChainsTable()); }); const chainsTable=document.querySelector('#fw-chains-table'); if(chainsTable){ chainsTable.addEventListener('click',e=>{ const target=e.target; const key=target && target.dataset ? target.dataset.chain : null; if(key) renderChainDetail(key); }); } renderChainsTable(); renderRulesTable(); const search=document.getElementById('fw-rules-search'); if(search) search.addEventListener('input',renderRulesTable); const presetSel=document.getElementById('fw-rules-preset'); if(presetSel) presetSel.addEventListener('change',renderRulesTable); renderPortsTable(); renderNat(); renderDocker(); lazyChart('fw-ipv6-verdict-donut', renderIpv6); renderDiagnostics(); }
+  const hookNames = {"0":"PREROUTING","1":"INPUT","2":"FORWARD","3":"OUTPUT","4":"POSTROUTING","":""};
+
+  const makePolicyBadge = (pol)=>{
+    if(!pol) return '—';
+    const cls = pol === 'ACCEPT' ? 'badge bg-success' : pol === 'DROP' ? 'badge bg-danger' : 'badge bg-secondary';
+    return `<span class="${cls}">${pol}</span>`;
+  };
+
+  const flattenChains = ()=>{
+    const out=[];
+    (fw.tables||[]).forEach(t=>{
+      (t.chains||[]).forEach(c=>out.push({table:t.name,family:t.family,...c}));
+    });
+    return out;
+  };
+
+  function ensureFwAvailable(){
+    const has = fw && fw.summary;
+    if (has) return true;
+    document.querySelectorAll('.fw-section').forEach(s=>{
+      s.querySelectorAll('.empty-state').forEach(es=>es.style.display='flex');
+    });
+    return false;
+  }
+
+  /* ==== KPI: basic ==== */
+  function renderFwKpis(){
+    if(!ensureFwAvailable()) return;
+
+    const totals = fw.summary?.totals || {};
+    const verdicts = fw.summary?.by_verdict || [];
+
+    const pktEl = document.getElementById('fw-kpi-total-packets');
+    if (pktEl) pktEl.textContent = fmtPackets(totals.packets);
+
+    const bytesEl = document.getElementById('fw-kpi-total-bytes');
+    if (bytesEl) bytesEl.textContent = fmtBytes(totals.bytes);
+
+    const totalPkt = verdicts.reduce((s,v)=>s+toNum(v.packets),0) || 1;
+    const pct = (v)=>Math.round((toNum(v)/totalPkt)*100);
+    const a = verdicts.find(v=>v.verdict==='ACCEPT') || {};
+    const j = verdicts.find(v=>v.verdict==='JUMP')   || {};
+    const d = verdicts.find(v=>v.verdict==='DROP')   || {};
+    const vEl = document.getElementById('fw-kpi-verdicts');
+    if (vEl) vEl.textContent = `A ${pct(a.packets||0)}% • J ${pct(j.packets||0)}% • D ${pct(d.packets||0)}%`;
+
+    const counts = fw.counts || {};
+    const crEl = document.getElementById('fw-kpi-chains-rules');
+    if (crEl) crEl.textContent = `${counts.chains_total || 0} / ${counts.rules_total || counts.rules_shown || 0}`;
+
+    const fwdEl = document.getElementById('fw-kpi-forward-policy');
+    if (fwdEl){
+      const chains = flattenChains();
+      const fwd4 = chains.find(c=>c.family==='ip'  && String(c.hook||'')==='2');
+      const fwd6 = chains.find(c=>c.family==='ip6' && String(c.hook||'')==='2');
+      const pol4 = fwd4?.policy || '—';
+      const pol6 = fwd6?.policy || '—';
+      let html = '';
+      if (pol4 === pol6){
+        html = makePolicyBadge(pol4 === '—' ? '' : pol4);
+      } else {
+        html = `<span class="me-1">${makePolicyBadge(pol4 === '—' ? '' : pol4)}</span><span>${makePolicyBadge(pol6 === '—' ? '' : pol6)}</span>`;
+      }
+      fwdEl.innerHTML = html || '—';
+    }
+  }
+
+  /* ==== helpers: aggregation ==== */
+  function aggregateTrafficByFamily(){
+    const agg = { ip:{packets:0,bytes:0}, ip6:{packets:0,bytes:0} };
+    (fw.tables||[]).forEach(t=>{
+      const fam = t.family || 'ip';
+      (t.chains||[]).forEach(c=>{
+        agg[fam].packets += toNum(c.packet_count);
+        agg[fam].bytes   += toNum(c.byte_count);
+      });
+    });
+    return agg;
+  }
+
+  function analyzeNatMasq(){
+    const natTable = (fw.tables||[]).find(t=>t.name === 'ip/nat');
+    const res = { totalPackets:0, totalBytes:0, rules:0, usedRules:0, unusedRules:0, byIface:{} };
+    if (!natTable) return res;
+    const post = (natTable.chains||[]).find(c=>c.name === 'POSTROUTING');
+    if (!post || !post.rules) return res;
+    post.rules.forEach(r=>{
+      if ((r.verdict||'').toUpperCase() !== 'MASQUERADE') return;
+      res.rules++;
+      const pk = toNum(r.packets);
+      const bt = toNum(r.bytes);
+      res.totalPackets += pk;
+      res.totalBytes   += bt;
+      if (pk === 0 && bt === 0) res.unusedRules++; else res.usedRules++;
+      const iface = r.out_iface || '—';
+      if (!res.byIface[iface]) res.byIface[iface] = {packets:0,bytes:0};
+      res.byIface[iface].packets += pk;
+      res.byIface[iface].bytes   += bt;
+    });
+    return res;
+  }
+
+  function analyzeDockerTraffic(){
+    const chains = flattenChains();
+    const df4 = chains.find(c=>c.family==='ip'  && c.name==='DOCKER-FORWARD');
+    const df6 = chains.find(c=>c.family==='ip6' && c.name==='DOCKER-FORWARD');
+    return {
+      ipv4Packets: toNum(df4?.packet_count),
+      ipv4Bytes:   toNum(df4?.byte_count),
+      ipv6Packets: toNum(df6?.packet_count),
+      ipv6Bytes:   toNum(df6?.byte_count),
+    };
+  }
+
+  function analyzeRulesHealth(){
+    const rules = fw.flat_rules || [];
+    const byChain = {};
+    rules.forEach(r=>{
+      const key = `${r.table}|${r.chain}`;
+      if (!byChain[key]) byChain[key] = [];
+      byChain[key].push(r);
+    });
+    const shadowed = [];
+    const unused = [];
+    Object.values(byChain).forEach(list=>{
+      list.sort((a,b)=>(a.index||0)-(b.index||0));
+      let catchAllIndex = null;
+      list.forEach(r=>{
+        const hasMatch = Array.isArray(r.matches) && r.matches.length > 0;
+        const verdict = (r.verdict||'').toUpperCase();
+        const isCatchAll = !hasMatch && (verdict === 'ACCEPT' || verdict === 'DROP');
+        const idx = r.index || 0;
+
+        if (isCatchAll && catchAllIndex === null){
+          catchAllIndex = idx;
+        } else if (catchAllIndex !== null && idx > catchAllIndex){
+          shadowed.push(r);
+          if (!toNum(r.packets) && !toNum(r.bytes)) unused.push(r);
+        } else if (!toNum(r.packets) && !toNum(r.bytes)){
+          unused.push(r);
+        }
+      });
+    });
+    return { shadowed, unused };
+  }
+
+  /* ==== KPI: extended ==== */
+  function renderExtendedKpis(){
+    if(!ensureFwAvailable()) return;
+
+    // IPv4/IPv6
+    const famAgg = aggregateTrafficByFamily();
+    const v4 = famAgg.ip  || {packets:0,bytes:0};
+    const v6 = famAgg.ip6 || {packets:0,bytes:0};
+    const totalPkt = v4.packets + v6.packets;
+    const totalBytes = v4.bytes + v6.bytes;
+
+    const fEl = document.getElementById('fw-kpi-family-traffic');
+    const fElB = document.getElementById('fw-kpi-family-traffic-bytes');
+    if (fEl && totalPkt > 0){
+      const p4 = percent(v4.packets, totalPkt).toFixed(0);
+      const p6 = percent(v6.packets, totalPkt).toFixed(0);
+      fEl.textContent = `IPv4 ${p4}% • IPv6 ${p6}%`;
+    } else if (fEl){
+      fEl.textContent = '—';
+    }
+    if (fElB && totalBytes > 0){
+      fElB.textContent = `v4 ${fmtBytes(v4.bytes)} • v6 ${fmtBytes(v6.bytes)}`;
+    } else if (fElB){
+      fElB.textContent = '—';
+    }
+
+    // NAT MASQ
+    const natInfo = analyzeNatMasq();
+    const natVal = document.getElementById('fw-kpi-nat-masq');
+    const natNotes = document.getElementById('fw-kpi-nat-masq-notes');
+    if (natVal){
+      natVal.textContent = natInfo.rules ? fmtPackets(natInfo.totalPackets) : '—';
+    }
+    if (natNotes){
+      if (!natInfo.rules){
+        natNotes.textContent = 'MASQUERADE не настроен';
+      } else {
+        const parts = [];
+        parts.push(`${natInfo.rules} правил`);
+        if (natInfo.usedRules)   parts.push(`активных: ${natInfo.usedRules}`);
+        if (natInfo.unusedRules) parts.push(`пустых: ${natInfo.unusedRules}`);
+        natNotes.textContent = parts.join(' • ');
+      }
+    }
+
+    // Docker firewall
+    const dockerInfo = analyzeDockerTraffic();
+    const dk = document.getElementById('fw-kpi-docker');
+    const dkNotes = document.getElementById('fw-kpi-docker-notes');
+    const totalDockerPk = dockerInfo.ipv4Packets + dockerInfo.ipv6Packets;
+    if (dk){
+      dk.textContent = totalDockerPk ? fmtPackets(totalDockerPk) : '—';
+    }
+    if (dkNotes){
+      const pieces = [];
+      if (dockerInfo.ipv4Packets) pieces.push(`IPv4: ${fmtPackets(dockerInfo.ipv4Packets)}`);
+      if (dockerInfo.ipv6Packets) pieces.push(`IPv6: ${fmtPackets(dockerInfo.ipv6Packets)}`);
+      dkNotes.textContent = pieces.length ? pieces.join(' • ') : 'нет docker трафика';
+    }
+
+    // Rules health
+    const health = analyzeRulesHealth();
+    const rh = document.getElementById('fw-kpi-rules-health');
+    const rhNotes = document.getElementById('fw-kpi-rules-health-notes');
+    if (rh){
+      rh.textContent = `${health.shadowed.length} / ${health.unused.length}`;
+    }
+    if (rhNotes){
+      rhNotes.textContent = 'теневые / пустые правила';
+    }
+  }
+
+  /* ==== Graphs: verdicts & top chains ==== */
+  function renderFwVerdicts(){
+    const id = 'fw-verdict-donut';
+    if(!ensureFwAvailable()){ showEmpty(id,true); return; }
+    const verdicts = fw.summary?.by_verdict || [];
+    const packets = verdicts.map(v=>toNum(v.packets));
+    if(!packets.length || packets.every(v=>v===0)){ showEmpty(id,true); return; }
+
+    showEmpty(id,false);
+    const labels = verdicts.map(v=>v.verdict);
+    const colors = labels.map(verdictColor);
+    const bytes  = verdicts.map(v=>toNum(v.bytes));
+    const totalBytes = bytes.reduce((s,x)=>s+x,0) || 1;
+    const mini = verdicts.map((v,i)=>`${v.verdict} ${percent(bytes[i], totalBytes).toFixed(0)}%`).join(' • ');
+    const miniEl = document.getElementById('fw-verdict-bytes-mini');
+    if (miniEl) miniEl.textContent = mini || '—';
+
+    upsertChart(CHARTS, id, ()=>({
+      type:'doughnut',
+      data:{ labels, datasets:[{ data:packets, backgroundColor:colors }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }
+    }));
+  }
+
+  function renderTopChains(metric){
+    const id = 'fw-top-chains';
+    if(!ensureFwAvailable()){ showEmpty(id,true); return; }
+    const chains = flattenChains().filter(c=>toNum(c.packet_count)+toNum(c.byte_count)>0);
+    const sorted = chains.sort((a,b)=>toNum(b[metric]) - toNum(a[metric])).slice(0,10);
+    if(!sorted.length){ showEmpty(id,true); return; }
+    showEmpty(id,false);
+    const labels = sorted.map(c=>`${c.table}/${c.name}`);
+    const data   = sorted.map(c=>toNum(c[metric]));
+    upsertChart(CHARTS, id, ()=>({
+      type:'bar',
+      data:{labels, datasets:[{label:metric, data, backgroundColor:palette[0]}]},
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{legend:{display:false}}
+      }
+    }));
+  }
+
+  /* ==== Graphs: tables & hooks ==== */
+  function renderTableTraffic(){
+    const id='fw-table-traffic';
+    const tables = fw.tables || [];
+    if (!tables.length){ showEmpty(id,true); return; }
+    const agg = {};
+    tables.forEach(t=>{
+      const label = t.name || (t.family || '');
+      if (!agg[label]) agg[label] = {packets:0,bytes:0};
+      (t.chains||[]).forEach(c=>{
+        agg[label].packets += toNum(c.packet_count);
+        agg[label].bytes   += toNum(c.byte_count);
+      });
+    });
+    const entries = Object.entries(agg);
+    if (!entries.length){ showEmpty(id,true); return; }
+    entries.sort((a,b)=>b[1].packets - a[1].packets);
+    const top = entries.slice(0,8);
+    const labels = top.map(e=>e[0]);
+    const data   = top.map(e=>e[1].packets);
+    if (data.every(v=>v===0)){ showEmpty(id,true); return; }
+    showEmpty(id,false);
+    upsertChart(CHARTS, id, ()=>({
+      type:'bar',
+      data:{labels, datasets:[{label:'packets', data}]},
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{legend:{display:false}}
+      }
+    }));
+  }
+
+  function renderHookPipeline(){
+    const id='fw-hook-pipeline';
+    const agg = {'0':{ip:0,ip6:0}, '1':{ip:0,ip6:0}, '2':{ip:0,ip6:0}, '3':{ip:0,ip6:0}, '4':{ip:0,ip6:0}};
+    (fw.tables||[]).forEach(t=>{
+      const fam = t.family || 'ip';
+      (t.chains||[]).forEach(c=>{
+        if (c.hook === undefined || c.hook === null || c.hook === '') return;
+        const h = String(c.hook);
+        if (!agg[h]) agg[h] = {ip:0,ip6:0};
+        agg[h][fam] = (agg[h][fam]||0) + toNum(c.packet_count);
+      });
+    });
+    const labels = [];
+    const data4 = [];
+    const data6 = [];
+    Object.keys(hookNames).forEach(h=>{
+      if (h === '') return;
+      const row = agg[h];
+      if (!row) return;
+      const sum = (row.ip||0)+(row.ip6||0);
+      if (!sum) return;
+      labels.push(hookNames[h]);
+      data4.push(row.ip||0);
+      data6.push(row.ip6||0);
+    });
+    if (!labels.length){ showEmpty(id,true); return; }
+    showEmpty(id,false);
+    upsertChart(CHARTS, id, ()=>({
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'IPv4', data:data4},
+          {label:'IPv6', data:data6},
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        scales:{x:{beginAtZero:true}, y:{beginAtZero:true}},
+        plugins:{legend:{position:'bottom'}}
+      }
+    }));
+  }
+
+  /* ==== Chains ==== */
+  function renderChainsTable(){
+    if(!ensureFwAvailable()) return;
+    const famSel  = document.getElementById('fw-filter-family').value;
+    const hookSel = document.getElementById('fw-filter-hook').value;
+    const polSel  = document.getElementById('fw-filter-policy').value;
+    const pktThr  = toNum(document.getElementById('fw-filter-packets').value||0);
+
+    const tb = document.querySelector('#fw-chains-table tbody');
+    tb.innerHTML = '';
+
+    flattenChains().forEach(ch=>{
+      if (famSel!=='both' && ch.family!==famSel) return;
+      if (hookSel!=='all' && String(ch.hook||'')!==hookSel) return;
+
+      const pol=(ch.policy||'');
+      if (polSel==='none' && pol) return;
+      if (polSel!=='any' && polSel!=='none' && pol!==polSel) return;
+
+      if (toNum(ch.packet_count) < pktThr && toNum(ch.byte_count) < pktThr) return;
+
+      const tr = document.createElement('tr');
+      const rulesLen = (ch.rules||[]).length;
+      tr.innerHTML =
+        `<td>${ch.family}</td>`+
+        `<td>${ch.table}/${ch.name}</td>`+
+        `<td>${hookNames[ch.hook||'']||''}</td>`+
+        `<td>${makePolicyBadge(pol)}</td>`+
+        `<td class="mono">${fmtPackets(ch.packet_count)}</td>`+
+        `<td class="mono">${fmtBytes(ch.byte_count)}</td>`+
+        `<td>${rulesLen}</td>`+
+        `<td><button class="btn btn-xs btn-outline-primary" data-chain="${ch.table}/${ch.name}">Открыть</button></td>`;
+      tb.appendChild(tr);
+    });
+  }
+
+  function renderChainDetail(chainKey){
+    const wrap = document.getElementById('fw-chain-detail');
+    if(!wrap) return;
+    wrap.innerHTML='';
+    if(!chainKey) return;
+    const [table,name] = chainKey.split('/');
+    const ch = flattenChains().find(c=>c.table===table && c.name===name);
+    if(!ch){ wrap.textContent='Chain not found'; return; }
+
+    const meta = `${ch.table}/${ch.name} • ${hookNames[ch.hook||'']||''} • policy ${ch.policy||'—'}`;
+    const counters = `Packets ${fmtPackets(ch.packet_count)} • Bytes ${fmtBytes(ch.byte_count)}`;
+    const ruleBar = (ch.rules||[]).map(r=>r.verdict||'').reduce((acc,v)=>{ acc[v]=(acc[v]||0)+1; return acc; },{});
+    const barHTML = Object.entries(ruleBar).map(([k,v])=>`<span class="badge me-1" style="background:${verdictColor(k)}">${k}: ${v}</span>`).join('');
+
+    wrap.innerHTML =
+      `<div class="card-clean">
+         <div class="card-body">
+           <div class="mb-1"><b>${meta}</b></div>
+           <div class="small-muted mb-2">${counters}</div>
+           <div class="mb-2">${barHTML||''}</div>
+           <div class="table-responsive" style="max-height:260px; overflow:auto">
+             <table class="table table-sm">
+               <thead>
+                 <tr><th>#</th><th>Expr</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr>
+               </thead>
+               <tbody>
+                 ${(ch.rules||[]).map(r=>
+                   `<tr>
+                      <td>${r.index}</td>
+                      <td><span title="${r.expr||''}">${r.expr||''}</span></td>
+                      <td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td>
+                      <td class="mono">${fmtPackets(r.packets)}</td>
+                      <td class="mono">${fmtBytes(r.bytes)}</td>
+                    </tr>`
+                 ).join('')}
+               </tbody>
+             </table>
+           </div>
+         </div>
+       </div>`;
+  }
+
+  /* ==== Rules table ==== */
+  function renderRulesTable(){
+    if(!ensureFwAvailable()) return;
+    const tb = document.querySelector('#fw-rules-table tbody');
+    const term   = (document.getElementById('fw-rules-search').value||'').toLowerCase();
+    const preset = document.getElementById('fw-rules-preset').value;
+    const rules  = fw.flat_rules || [];
+
+    const filtered = rules.filter(r=>{
+      const expr    = (r.expr||'').toLowerCase();
+      const matches = (r.matches||[]).join(' ').toLowerCase();
+      const family  = (r.table||'').split('/')[0];
+
+      if (term && !expr.includes(term) && !matches.includes(term)) return false;
+
+      switch(preset){
+        case 'INPUT-dpt':
+          return r.chain==='INPUT' && expr.includes('dpt=');
+        case 'DOCKER':
+          return (r.chain||'').startsWith('DOCKER');
+        case 'ip-nat':
+          return r.table==='ip/nat' && (r.chain==='PREROUTING' || r.chain==='POSTROUTING');
+        case 'ipv6':
+          return family === 'ip6';
+        case 'DROP':
+          return (r.verdict||'').toUpperCase()==='DROP';
+        default:
+          return true;
+      }
+    });
+
+    tb.innerHTML = filtered.map(r=>{
+      const family = (r.table||'').split('/')[0];
+      const matches = (r.matches||[]).join(', ');
+      return `<tr>
+        <td>${family}</td>
+        <td>${r.table}</td>
+        <td>${r.chain}</td>
+        <td>${r.index}</td>
+        <td><span title="${r.expr||''}">${r.expr||''}</span></td>
+        <td>${matches}</td>
+        <td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td>
+        <td class="mono">${fmtPackets(r.packets)}</td>
+        <td class="mono">${fmtBytes(r.bytes)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ==== Ports (aggregator) ==== */
+  function aggregatePorts(rules){
+    const groups = {};
+    rules.forEach(r=>{
+      const text = `${r.matches||''} ${r.expr||''}`;
+      const m = text.match(/dpt=(\d+)/);
+      if (!m) return;
+      const port = m[1];
+      const protoMatch = text.match(/proto=(tcp|udp)/);
+      const proto = protoMatch ? protoMatch[1] : '—';
+      const key = `${port}-${proto}`;
+      if (!groups[key]) groups[key] = {port,proto,packets:0,bytes:0,count:0,jump:text.includes('JUMP')};
+      groups[key].packets += toNum(r.packets);
+      groups[key].bytes   += toNum(r.bytes);
+      groups[key].count   += 1;
+    });
+    return Object.values(groups).sort((a,b)=>b.packets-a.packets);
+  }
+
+  function renderPortsTopChart(groups){
+    const id='fw-ports-top-chart';
+    const canvas = document.getElementById(id);
+    if(!canvas) return;
+    if (!groups.length){
+      if(CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; }
+      showEmpty(id,true);
+      return;
+    }
+    const top = groups.slice(0,8);
+    const labels = top.map(g=>`${g.port}/${g.proto}`);
+    const data   = top.map(g=>g.packets);
+    if (data.every(v=>v===0)){
+      if(CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; }
+      showEmpty(id,true);
+      return;
+    }
+    showEmpty(id,false);
+    upsertChart(CHARTS, id, ()=>({
+      type:'bar',
+      data:{labels, datasets:[{label:'packets', data}]},
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:false,
+        plugins:{legend:{display:false}}
+      }
+    }));
+  }
+
+  function renderPortsTable(){
+    if(!ensureFwAvailable()) return;
+    const tb = document.querySelector('#fw-ports-input-table tbody');
+    const rules = (fw.flat_rules||[]).filter(r=>r.table==='ip/filter' && r.chain==='INPUT');
+    const groups = aggregatePorts(rules);
+    tb.innerHTML = groups.map(g=>
+      `<tr>
+        <td class="mono">${g.port}</td>
+        <td>${g.proto}</td>
+        <td class="mono">${fmtPackets(g.packets)}</td>
+        <td class="mono">${fmtBytes(g.bytes)}</td>
+        <td>${g.count}</td>
+        <td><span class="badge ${g.packets>0?'bg-success':'bg-secondary'}">${g.packets>0?'traffic':'mute'}</span></td>
+        <td>${g.jump?'JUMP':'direct'}</td>
+      </tr>`
+    ).join('');
+    renderPortsTopChart(groups);
+  }
+
+  function renderPorts6Table(){
+    if(!ensureFwAvailable()) return;
+    const tb = document.querySelector('#fw-ports-input6-table tbody');
+    if (!tb) return;
+    const rules = (fw.flat_rules||[]).filter(r=>r.table==='ip6/filter' && r.chain==='INPUT');
+    const groups = aggregatePorts(rules);
+    tb.innerHTML = groups.map(g=>
+      `<tr>
+        <td class="mono">${g.port}</td>
+        <td>${g.proto}</td>
+        <td class="mono">${fmtPackets(g.packets)}</td>
+        <td class="mono">${fmtBytes(g.bytes)}</td>
+        <td>${g.count}</td>
+        <td><span class="badge ${g.packets>0?'bg-success':'bg-secondary'}">${g.packets>0?'traffic':'mute'}</span></td>
+      </tr>`
+    ).join('');
+  }
+
+  /* ==== NAT ==== */
+  function renderNat(){
+    if(!ensureFwAvailable()) return;
+    const natCards = document.getElementById('fw-nat-cards');
+    natCards.innerHTML='';
+    const natTables = (fw.tables||[]).filter(t=>t.name==='ip/nat');
+    if(!natTables.length) return;
+    const nat = natTables[0];
+    const chainNames = ['PREROUTING','POSTROUTING','OUTPUT'];
+    chainNames.forEach(name=>{
+      const ch = (nat.chains||[]).find(c=>c.name===name);
+      const card = document.createElement('div');
+      card.className='col-md-4 mb-3';
+      card.innerHTML =
+        `<div class="kpi-box">
+           <div class="kpi-box__title">${name}</div>
+           <div class="kpi-box__value mono">${fmtPackets(ch?.packet_count||0)}</div>
+           <div class="kpi-box__muted">${fmtBytes(ch?.byte_count||0)}</div>
+         </div>`;
+      natCards.appendChild(card);
+    });
+
+    const tb = document.querySelector('#fw-nat-table tbody');
+    tb.innerHTML='';
+    (nat.chains||[]).filter(c=>['PREROUTING','POSTROUTING','OUTPUT'].includes(c.name)).forEach(c=>{
+      (c.rules||[]).forEach(r=>{
+        tb.innerHTML +=
+          `<tr>
+             <td>${c.name}</td>
+             <td>${r.index}</td>
+             <td>${r.expr||''}</td>
+             <td>${r.verdict||''}</td>
+             <td class="mono">${fmtPackets(r.packets)}</td>
+             <td class="mono">${fmtBytes(r.bytes)}</td>
+           </tr>`;
+      });
+    });
+  }
+
+  /* ==== Docker ==== */
+  function renderDocker(){
+    if(!ensureFwAvailable()) return;
+    const tb = document.querySelector('#fw-docker-table tbody');
+    const dockerChains = flattenChains().filter(c=>c.name && c.name.startsWith('DOCKER'));
+    tb.innerHTML = dockerChains.map(c=>{
+      const rlen = (c.rules||[]).length;
+      return `<tr>
+        <td>${c.table}/${c.name}</td>
+        <td class="mono">${fmtPackets(c.packet_count)}</td>
+        <td class="mono">${fmtBytes(c.byte_count)}</td>
+        <td>${rlen}</td>
+        <td>${c.packet_count ? '' : 'изолирующая цепь, трафика нет'}</td>
+      </tr>`;
+    }).join('');
+
+    const flow = document.getElementById('fw-docker-flow');
+    const chains = flattenChains();
+    const fwd = chains.find(c=>c.name==='DOCKER-FORWARD' && c.family==='ip');
+    if(flow){
+      const rules = (fwd?.rules||[]).map(r=>`${r.verdict} (${fmtPackets(r.packets)}/${fmtBytes(r.bytes)})`).join(' → ');
+      flow.textContent = rules || 'Нет данных по DOCKER-FORWARD';
+    }
+  }
+
+  /* ==== IPv6 ==== */
+  function renderIpv6(){
+    if(!ensureFwAvailable()) return;
+    const cards = document.getElementById('fw-ipv6-cards');
+    cards.innerHTML='';
+    const t = (fw.tables||[]).find(t=>t.name==='ip6/filter');
+    if(!t) return;
+    const names = ['INPUT','FORWARD','OUTPUT'];
+    names.forEach(n=>{
+      const ch = (t.chains||[]).find(c=>c.name===n);
+      const col = document.createElement('div');
+      col.className='col-md-4 mb-3';
+      const policy = ch?.policy || '';
+      const badge  = makePolicyBadge(policy);
+      col.innerHTML =
+        `<div class="kpi-box">
+           <div class="kpi-box__title">ip6/filter/${n}</div>
+           <div class="kpi-box__value">${badge}</div>
+           <div class="kpi-box__muted">${fmtPackets(ch?.packet_count||0)} / ${fmtBytes(ch?.byte_count||0)}</div>
+         </div>`;
+      cards.appendChild(col);
+    });
+
+    const id='fw-ipv6-verdict-donut';
+    const rules = (t.chains||[]).flatMap(c=>c.rules||[]);
+    const agg = rules.reduce((acc,r)=>{
+      const v = r.verdict || 'other';
+      acc[v] = (acc[v]||0) + toNum(r.packets);
+      return acc;
+    },{});
+    const labels = Object.keys(agg);
+    const data   = Object.values(agg);
+    if(!data.length){ showEmpty(id,true); return; }
+    showEmpty(id,false);
+    upsertChart(CHARTS,id,()=>({
+      type:'doughnut',
+      data:{labels,datasets:[{data,backgroundColor:labels.map(verdictColor)}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
+    }));
+  }
+
+  /* ==== Interface coverage ==== */
+  function renderIfaceCoverage(){
+    const tb = document.querySelector('#fw-iface-coverage-table tbody');
+    if (!tb) return;
+    tb.innerHTML='';
+    const cov = fw.summary?.iface_coverage || {};
+    const iif = new Set(cov.iif || []);
+    const oif = new Set(cov.oif || []);
+    const all = new Set(cov.all || []);
+    if (!all.size){
+      iif.forEach(x=>all.add(x));
+      oif.forEach(x=>all.add(x));
+    }
+    Array.from(all).sort().forEach(name=>{
+      const inMark  = iif.has(name) ? '✓' : '—';
+      const outMark = oif.has(name) ? '✓' : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${inMark}</td><td>${outMark}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+
+  /* ==== Diagnostics ==== */
+  function renderDiagnostics(){
+    if(!ensureFwAvailable()) return;
+    const alerts = document.getElementById('fw-alerts');
+    if (alerts){
+      alerts.innerHTML='';
+      const health = analyzeRulesHealth();
+      if (health.shadowed.length){
+        alerts.innerHTML += `<div class="alert alert-warning">Обнаружено правил после catch-all: ${health.shadowed.length}. Проверьте порядок правил в цепочках.</div>`;
+      }
+      if (health.unused.length){
+        alerts.innerHTML += `<div class="alert alert-info">Правил с нулевыми счётчиками: ${health.unused.length} (могут быть новыми или лишними).</div>`;
+      }
+      const natInfo = analyzeNatMasq();
+      if (natInfo.unusedRules){
+        alerts.innerHTML += `<div class="alert alert-info">NAT MASQUERADE: ${natInfo.unusedRules} правил без трафика.</div>`;
+      }
+    }
+
+    const matrix = document.querySelector('#fw-policy-matrix tbody');
+    if (matrix){
+      matrix.innerHTML='';
+      const chains = flattenChains();
+      ['0','1','2','3','4'].forEach(h=>{
+        const row = document.createElement('tr');
+        const ipv4 = chains.find(c=>c.family==='ip'  && String(c.hook||'')===h);
+        const ipv6 = chains.find(c=>c.family==='ip6' && String(c.hook||'')===h);
+        row.innerHTML =
+          `<td>${hookNames[h]}</td>`+
+          `<td>${makePolicyBadge(ipv4?.policy||'')}</td>`+
+          `<td>${makePolicyBadge(ipv6?.policy||'')}</td>`;
+        matrix.appendChild(row);
+      });
+    }
+  }
+
+  /* ==== Main render ==== */
+  function renderFirewall(){
+    if(!fw || Object.keys(fw).length===0){
+      ensureFwAvailable();
+      return;
+    }
+    renderFwKpis();
+    renderExtendedKpis();
+
+    lazyChart('fw-verdict-donut', renderFwVerdicts);
+    lazyChart('fw-table-traffic', renderTableTraffic);
+    lazyChart('fw-hook-pipeline', renderHookPipeline);
+
+    let metric='packet_count';
+    const topBtn = document.getElementById('fw-top-metric');
+    if(topBtn){
+      topBtn.addEventListener('click',()=>{
+        metric = metric==='packet_count' ? 'byte_count' : 'packet_count';
+        topBtn.textContent = metric==='packet_count' ? 'packets' : 'bytes';
+        renderTopChains(metric);
+      });
+    }
+    renderTopChains(metric);
+
+    ['fw-filter-family','fw-filter-hook','fw-filter-policy','fw-filter-packets'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.addEventListener('input',()=>renderChainsTable());
+    });
+
+    const chainsTable=document.querySelector('#fw-chains-table');
+    if(chainsTable){
+      chainsTable.addEventListener('click',e=>{
+        const target=e.target;
+        const key=target && target.dataset ? target.dataset.chain : null;
+        if(key) renderChainDetail(key);
+      });
+    }
+    renderChainsTable();
+    renderRulesTable();
+    const search=document.getElementById('fw-rules-search');
+    if(search) search.addEventListener('input',renderRulesTable);
+    const presetSel=document.getElementById('fw-rules-preset');
+    if(presetSel) presetSel.addEventListener('change',renderRulesTable);
+
+    renderPortsTable();
+    renderPorts6Table();
+    renderNat();
+    renderDocker();
+    lazyChart('fw-ipv6-verdict-donut', renderIpv6);
+    renderIfaceCoverage();
+    renderDiagnostics();
+  }
 
   renderFirewall();
 
   new ResizeObserver(()=>Object.values(CHARTS).forEach(ch=>{ if (ch) ch.resize(); })).observe(document.body);
-
-  const themeBtn=document.getElementById('theme-toggle');
-  const applyTheme=(mode)=>{
-    if (mode==='dark'){ document.body.classList.add('force-dark'); }
-    else if(mode==='auto'){ document.body.classList.remove('force-dark'); if (window.matchMedia('(prefers-color-scheme: dark)').matches){ document.body.classList.add('force-dark'); }}
-    else { document.body.classList.remove('force-dark'); }
-  };
-  const storedTheme=localStorage.getItem('ui-theme')||'auto';
-  applyTheme(storedTheme);
-  if (themeBtn){
-    themeBtn.textContent = storedTheme==='dark' ? 'Тема: тёмная' : 'Тема: авто';
-    themeBtn.addEventListener('click', ()=>{
-      const current=localStorage.getItem('ui-theme')||'auto';
-      const next = current==='dark' ? 'auto' : 'dark';
-      localStorage.setItem('ui-theme', next);
-      applyTheme(next);
-      themeBtn.textContent = next==='dark' ? 'Тема: тёмная' : 'Тема: авто';
-    });
-  }
 </script>
 {{end}}
