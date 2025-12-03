@@ -1,0 +1,258 @@
+{{ template "layout/base.html" . }}
+
+{{define "head"}}
+<title>NiceSOFT NiceVPN UI — Firewall</title>
+<style>
+  :root{--bg:#f8f9fa; --card:#fff; --muted:#6c757d; --border:#e9ecef; --shadow:0 3px 10px rgba(0,0,0,.05)}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark}
+  }
+  .force-dark{--bg:#0f1115; --card:#171a1f; --muted:#a8b2c1; --border:#2a2e35; --shadow:0 4px 14px rgba(0,0,0,.45); color-scheme:dark; background:var(--bg) !important; color:#e6e8eb !important}
+  body{background:var(--bg)}
+  .kpi-box{border-radius:14px; box-shadow:var(--shadow); padding:16px; background:var(--card); height:100%; border:1px solid var(--border)}
+  .kpi-box__title{font-size:.9rem; color:var(--muted); margin-bottom:.25rem}
+  .kpi-box__value{font-size:1.6rem; font-weight:700; line-height:1.1}
+  .kpi-box__muted{color:var(--muted); font-size:.9rem}
+  .card-clean{border:1px solid var(--border); border-radius:14px; background:var(--card); box-shadow:var(--shadow)}
+  .card-clean .card-header{border-bottom:1px solid var(--border); background:var(--card); border-top-left-radius:14px; border-top-right-radius:14px}
+  .card-clean .card-body{padding:16px}
+  .metric-card{border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,.03); background:var(--card)}
+  .metric-card__header{font-weight:600; margin-bottom:8px}
+  .metric-card .chart-wrap{position:relative; height:220px}
+  .metric-card canvas{width:100% !important; height:100% !important}
+  .status-pill{display:inline-flex; align-items:center; padding:5px 12px; border-radius:999px; font-weight:700; font-size:.9rem; color:#fff; letter-spacing:.03em; text-transform:uppercase}
+  .pill-ok{background:#28a745}
+  .pill-warn{background:#ffc107; color:#212529}
+  .pill-bad{background:#dc3545}
+  .small-muted{font-size:.85rem; color:var(--muted)}
+  .empty-state{display:none; align-items:center; justify-content:center; height:220px; border:2px dashed var(--border); border-radius:10px; color:var(--muted); font-size:.95rem; background:var(--bg)}
+  .empty-state .hint{font-size:.85rem; color:#9aa0a6; margin-left:.5rem}
+  .progress-xs{height:10px}
+  .button-transparent{background:transparent;border:0;padding:0;margin-left:6px}
+  .clippy{opacity:.6}
+  .clippy:hover{opacity:1}
+  .theme-toggle{position:fixed; right:16px; bottom:16px; z-index:999; border-radius:999px; box-shadow:var(--shadow);}
+  .fw-nav{gap:8px; flex-wrap:wrap}
+  .fw-nav a{padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); box-shadow:var(--shadow); color:inherit; text-decoration:none; font-weight:600;}
+  .fw-section{scroll-margin-top:80px;}
+  .pill-muted{background:#6c757d; color:#fff}
+  .mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+</style>
+{{end}}
+
+{{define "body"}}
+<h5 class="mt-4 mb-2">Firewall</h5>
+<div class="d-flex fw-nav mb-3">
+  <a href="#fw-overview">Firewall</a>
+  <a href="#fw-chains">Chains</a>
+  <a href="#fw-rules">Rules</a>
+  <a href="#fw-ports">Ports</a>
+  <a href="#fw-nat">NAT</a>
+  <a href="#fw-docker">Docker</a>
+  <a href="#fw-ipv6">IPv6</a>
+  <a href="#fw-diagnostics">Diagnostics</a>
+</div>
+
+<!-- ===== Firewall Overview ===== -->
+<div id="fw-overview" class="fw-section">
+  <div class="row mb-3">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Всего пакетов</div><div class="kpi-box__value mono" id="fw-kpi-total-packets">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Всего байтов</div><div class="kpi-box__value mono" id="fw-kpi-total-bytes">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Verdicts (pkt)</div><div class="kpi-box__value" id="fw-kpi-verdicts">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Chains / Rules</div><div class="kpi-box__value" id="fw-kpi-chains-rules">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Forward policy</div><div class="kpi-box__value" id="fw-kpi-forward-policy">—</div></div></div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3"><div class="kpi-box"><div class="kpi-box__title">Default route</div><div class="kpi-box__value" id="fw-kpi-default-route">—</div></div></div>
+  </div>
+  <div class="row mb-3">
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between align-items-center">Verdict distribution <span class="small-muted" id="fw-metric-toggle" data-metric="packets">packets</span></div>
+        <div class="chart-wrap"><canvas id="fw-verdict-donut"></canvas></div>
+        <div class="empty-state" data-empty-for="fw-verdict-donut">Нет данных verdicts</div>
+        <div class="mt-2 small-muted">По байтам: <span id="fw-verdict-bytes-mini">—</span></div>
+      </div>
+    </div>
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between align-items-center">Top chains <button class="btn btn-xs btn-outline-secondary" id="fw-top-metric">packets</button></div>
+        <div class="chart-wrap"><canvas id="fw-top-chains"></canvas></div>
+        <div class="empty-state" data-empty-for="fw-top-chains">Нет данных по цепочкам</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fw-chains" class="fw-section card-clean mb-3">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <h3 class="card-title mb-0">Chains</h3>
+    <span class="text-muted small">Фильтр цепочек nftables</span>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-3 mb-2"><label class="small text-muted">Family</label><select class="form-control form-control-sm" id="fw-filter-family"><option value="both">both</option><option value="ip">ip</option><option value="ip6">ip6</option></select></div>
+      <div class="col-md-3 mb-2"><label class="small text-muted">Hook</label><select class="form-control form-control-sm" id="fw-filter-hook"><option value="all">все</option><option value="0">PREROUTING</option><option value="1">INPUT</option><option value="2">FORWARD</option><option value="3">OUTPUT</option><option value="4">POSTROUTING</option></select></div>
+      <div class="col-md-3 mb-2"><label class="small text-muted">Policy</label><select class="form-control form-control-sm" id="fw-filter-policy"><option value="any">any</option><option value="ACCEPT">ACCEPT</option><option value="DROP">DROP</option><option value="none">—</option></select></div>
+      <div class="col-md-3 mb-2"><label class="small text-muted">Packets &gt;=</label><input type="number" class="form-control form-control-sm" id="fw-filter-packets" placeholder="0"></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-chains-table">
+        <thead><tr><th>Family</th><th>Table/Chain</th><th>Hook</th><th>Policy</th><th>Packets</th><th>Bytes</th><th>Rules</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="fw-chain-detail" class="mt-3"></div>
+  </div>
+</div>
+
+<div id="fw-rules" class="fw-section card-clean mb-3">
+  <div class="card-header">
+    <h3 class="card-title mb-0">Rules</h3>
+  </div>
+  <div class="card-body">
+    <div class="row mb-2">
+      <div class="col-md-6 mb-2"><input type="search" class="form-control" id="fw-rules-search" placeholder="Поиск по Expr/Matches"></div>
+      <div class="col-md-6 mb-2"><select class="form-control" id="fw-rules-preset"><option value="">— быстрый фильтр —</option><option value="INPUT-dpt">INPUT &amp; dpt=*</option><option value="DOCKER">DOCKER-*</option><option value="ip-nat">ip/nat (PREROUTING/POSTROUTING)</option><option value="ipv6">IPv6 only</option><option value="DROP">DROP only</option></select></div>
+    </div>
+    <div class="table-responsive" style="max-height:420px; overflow:auto">
+      <table class="table table-sm" id="fw-rules-table">
+        <thead><tr><th>Family</th><th>Table</th><th>Chain</th><th>Index</th><th>Expr</th><th>Matches</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Ports ===== -->
+<div id="fw-ports" class="fw-section card-clean mb-3">
+  <div class="card-header"><h3 class="card-title mb-0">Ports (IPv4/INPUT)</h3></div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-ports-input-table"><thead><tr><th>Port</th><th>Proto</th><th>Packets</th><th>Bytes</th><th>Rules</th><th>Traffic</th><th>Jump path</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NAT ===== -->
+<div id="fw-nat" class="fw-section card-clean mb-3">
+  <div class="card-header"><h3 class="card-title mb-0">NAT</h3></div>
+  <div class="card-body">
+    <div id="fw-nat-cards" class="row mb-3"></div>
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-nat-table"><thead><tr><th>Chain</th><th>Index</th><th>Expr</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Docker ===== -->
+<div id="fw-docker" class="fw-section card-clean mb-3">
+  <div class="card-header"><h3 class="card-title mb-0">Docker</h3></div>
+  <div class="card-body">
+    <div id="fw-docker-flow" class="mb-3"></div>
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-docker-table"><thead><tr><th>Chain</th><th>Packets</th><th>Bytes</th><th>Rules</th><th>Notes</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IPv6 ===== -->
+<div id="fw-ipv6" class="fw-section card-clean mb-3">
+  <div class="card-header"><h3 class="card-title mb-0">IPv6</h3></div>
+  <div class="card-body">
+    <div id="fw-ipv6-cards" class="row mb-3"></div>
+    <div class="metric-card"><div class="chart-wrap"><canvas id="fw-ipv6-verdict-donut"></canvas></div><div class="empty-state" data-empty-for="fw-ipv6-verdict-donut">Нет данных IPv6</div></div>
+  </div>
+</div>
+
+<!-- ===== Diagnostics ===== -->
+<div id="fw-diagnostics" class="fw-section card-clean mb-4">
+  <div class="card-header"><h3 class="card-title mb-0">Diagnostics</h3></div>
+  <div class="card-body">
+    <div id="fw-alerts" class="mb-3"></div>
+    <div class="table-responsive">
+      <table class="table table-sm" id="fw-policy-matrix"><thead><tr><th>Hook</th><th>IPv4</th><th>IPv6</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="card-clean mt-3 mb-4">
+  <div class="card-header"><h3 class="card-title mb-0">Отладка метрик firewall</h3></div>
+  <div class="card-body">
+    <pre id="firewall-debug" class="bg-light p-3 small" style="max-height:320px; overflow:auto">{{ tojson .firewall }}</pre>
+  </div>
+</div>
+
+<button type="button" class="btn btn-light theme-toggle" id="theme-toggle">Тема</button>
+
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+  const fw = {{ tojson .firewall }} || {};
+  const palette = ['#17a2b8', '#28a745', '#6f42c1', '#ffc107', '#e83e8c', '#20c997'];
+  const CHARTS = {};
+
+  function showEmpty(id, show=true){
+    const canvas = document.getElementById(id);
+    const empty = document.querySelector(`[data-empty-for="${id}"]`);
+    if (canvas) canvas.style.display = show ? 'none' : 'block';
+    if (empty)  empty.style.display  = show ? 'flex' : 'none';
+  }
+  function upsertChart(store, id, makeConfig){
+    const ctx = document.getElementById(id); if(!ctx) return null;
+    const cfg = makeConfig();
+    if (store[id]) { store[id].data = cfg.data; store[id].options = cfg.options||store[id].options; store[id].update(); return store[id]; }
+    store[id] = new Chart(ctx, cfg); return store[id];
+  }
+  function lazyChart(id, renderFn){
+    const el = document.getElementById(id); if(!el) return;
+    const io = new IntersectionObserver(es=>{
+      es.forEach(e=>{ if(e.isIntersecting){ renderFn(); io.disconnect(); } });
+    }, {root:null, rootMargin:'200px', threshold:.01});
+    io.observe(el);
+  }
+  const percent = (part,total)=>{ if (!total) return 0; return Math.max(0, Math.min(100, (part/total)*100)); };
+  const toNum = (x)=>{ const n=Number(x||0); return Number.isFinite(n)? n : 0; };
+  const fmtPackets = (v)=>{ const n=Number(v||0); if (n>=1e6) return `${(n/1e6).toFixed(1)}M`; if (n>=1e3) return `${(n/1e3).toFixed(1)}K`; return String(n); };
+  const fmtBytes = (v)=>{ const n=Number(v||0); const kb=1024, mb=kb*1024, gb=mb*1024; if (n>=gb) return `${(n/gb).toFixed(1)} GB`; if (n>=mb) return `${(n/mb).toFixed(1)} MB`; if (n>=kb) return `${(n/kb).toFixed(1)} KB`; return `${n} B`; };
+  const verdictColor = (v)=>{ switch((v||'').toUpperCase()){ case 'ACCEPT': return '#28a745'; case 'DROP': return '#dc3545'; case 'JUMP': return '#0d6efd'; case 'RETURN': return '#6f42c1'; default: return '#6c757d'; } };
+  const hookNames = {"0":"PREROUTING","1":"INPUT","2":"FORWARD","3":"OUTPUT","4":"POSTROUTING","":""};
+  const makePolicyBadge = (pol)=>{ if(!pol) return '—'; const cls = pol==='ACCEPT'?'badge bg-success':'badge bg-danger'; return `<span class="${cls}">${pol}</span>`; };
+  const flattenChains = ()=>{ const out=[]; (fw.tables||[]).forEach(t=>{ (t.chains||[]).forEach(c=>out.push({table:t.name,family:t.family,...c})); }); return out; };
+
+  function ensureFwAvailable(){ const has = fw && fw.summary; if (has) return true; document.querySelectorAll('.fw-section').forEach(s=>{ s.querySelectorAll('.empty-state').forEach(es=>es.style.display='flex'); }); return false; }
+  function renderFwKpis(){ if(!ensureFwAvailable()) return; const totals=fw.summary?.totals||{}; document.getElementById('fw-kpi-total-packets').textContent=fmtPackets(totals.packets); document.getElementById('fw-kpi-total-bytes').textContent=fmtBytes(totals.bytes); const verdicts=fw.summary?.by_verdict||[]; const totalPkt=verdicts.reduce((s,v)=>s+toNum(v.packets),0)||1; const pct = (v)=>Math.round((toNum(v)/totalPkt)*100); const a=verdicts.find(v=>v.verdict==='ACCEPT')||{}; const j=verdicts.find(v=>v.verdict==='JUMP')||{}; const d=verdicts.find(v=>v.verdict==='DROP')||{}; const r=verdicts.find(v=>v.verdict==='RETURN')||{}; document.getElementById('fw-kpi-verdicts').textContent=`A ${pct(a.packets||0)}% • J ${pct(j.packets||0)}% • D ${pct(d.packets||0)}%`; const counts=fw.counts||{}; document.getElementById('fw-kpi-chains-rules').textContent=`${counts.chains_total||0} / ${counts.rules_total||counts.rules_shown||0}`; const fwd=document.getElementById('fw-kpi-forward-policy'); if(fw.has_forward_policy_accept){ fwd.innerHTML='<span class="badge bg-success">ACCEPT</span>'; } else if(fw.has_forward_policy_drop){ fwd.innerHTML='<span class="badge bg-danger">DROP</span>'; } else { fwd.textContent='—'; } const def=document.getElementById('fw-kpi-default-route'); if(def){ const has=!!fw.has_default_route; def.innerHTML=`<span class="badge ${has?'pill-ok':'pill-warn'}">${has?'on':'off'}</span>`; } }
+  function renderFwVerdicts(){ const id='fw-verdict-donut'; if(!ensureFwAvailable()) { showEmpty(id,true); return; } const verdicts=fw.summary?.by_verdict||[]; const packets=verdicts.map(v=>toNum(v.packets)); if(!packets.length || packets.every(v=>v===0)){ showEmpty(id,true); return; } showEmpty(id,false); const labels=verdicts.map(v=>v.verdict); const colors=labels.map(verdictColor); const bytes=verdicts.map(v=>toNum(v.bytes)); document.getElementById('fw-verdict-bytes-mini').textContent = verdicts.map((v,i)=>`${v.verdict} ${percent(bytes[i], bytes.reduce((s,x)=>s+x,0)||1).toFixed(0)}%`).join(' • '); upsertChart(CHARTS, id, ()=>({ type:'doughnut', data:{ labels, datasets:[{ data:packets, backgroundColor:colors }]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }})); }
+  function renderTopChains(metric){ const id='fw-top-chains'; if(!ensureFwAvailable()) { showEmpty(id,true); return; } const chains=flattenChains().filter(c=>toNum(c.packet_count)+toNum(c.byte_count)>0); const sorted=chains.sort((a,b)=> toNum(b[metric]) - toNum(a[metric])).slice(0,10); if(!sorted.length){ showEmpty(id,true); return; } showEmpty(id,false); const labels=sorted.map(c=>`${c.table}/${c.name}`); const data=sorted.map(c=>toNum(c[metric])); upsertChart(CHARTS,id,()=>({ type:'bar', data:{labels, datasets:[{label:metric, data, backgroundColor:palette[0]}]}, options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}} }})); }
+  function renderChainsTable(){ if(!ensureFwAvailable()) return; const famSel=document.getElementById('fw-filter-family').value; const hookSel=document.getElementById('fw-filter-hook').value; const polSel=document.getElementById('fw-filter-policy').value; const pktThr=toNum(document.getElementById('fw-filter-packets').value||0); const tb=document.querySelector('#fw-chains-table tbody'); tb.innerHTML=''; flattenChains().forEach(ch=>{ if(famSel!=='both' && ch.family!==famSel) return; if(hookSel!=='all' && String(ch.hook||'')!==hookSel) return; const pol=(ch.policy||''); if(polSel==='none' && pol) return; if(polSel!=='any' && polSel!=='none' && pol!==polSel) return; if(toNum(ch.packet_count)<pktThr && toNum(ch.byte_count)<pktThr) return; const tr=document.createElement('tr'); const rulesLen=(ch.rules||[]).length; tr.innerHTML=`<td>${ch.family}</td><td>${ch.table}/${ch.name}</td><td>${hookNames[ch.hook||'']||''}</td><td>${makePolicyBadge(pol)}</td><td class="mono">${fmtPackets(ch.packet_count)}</td><td class="mono">${fmtBytes(ch.byte_count)}</td><td>${rulesLen}</td><td><button class="btn btn-xs btn-outline-primary" data-chain="${ch.table}/${ch.name}">Открыть</button></td>`; tb.appendChild(tr); }); }
+  function renderChainDetail(chainKey){ const wrap=document.getElementById('fw-chain-detail'); if(!wrap) return; wrap.innerHTML=''; if(!chainKey) return; const [table,name]=chainKey.split('/'); const ch=flattenChains().find(c=>c.table===table && c.name===name); if(!ch){ wrap.textContent='Chain not found'; return; } const meta=`${ch.table}/${ch.name} • ${hookNames[ch.hook||'']||''} • policy ${ch.policy||'—'}`; const counters=`Packets ${fmtPackets(ch.packet_count)} • Bytes ${fmtBytes(ch.byte_count)}`; const ruleBar=(ch.rules||[]).map(r=>r.verdict||'').reduce((acc,v)=>{ acc[v]=(acc[v]||0)+1; return acc; },{}); const barHTML=Object.entries(ruleBar).map(([k,v])=>`<span class="badge me-1" style="background:${verdictColor(k)}">${k}: ${v}</span>`).join(''); wrap.innerHTML=`<div class="card-clean"><div class="card-body"><div class="mb-1"><b>${meta}</b></div><div class="small-muted mb-2">${counters}</div><div class="mb-2">${barHTML||''}</div><div class="table-responsive" style="max-height:260px; overflow:auto"><table class="table table-sm"><thead><tr><th>#</th><th>Expr</th><th>Verdict</th><th>Packets</th><th>Bytes</th></tr></thead><tbody>${(ch.rules||[]).map(r=>`<tr><td>${r.index}</td><td><span title="${r.expr||''}">${r.expr||''}</span></td><td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`).join('')}</tbody></table></div></div></div>`; }
+  function renderRulesTable(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-rules-table tbody'); const term=(document.getElementById('fw-rules-search').value||'').toLowerCase(); const preset=document.getElementById('fw-rules-preset').value; const rules=fw.flat_rules||[]; const filtered=rules.filter(r=>{ const expr=(r.expr||'').toLowerCase(); const matches=(r.matches||[]).join(' ').toLowerCase(); const family=r.table?.split('/')[0]; if(term && !expr.includes(term) && !matches.includes(term)) return false; switch(preset){ case 'INPUT-dpt': return r.chain==='INPUT' && expr.includes('dpt='); case 'DOCKER': return r.chain?.startsWith('DOCKER'); case 'ip-nat': return r.table==='ip/nat' && (r.chain==='PREROUTING' || r.chain==='POSTROUTING'); case 'ipv6': return family==='ip6'; case 'DROP': return (r.verdict||'').toUpperCase()==='DROP'; default: return true; } }); tb.innerHTML=filtered.map(r=>{ const family=(r.table||'').split('/')[0]; const matches=(r.matches||[]).join(', '); return `<tr><td>${family}</td><td>${r.table}</td><td>${r.chain}</td><td>${r.index}</td><td><span title="${r.expr||''}">${r.expr||''}</span></td><td>${matches}</td><td><span class="badge" style="background:${verdictColor(r.verdict)}">${r.verdict||''}</span></td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`; }).join(''); }
+  function renderPortsTable(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-ports-input-table tbody'); const rules=(fw.flat_rules||[]).filter(r=>r.table==='ip/filter' && r.chain==='INPUT'); const groups={}; rules.forEach(r=>{ const text=`${r.matches||''} ${r.expr||''}`; const m=text.match(/dpt=(\d+)/); if(!m) return; const port=m[1]; const protoMatch=text.match(/proto=(tcp|udp)/); const proto=protoMatch?protoMatch[1]:'—'; const key=`${port}-${proto}`; if(!groups[key]) groups[key]={port,proto,packets:0,bytes:0,count:0,jump:text.includes('JUMP')}; groups[key].packets+=toNum(r.packets); groups[key].bytes+=toNum(r.bytes); groups[key].count+=1; }); tb.innerHTML=Object.values(groups).sort((a,b)=>b.packets-a.packets).map(g=>`<tr><td class="mono">${g.port}</td><td>${g.proto}</td><td class="mono">${fmtPackets(g.packets)}</td><td class="mono">${fmtBytes(g.bytes)}</td><td>${g.count}</td><td><span class="badge ${g.packets>0?'bg-success':'bg-secondary'}">${g.packets>0?'traffic':'mute'}</span></td><td>${g.jump?'JUMP':'direct'}</td></tr>`).join(''); }
+  function renderNat(){ if(!ensureFwAvailable()) return; const natCards=document.getElementById('fw-nat-cards'); natCards.innerHTML=''; const natTables=(fw.tables||[]).filter(t=>t.name==='ip/nat'); if(!natTables.length) return; const chainNames=['PREROUTING','POSTROUTING','OUTPUT']; chainNames.forEach(name=>{ const ch=natTables[0].chains?.find(c=>c.name===name); const card=document.createElement('div'); card.className='col-md-4 mb-3'; card.innerHTML=`<div class="kpi-box"><div class="kpi-box__title">${name}</div><div class="kpi-box__value mono">${fmtPackets(ch?.packet_count)}</div><div class="kpi-box__muted">${fmtBytes(ch?.byte_count)}</div></div>`; natCards.appendChild(card); }); const tb=document.querySelector('#fw-nat-table tbody'); tb.innerHTML=''; (natTables[0].chains||[]).filter(c=>['PREROUTING','POSTROUTING','OUTPUT'].includes(c.name)).forEach(c=>{ (c.rules||[]).forEach(r=>{ tb.innerHTML += `<tr><td>${c.name}</td><td>${r.index}</td><td>${r.expr||''}</td><td>${r.verdict||''}</td><td class="mono">${fmtPackets(r.packets)}</td><td class="mono">${fmtBytes(r.bytes)}</td></tr>`; }); }); }
+  function renderDocker(){ if(!ensureFwAvailable()) return; const tb=document.querySelector('#fw-docker-table tbody'); const dockerChains=flattenChains().filter(c=>c.name && c.name.startsWith('DOCKER')); tb.innerHTML=dockerChains.map(c=>{ const rlen=(c.rules||[]).length; return `<tr><td>${c.table}/${c.name}</td><td class=\"mono\">${fmtPackets(c.packet_count)}</td><td class=\"mono\">${fmtBytes(c.byte_count)}</td><td>${rlen}</td><td>${c.packet_count?'' :'изолирующая цепь, трафика нет'}</td></tr>`; }).join(''); const flow=document.getElementById('fw-docker-flow'); const fwd=flattenChains().find(c=>c.name==='DOCKER-FORWARD'); if(flow){ const rules=(fwd?.rules||[]).map(r=>`${r.verdict} (${fmtPackets(r.packets)}/${fmtBytes(r.bytes)})`).join(' → '); flow.textContent = rules || 'Нет данных по DOCKER-FORWARD'; } }
+  function renderIpv6(){ if(!ensureFwAvailable()) return; const cards=document.getElementById('fw-ipv6-cards'); cards.innerHTML=''; const t=(fw.tables||[]).find(t=>t.name==='ip6/filter'); if(!t) return; const names=['INPUT','FORWARD','OUTPUT']; names.forEach(n=>{ const ch=t.chains?.find(c=>c.name===n); const col=document.createElement('div'); col.className='col-md-4 mb-3'; const policy=ch?.policy||''; const badge=makePolicyBadge(policy); col.innerHTML=`<div class="kpi-box"><div class="kpi-box__title">ip6/filter/${n}</div><div class="kpi-box__value">${badge}</div><div class="kpi-box__muted">${fmtPackets(ch?.packet_count)} / ${fmtBytes(ch?.byte_count)}</div></div>`; cards.appendChild(col); }); const id='fw-ipv6-verdict-donut'; const rules=(t.chains||[]).flatMap(c=>c.rules||[]); const agg=rules.reduce((acc,r)=>{ const v=r.verdict||'other'; acc[v]=(acc[v]||0)+toNum(r.packets); return acc; },{}); const labels=Object.keys(agg); const data=Object.values(agg); if(!data.length){ showEmpty(id,true); return; } showEmpty(id,false); upsertChart(CHARTS,id,()=>({type:'doughnut', data:{labels,datasets:[{data,backgroundColor:labels.map(verdictColor)}]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}})); }
+  function renderDiagnostics(){ if(!ensureFwAvailable()) return; const alerts=document.getElementById('fw-alerts'); const warn=fw.warnings||{}; const make=(type,msg)=>`<div class="alert ${type==='Critical'?'alert-danger':type==='Warning'?'alert-warning':'alert-info'}">${msg}</div>`; alerts.innerHTML=''; (warn.openvpn||[]).forEach(m=>alerts.innerHTML+=make('Critical',m)); (warn.policy||[]).forEach(m=>alerts.innerHTML+=make('Warning',m)); (warn.routing||[]).forEach(m=>alerts.innerHTML+=make('Warning',m)); (warn.parser||[]).forEach(m=>alerts.innerHTML+=make('Info',m)); const matrix=document.querySelector('#fw-policy-matrix tbody'); matrix.innerHTML=''; ['0','1','2','3','4'].forEach(h=>{ const row=document.createElement('tr'); const ipv4=flattenChains().find(c=>c.family==='ip' && String(c.hook||'')===h); const ipv6=flattenChains().find(c=>c.family==='ip6' && String(c.hook||'')===h); row.innerHTML=`<td>${hookNames[h]}</td><td>${makePolicyBadge(ipv4?.policy||'')}</td><td>${makePolicyBadge(ipv6?.policy||'')}</td>`; matrix.appendChild(row); }); }
+  function renderFirewall(){ if(!fw || Object.keys(fw).length===0){ ensureFwAvailable(); return; } renderFwKpis(); lazyChart('fw-verdict-donut', renderFwVerdicts); let metric='packet_count'; const topBtn=document.getElementById('fw-top-metric'); if(topBtn){ topBtn.addEventListener('click',()=>{ metric= metric==='packet_count' ? 'byte_count' : 'packet_count'; topBtn.textContent = metric==='packet_count'?'packets':'bytes'; renderTopChains(metric); }); }
+    renderTopChains(metric); ['fw-filter-family','fw-filter-hook','fw-filter-policy','fw-filter-packets'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',()=>renderChainsTable()); }); const chainsTable=document.querySelector('#fw-chains-table'); if(chainsTable){ chainsTable.addEventListener('click',e=>{ const target=e.target; const key=target && target.dataset ? target.dataset.chain : null; if(key) renderChainDetail(key); }); } renderChainsTable(); renderRulesTable(); const search=document.getElementById('fw-rules-search'); if(search) search.addEventListener('input',renderRulesTable); const presetSel=document.getElementById('fw-rules-preset'); if(presetSel) presetSel.addEventListener('change',renderRulesTable); renderPortsTable(); renderNat(); renderDocker(); lazyChart('fw-ipv6-verdict-donut', renderIpv6); renderDiagnostics(); }
+
+  renderFirewall();
+
+  new ResizeObserver(()=>Object.values(CHARTS).forEach(ch=>{ if (ch) ch.resize(); })).observe(document.body);
+
+  const themeBtn=document.getElementById('theme-toggle');
+  const applyTheme=(mode)=>{
+    if (mode==='dark'){ document.body.classList.add('force-dark'); }
+    else if(mode==='auto'){ document.body.classList.remove('force-dark'); if (window.matchMedia('(prefers-color-scheme: dark)').matches){ document.body.classList.add('force-dark'); }}
+    else { document.body.classList.remove('force-dark'); }
+  };
+  const storedTheme=localStorage.getItem('ui-theme')||'auto';
+  applyTheme(storedTheme);
+  if (themeBtn){
+    themeBtn.textContent = storedTheme==='dark' ? 'Тема: тёмная' : 'Тема: авто';
+    themeBtn.addEventListener('click', ()=>{
+      const current=localStorage.getItem('ui-theme')||'auto';
+      const next = current==='dark' ? 'auto' : 'dark';
+      localStorage.setItem('ui-theme', next);
+      applyTheme(next);
+      themeBtn.textContent = next==='dark' ? 'Тема: тёмная' : 'Тема: авто';
+    });
+  }
+</script>
+{{end}}

@@ -23,6 +23,7 @@ func Init(configDir string) {
 	web.Router("/settings", &controllers.SettingsController{})
 	web.Router("/ov/config", &controllers.OVConfigController{})
         web.Router("/logs", &controllers.LogsController{})
+        web.Router("/firewall", &controllers.FirewallController{})
         web.Router("/ov/clientconfig", &controllers.OVClientConfigController{ConfigDir: configDir})
         web.Router("/easyrsa/config", &controllers.EasyRSAConfigController{ConfigDir: configDir})
         web.Router("/dangerzone", &controllers.DangerController{})
