@@ -1428,7 +1428,6 @@ func parseRule(
                 if len(ipMask) > 0 {
                     mask := net.IPMask(ipMask)
                     ones, bits := mask.Size()
-                    // Если маска не /32 и не /128 — показываем как сеть
                     if ones > 0 && bits > 0 && ones < bits {
                         text = (&net.IPNet{IP: ip, Mask: mask}).String()
                     }
@@ -1447,7 +1446,7 @@ func parseRule(
                 ipMatchPending = false
                 ipMask = nil
 
-            // Fallback: голые IP без маски (на всякий случай)
+            // Fallback: голые IP без маски
             case strings.HasPrefix(expectCmp, "ip") && (len(e.Data) == 4 || len(e.Data) == 16):
                 ip := net.IP(e.Data).String()
                 switch expectCmp {
@@ -1492,8 +1491,6 @@ func parseRule(
 
         case *expr.Verdict:
             lastField = ""
-            // Если уже увидели NAT-таргет (MASQUERADE/SNAT/DNAT/REDIRECT),
-            // не перетираем его ACCEPT/RETURN и т.п.
             if natTargetSeen {
                 break
             }
@@ -1514,36 +1511,39 @@ func parseRule(
             default:
                 // оставляем как есть
             }
-	}
 
-	out := NFTRule{
-		Matches:    matches,
-		Verdict:    verdict,
-		JumpTarget: jumpTarget,
-		Packets:    pkts,
-		Bytes:      byteCount,
-		Tags:       tags,
-		Proto:      l4proto,
-		Src:        srcIP,
-		Dst:        dstIP,
-		InIface:    inIface,
-		OutIface:   outIface,
-	}
+        default:
+            tn := fmt.Sprintf("%T", e)
+            unhandledTypes[tn] = true
+        }
+    } // <- закрываем for/switch блоки
 
-	if varSport != nil {
-		out.Sport = varSport
-	}
-	if varDport != nil {
-		out.Dport = varDport
-	}
+    out := NFTRule{
+        Matches:    matches,
+        Verdict:    verdict,
+        JumpTarget: jumpTarget,
+        Packets:    pkts,
+        Bytes:      byteCount,
+        Tags:       tags,
+        Proto:      l4proto,
+        Src:        srcIP,
+        Dst:        dstIP,
+        InIface:    inIface,
+        OutIface:   outIface,
+    }
 
-	// Для NAT-правил (MASQUERADE/SNAT/DNAT) без явного протокола
-	// считаем протокол "all" — так ближе к выводу iptables.
-	if out.Proto == "" && (out.Verdict == "MASQUERADE" || out.Verdict == "SNAT" || out.Verdict == "DNAT") {
-		out.Proto = "all"
-	}
+    if varSport != nil {
+        out.Sport = varSport
+    }
+    if varDport != nil {
+        out.Dport = varDport
+    }
 
-	return out, warns
+    if out.Proto == "" && (out.Verdict == "MASQUERADE" || out.Verdict == "SNAT" || out.Verdict == "DNAT") {
+        out.Proto = "all"
+    }
+
+    return out, warns
 }
 
 // be16 — big-endian → uint16
