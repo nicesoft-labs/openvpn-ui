@@ -250,6 +250,7 @@ type NFTRule struct {
 	Index       int      `json:"index"`
 	Expr        string   `json:"expr"`
 	Verdict     string   `json:"verdict"`
+	JumpTarget  string   `json:"jump_target,omitempty"`
 	Matches     []string `json:"matches"`
 	Packets     uint64   `json:"packets"`
 	Bytes       uint64   `json:"bytes"`
@@ -1186,6 +1187,7 @@ func parseRule(
 	var (
                 matches   []string
                 verdict   string
+				jumpTarget string
                 pkts      uint64
                 byteCount uint64
                 tags      []string
@@ -1382,6 +1384,9 @@ func parseRule(
 				if verdict == "" {
 					verdict = "JUMP"
 				}
+				if e.Chain != "" {
+	                jumpTarget = e.Chain   // <— ВОТ ЗДЕСЬ
+	            }
 			default:
 				// оставляем как есть
 			}
@@ -1395,6 +1400,7 @@ func parseRule(
         out := NFTRule{
                 Matches:  matches,
                 Verdict:  verdict,
+			    JumpTarget: jumpTarget,
                 Packets:  pkts,
                 Bytes:    byteCount,
                 Tags:     tags,
