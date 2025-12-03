@@ -1213,6 +1213,8 @@ func parseRule(
 		// IP-адрес с возможной маской (для сетей 10.8.0.0/16 и т.п.)
 		ipMatchPending bool   // ждём Cmp для IP после Payload(+Bitwise)
 		ipMask         []byte // маска из Bitwise
+		// Признак, что таргет уже выбран NAT-экшеном (MASQUERADE/SNAT/DNAT)
+		natTargetSeen bool
 	)
 
 	_ = family
@@ -1294,13 +1296,39 @@ func parseRule(
 			pkts += e.Packets
 			byteCount += e.Bytes
 
-        case *expr.Masq:
-            // Нативный nft masquerade
-            verdict = "MASQUERADE"
-            if !contains(tags, TagMasq) {
-                tags = append(tags, TagMasq)
-            }
+		case *expr.Masq:
+			// Явный MASQUERADE
+			verdict = "MASQUERADE"
+			if !contains(tags, TagMasq) {
+				tags = append(tags, TagMasq)
+			}
+			natTargetSeen = true
 
+		case *expr.NAT:
+			// NAT-экшены: SNAT/DNAT/MASQUERADE
+			switch e.Type {
+			case expr.NATTypeSource:
+				// Source NAT (SNAT / MASQUERADE)
+				if e.Flags&expr.NATFlagMasq != 0 {
+					verdict = "MASQUERADE"
+					if !contains(tags, TagMasq) {
+						tags = append(tags, TagMasq)
+					}
+				} else {
+					verdict = "SNAT"
+				}
+			case expr.NATTypeDest:
+				// Destination NAT (DNAT)
+				verdict = "DNAT"
+			default:
+				// на всякий случай
+				if verdict == "" {
+					verdict = "NAT"
+				}
+			}
+			natTargetSeen = true
+
+			
         case *expr.Redir:
             // Нативный nft redirect
             verdict = "REDIRECT"
@@ -1486,6 +1514,11 @@ func parseRule(
 
 		case *expr.Verdict:
 			lastField = ""
+			// Если уже увидели NAT-таргет (MASQUERADE/SNAT/DNAT),
+			// не перетираем его ACCEPT/RETURN и т.п.
+			if natTargetSeen {
+				break
+			}
 			switch e.Kind {
 			case expr.VerdictAccept:
 				verdict = "ACCEPT"
