@@ -1,78 +1,194 @@
 {{ template "layout/base.html" . }}
 
 {{define "head"}}
-<title>UI Settings</title>
+<title>NiceSOFT NiceVPN UI — Настройки интерфейса</title>
+<style>
+  body{
+    background:#f8f9fa;
+  }
+
+  .card-clean{
+    border:1px solid #e9ecef;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 3px 10px rgba(0,0,0,.04);
+  }
+  .card-clean .card-header{
+    border-bottom:1px solid #eef1f4;
+    background:#fff;
+    border-top-left-radius:14px;
+    border-top-right-radius:14px;
+    padding:14px 18px;
+  }
+  .card-clean .card-body{
+    padding:18px;
+  }
+
+  .section-title{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    margin:0;
+    font-size:1.05rem;
+    font-weight:600;
+  }
+  .section-subtitle{
+    font-size:.9rem;
+    color:#6c757d;
+    margin-top:.25rem;
+  }
+
+  .form-group{
+    margin-bottom:1rem;
+  }
+  .card .card-body > .form-group + .form-group{
+    margin-top:.875rem;
+  }
+
+  .form-help{
+    font-size:.9rem;
+    color:#6c757d;
+    display:block;
+    margin-top:.25rem;
+  }
+
+  .input-group-text{
+    background:#f8f9fa;
+    border-color:#e0e4ea;
+  }
+
+  .settings-badge{
+    font-size:.75rem;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#6c757d;
+  }
+
+  .btn-primary{
+    border-radius:999px;
+  }
+</style>
 {{end}}
 
 {{define "body"}}
-<div class="card card-default">
-  <div class="card-header with-border">
-    <h3 class="card-title">OpenVPN UI settings</h3>
-    <div class="pull-right card-tools">
-      <button type="button" class="btn btn-tool" data-card-widget="collapse">
-        <i class="fa fa-minus"></i></button>
+<h5 class="mt-4 mb-3">Настройки интерфейса</h5>
+
+<div class="card-clean mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <h3 class="card-title section-title">
+        Настройки OpenVPN UI
+      </h3>
     </div>
+    <span class="settings-badge d-none d-md-inline">Интерфейс управления</span>
   </div>
-  <!-- /.card-header -->
-  <!-- form start -->
+
   <div class="card-body">
-  {{template "common/alert.html" .}}
-  <form role="form" action="{{urlfor "SettingsController.Login"}}" method="post">
-    <div class="card-body">
-      <!-- Disabled Profile - yet another feature to implement.
-      <div class="form-group">
-        <label for="name">Profile</label>
-        <input type="text" class="form-control" id="Profile" disabled
-          value=" {{ .Settings.Profile }} ">
-      </div>
-      Disabled profile -->
-      <div class="form-group">
-        <label class="col-form-label" for="name">Management interface address</label>
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text"><i class="fas fa-gear"></i></span>
-          </div>
-          <input type="text" class="form-control" id="MIAddress" title="OpenVPN management interface address."  name="MIAddress" placeholder="openvpn:2080" value="{{ .Settings.MIAddress }}">
-        </div>
-      </div>
+    {{template "common/alert.html" .}}
 
-      <div class="form-group">
-        <label class="col-form-label" for="name">Management interface protocol</label>
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text"><i class="fa fa-exchange"></i></span>
+    <form role="form" action="{{urlfor "SettingsController.Login"}}" method="post">
+      <div class="row">
+        <!-- Левая колонка: интерфейс управления -->
+        <div class="col-lg-6 col-md-12">
+          <div class="form-group">
+            <label class="col-form-label" for="MIAddress">Адрес интерфейса управления</label>
+            <div class="input-group mb-1">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fas fa-gear"></i></span>
+              </div>
+              <input
+                type="text"
+                class="form-control"
+                id="MIAddress"
+                name="MIAddress"
+                title="Адрес интерфейса управления OpenVPN."
+                placeholder="openvpn:2080"
+                value="{{ .Settings.MIAddress }}">
+            </div>
+            <span class="form-help">
+              Формат: <code>host:port</code>. Примеры: <code>openvpn:2080</code>, <code>127.0.0.1:2080</code>.
+              Этот адрес будет использоваться UI для подключения к Management Interface.
+            </span>
           </div>
-          <input type="text" class="form-control" id="MINetwork" title="OpenVPN management interface protocol." name="MINetwork" placeholder="tcp" value="{{ .Settings.MINetwork }}">
-        </div>
-      </div>
 
-      <div class="form-group">
-        <label class="col-form-label" for="name">OpenVPN ConfigPath</label>
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text"><i class="fas fa-folder"></i></span>
+          <div class="form-group">
+            <label class="col-form-label" for="MINetwork">Протокол интерфейса управления</label>
+            <div class="input-group mb-1">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fa fa-exchange"></i></span>
+              </div>
+              <input
+                type="text"
+                class="form-control"
+                id="MINetwork"
+                name="MINetwork"
+                title="Протокол интерфейса управления OpenVPN."
+                placeholder="tcp"
+                value="{{ .Settings.MINetwork }}">
+            </div>
+            <span class="form-help">
+              Обычно <code>tcp</code>. Возможны другие варианты в зависимости от конфигурации OpenVPN Management Interface.
+            </span>
           </div>
-          <input type="text" class="form-control" id="OVConfigPath" name="OVConfigPath" title="OpenVPN configuration path." placeholder="/etc/openvpn" value="{{ .Settings.OVConfigPath }}">
         </div>
-      </div>
 
-      <div class="form-group">
-        <label class="col-form-label" for="name">EasyRSA ConfigPath</label> <strong><span style="color:#337ab7" title="New format in this version">!</span></strong>
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <span class="input-group-text"><i class="fas fa-folder"></i></span>
+        <!-- Правая колонка: пути к конфигурациям -->
+        <div class="col-lg-6 col-md-12">
+          <div class="form-group">
+            <label class="col-form-label" for="OVConfigPath">Путь к конфигурации OpenVPN</label>
+            <div class="input-group mb-1">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fas fa-folder"></i></span>
+              </div>
+              <input
+                type="text"
+                class="form-control"
+                id="OVConfigPath"
+                name="OVConfigPath"
+                title="Путь к конфигурационным файлам OpenVPN."
+                placeholder="/etc/openvpn"
+                value="{{ .Settings.OVConfigPath }}">
+            </div>
+            <span class="form-help">
+              Каталог, в котором лежат server/client-конфигурации, ключи и сертификаты OpenVPN.
+              Используется UI для отображения и управления конфигурациями.
+            </span>
           </div>
-          <input type="text" class="form-control" id="EasyRSAPath" name="EasyRSAPath" title="EasyRSA configuration path." placeholder="/usr/share/easy-rsa" value="{{ .Settings.EasyRSAPath }}">
+
+          <div class="form-group">
+            <label class="col-form-label" for="EasyRSAPath">
+              Путь к конфигурации EasyRSA
+              <strong><span style="color:#337ab7" title="Новый формат в этой версии">!</span></strong>
+            </label>
+            <div class="input-group mb-1">
+              <div class="input-group-prepend">
+                <span class="input-group-text"><i class="fas fa-folder"></i></span>
+              </div>
+              <input
+                type="text"
+                class="form-control"
+                id="EasyRSAPath"
+                name="EasyRSAPath"
+                title="Путь к конфигурационным файлам EasyRSA."
+                placeholder="/usr/share/easy-rsa"
+                value="{{ .Settings.EasyRSAPath }}">
+            </div>
+            <span class="form-help">
+              Базовый путь к EasyRSA (PKI, скрипты и vars). Нужен для операций с сертификатами
+              (создание/отзыв) напрямую из интерфейса.
+            </span>
+          </div>
         </div>
       </div>
 
       {{ .xsrfdata }}
 
-      <button type="submit" class="btn btn-primary" style="width: 125px;">Save Config</button>  
-    </div>
-        <!-- /.card-body -->
-  </form>
-</div>  
+      <div class="mt-3 d-flex justify-content-end">
+        <button type="submit" class="btn btn-primary px-4">
+          Сохранить
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
-<!-- /.card -->
 {{end}}
