@@ -193,29 +193,6 @@
 <div id="net-degradation-alert" class="alert alert-danger" style="display:none"></div>
 
 <h5 class="mt-3 mb-2">Сеть</h5>
-<h5 class="mt-3 mb-2">Firewall (nftables)</h5>
-
-<div class="card-clean mb-3">
-  <div class="card-header">
-    <h3 class="card-title" style="margin:0">Сводка таблиц</h3>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-sm mb-0" id="fw-tables-summary">
-      <thead>
-        <tr>
-          <th>Таблица</th>
-          <th>Цепей</th>
-          <th>Правил</th>
-          <th>Активных</th>
-          <th>Трафик</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- наполняется JS -->
-      </tbody>
-    </table>
-  </div>
-</div>
 
 <!-- KPI по сети -->
 <div class="row">
@@ -595,55 +572,7 @@
     <div class="row mt-3">
       <div class="col-md-12">
         <div class="small-muted mb-2">Метрики файрвола (nftables)</div>
-        <div class="card-clean mb-3">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h3 class="card-title mb-0">Цепочки (Chains)</h3>
-    <div>
-      <label class="small text-muted me-2">Показать только активные</label>
-      <input type="checkbox" id="fw-active-only">
-    </div>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-sm table-hover mb-0" id="fw-chains">
-      <thead>
-        <tr>
-          <th>Таблица</th>
-          <th>Цепочка</th>
-          <th>Политика</th>
-          <th>Правил</th>
-          <th>Пакеты</th>
-          <th>Байты</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- наполняется JS -->
-      </tbody>
-    </table>
-  </div>
-</div>
-<div class="card-clean mb-3">
-  <div class="card-header">
-    <h3 class="card-title mb-0">Правила цепочек</h3>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-sm table-striped mb-0" id="fw-rules">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Таблица</th>
-          <th>Цепочка</th>
-          <th>Условие (Expr)</th>
-          <th>Действие (Verdict)</th>
-          <th>Счётчик</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- JS -->
-      </tbody>
-    </table>
-  </div>
-</div>
-
+        <pre id="firewall-debug" class="bg-light p-3 small" style="max-height:320px; overflow:auto">{{ tojson .firewall }}</pre>
       </div>
     </div>
   </div>
@@ -1188,94 +1117,6 @@
       });
     });
   })();
-(function renderFirewallTables(){
-  const fw = {{ tojson .firewall }};
-  if (!fw || !fw.tables) return;
-
-  const tbTables = document.querySelector('#fw-tables-summary tbody');
-  const tbChains = document.querySelector('#fw-chains tbody');
-  const tbRules  = document.querySelector('#fw-rules tbody');
-
-  const num = n => Number(n||0);
-  const fmt = n => {
-    if (n>=1e9) return (n/1e9).toFixed(1)+'G';
-    if (n>=1e6) return (n/1e6).toFixed(1)+'M';
-    if (n>=1e3) return (n/1e3).toFixed(1)+'K';
-    return n;
-  };
-
-  // ---- 1. Таблицы
-  for (const [tname, tdata] of Object.entries(fw.tables)){
-    const chains = tdata.chains||[];
-    const totalRules = chains.reduce((a,c)=>a+(c.rules?.length||0),0);
-    const active = chains.reduce((a,c)=>a+c.rules.filter(r=>num(r.packets)>0).length,0);
-    const totalPkts = chains.reduce((a,c)=>a+c.rules.reduce((x,r)=>x+num(r.packets||0),0),0);
-    const totalBytes = chains.reduce((a,c)=>a+c.rules.reduce((x,r)=>x+num(r.bytes||0),0),0);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><b>${tname}</b></td>
-      <td>${chains.length}</td>
-      <td>${totalRules}</td>
-      <td>${active}</td>
-      <td>${fmt(totalPkts)} pkts / ${fmt(totalBytes)}B</td>`;
-    tbTables.appendChild(tr);
-  }
-
-  // ---- 2. Цепочки
-  const rows = [];
-  for (const [tname, tdata] of Object.entries(fw.tables)){
-    (tdata.chains||[]).forEach(chain=>{
-      const pkts = chain.rules.reduce((a,r)=>a+num(r.packets||0),0);
-      const bytes = chain.rules.reduce((a,r)=>a+num(r.bytes||0),0);
-      const active = pkts>0 ? 'style="background-color:rgba(40,167,69,.1)"' : '';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${tname}</td>
-        <td><b>${chain.name}</b></td>
-        <td><span class="badge ${chain.policy==='DROP'?'bg-danger':(chain.policy==='ACCEPT'?'bg-success':'bg-secondary')}">${chain.policy||'—'}</span></td>
-        <td>${chain.rules.length}</td>
-        <td ${active}>${fmt(pkts)}</td>
-        <td ${active}>${fmt(bytes)}</td>`;
-      rows.push(tr);
-    });
-  }
-  rows.forEach(tr=>tbChains.appendChild(tr));
-
-  // ---- 3. Правила
-  const ruleRows = [];
-  for (const [tname, tdata] of Object.entries(fw.tables)){
-    (tdata.chains||[]).forEach(chain=>{
-      chain.rules.forEach((r, idx)=>{
-        const cls = num(r.packets)>0 ? 'style="background-color:rgba(40,167,69,.05)"' : '';
-        const verdict = (r.verdict||'').toUpperCase();
-        const color = verdict==='ACCEPT'?'bg-success':verdict==='DROP'?'bg-danger':verdict==='JUMP'?'bg-info':'bg-secondary';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${idx+1}</td>
-          <td>${tname}</td>
-          <td>${chain.name}</td>
-          <td class="small" ${cls}>${r.expr||'—'}</td>
-          <td><span class="badge ${color}">${verdict||'—'}</span></td>
-          <td>${fmt(r.packets||0)} / ${fmt(r.bytes||0)}</td>`;
-        ruleRows.push(tr);
-      });
-    });
-  }
-  ruleRows.forEach(tr=>tbRules.appendChild(tr));
-
-  // ---- 4. Фильтр "только активные"
-  const chk = document.getElementById('fw-active-only');
-  if (chk) {
-    chk.addEventListener('change', ()=>{
-      const showActive = chk.checked;
-      tbRules.querySelectorAll('tr').forEach(tr=>{
-        const hasTraffic = tr.innerHTML.includes('rgba(40,167,69');
-        tr.style.display = showActive ? (hasTraffic?'':'none') : '';
-      });
-    });
-  }
-})();
-
 </script>
 
 {{end}}
