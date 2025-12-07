@@ -99,7 +99,7 @@ func AggregateSessionsKPI(ctx context.Context, s Store, from, to time.Time) (Met
 	row := db.QueryRowContext(ctx, `
 SELECT
     COUNT(*) AS total_sessions,
-    SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active_sessions,
+    COALESCE(SUM(CASE WHEN status='active' THEN 1 ELSE 0 END), 0) AS active_sessions,
     COUNT(DISTINCT NULLIF(username, '')) AS unique_users,
     COUNT(DISTINCT NULLIF(common_name, '')) AS unique_common_names,
     COALESCE(SUM(bytes_in), 0) AS total_bytes_in,
