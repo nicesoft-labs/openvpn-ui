@@ -31,12 +31,13 @@ type Store interface {
 
 // SQLiteStore implements Store using SQLite.
 type SQLiteStore struct {
-	db  *sql.DB
-	log *logs.BeeLogger
+	db    *sql.DB
+	log   *logs.BeeLogger
+	debug bool
 }
 
 // NewSQLiteStore opens SQLite database with required pragmas.
-func NewSQLiteStore(path string, logger *logs.BeeLogger) (*SQLiteStore, error) {
+func NewSQLiteStore(path string, logger *logs.BeeLogger, debug bool) (*SQLiteStore, error) {
 	db, err := sql.Open("sqlite3", path+"?_busy_timeout=5000&_journal_mode=WAL&_foreign_keys=ON")
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func NewSQLiteStore(path string, logger *logs.BeeLogger) (*SQLiteStore, error) {
 	if _, err := db.Exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;"); err != nil {
 		return nil, err
 	}
-	return &SQLiteStore{db: db, log: logger}, nil
+	return &SQLiteStore{db: db, log: logger, debug: debug}, nil
 }
 
 // DB exposes the underlying database handle.
@@ -278,9 +279,20 @@ func (s *SQLiteStore) UpdateSessionOnDisconnect(ctx context.Context, evt *Client
 // UpdateSessionsFromStatus aligns session table with management interface status.
 func (s *SQLiteStore) UpdateSessionsFromStatus(ctx context.Context, status *mi.Status) error {
 	now := time.Now().UTC().Unix()
+	if s.debug {
+		s.log.Debug(
+			"metrics: syncing sessions from status title=%s clients=%d routes=%d", status.Title, len(status.ClientList), len(status.RoutingTable),
+		)
+	}
 	for _, cl := range status.ClientList {
 		if cl == nil {
 			continue
+		}
+		if s.debug {
+			s.log.Debug(
+				"metrics: status client common_name=%s user=%s vpn_ip=%s real_addr=%s bytes_in=%d bytes_out=%d connected_since=%s",
+				cl.CommonName, cl.Username, cl.VirtualAddress, cl.RealAddress, cl.BytesReceived, cl.BytesSent, cl.ConnectedSince,
+			)
 		}
 		trustedIP, trustedPort := splitHostPort(cl.RealAddress)
 		vpnIP := cl.VirtualAddress
@@ -323,6 +335,9 @@ func (s *SQLiteStore) UpdateSessionsFromStatus(ctx context.Context, status *mi.S
 		if err != nil {
 			return err
 		}
+		if s.debug {
+			s.log.Debug("metrics: updated active session id=%d cn=%s vpn_ip=%s bytes_in=%d bytes_out=%d", sessionID, cl.CommonName, vpnIP, cl.BytesReceived, cl.BytesSent)
+		}
 	}
 	return nil
 }
@@ -348,6 +363,12 @@ func (s *SQLiteStore) InsertMgmtSnapshot(ctx context.Context, snapshotTime time.
             VALUES (?,?,?,?,?)`,
 		snapshotTime.Unix(), nClients, bytesIn, bytesOut, statsJSON,
 	)
+	if err == nil && s.debug {
+		s.log.Debug(
+			"metrics: saved mgmt snapshot time=%s n_clients=%d bytes_in=%d bytes_out=%d raw_status_len=%d",
+			snapshotTime.UTC().Format(time.RFC3339), nClients, bytesIn, bytesOut, len(statsJSON),
+		)
+	}
 	return err
 }
 
