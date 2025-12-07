@@ -32,6 +32,8 @@ func main() {
 		panic(err)
 	}
 
+	debugMode := web.BConfig.RunMode == web.DEV
+
 	models.InitDB()
 	models.CreateDefaultUsers()
 	defaultSettings, err := models.CreateDefaultSettings()
@@ -45,13 +47,19 @@ func main() {
 	state.GlobalCfg = *defaultSettings
 
 	metricsCfg := metrics.LoadConfig()
+	if debugMode {
+		logs.Debug(
+			"metrics: dev mode enabled; config enabled=%t db_path=%s poll_interval=%s mi=%s://%s",
+			metricsCfg.Enabled, metricsCfg.DBPath, metricsCfg.PollInterval, metricsCfg.MINetwork, metricsCfg.MIAddress,
+		)
+	}
 	var metricsHandlerFunc func(http.ResponseWriter, *http.Request)
 	if metricsCfg.Enabled {
 		if err := os.MkdirAll(filepath.Dir(metricsCfg.DBPath), 0o755); err != nil {
 			logs.Warn("metrics: create db dir: %v", err)
 		}
 		logger := logs.GetBeeLogger()
-		store, err := metrics.NewSQLiteStore(metricsCfg.DBPath, logger)
+		store, err := metrics.NewSQLiteStore(metricsCfg.DBPath, logger, debugMode)
 		if err != nil {
 			logs.Warn("metrics: init store: %v", err)
 		} else {
