@@ -1,0 +1,175 @@
+package metrics
+
+import (
+	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/beego/beego/v2/core/logs"
+)
+
+// Handler handles HTTP events from OpenVPN hooks.
+type Handler struct {
+	cfg   MetricsConfig
+	store Store
+	log   *logs.BeeLogger
+}
+
+// NewHandler creates new metrics HTTP handler.
+func NewHandler(cfg MetricsConfig, store Store, log *logs.BeeLogger) *Handler {
+	return &Handler{cfg: cfg, store: store, log: log}
+}
+
+// HandleClientEvent consumes client-connect/disconnect events.
+func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || (host != "127.0.0.1" && host != "::1") {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	evt := h.parseEventFromRequest(r)
+	ctx := r.Context()
+	if err := h.store.InsertClientEvent(ctx, evt); err != nil {
+		h.log.Warn("metrics: InsertClientEvent: %v", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	switch evt.EventType {
+	case "connect":
+		if err := h.store.UpsertSessionOnConnect(ctx, evt); err != nil {
+			h.log.Warn("metrics: UpsertSessionOnConnect: %v", err)
+		}
+	case "disconnect":
+		if err := h.store.UpdateSessionOnDisconnect(ctx, evt); err != nil {
+			h.log.Warn("metrics: UpdateSessionOnDisconnect: %v", err)
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
+	now := time.Now().UTC()
+	evtTime := now
+	if tsStr := r.FormValue("event_time"); tsStr != "" {
+		if ts, err := strconv.ParseInt(tsStr, 10, 64); err == nil {
+			evtTime = time.Unix(ts, 0).UTC()
+		}
+	}
+
+	parseInt := func(name string) int {
+		if v := r.FormValue(name); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				return n
+			}
+		}
+		return 0
+	}
+
+	parseUint := func(name string) uint64 {
+		if v := r.FormValue(name); v != "" {
+			if n, err := strconv.ParseUint(v, 10, 64); err == nil {
+				return n
+			}
+		}
+		return 0
+	}
+
+	parseBool := func(name string) bool {
+		if v := r.FormValue(name); v != "" {
+			if b, err := strconv.ParseBool(v); err == nil {
+				return b
+			}
+			if v == "1" {
+				return true
+			}
+		}
+		return false
+	}
+
+	evt := &ClientEvent{
+		EventType:        r.FormValue("event_type"),
+		EventTime:        evtTime,
+		VPNInstanceID:    r.FormValue("vpn_instance_id"),
+		CommonName:       r.FormValue("common_name"),
+		Username:         r.FormValue("username"),
+		AuthMethod:       r.FormValue("auth_method"),
+		MFAUsed:          parseBool("mfa_used"),
+		MFAOK:            parseBool("mfa_ok"),
+		TrustedIP:        r.FormValue("trusted_ip"),
+		TrustedPort:      parseInt("trusted_port"),
+		UntrustedIP:      r.FormValue("untrusted_ip"),
+		UntrustedPort:    parseInt("untrusted_port"),
+		VPNIP:            r.FormValue("vpn_ip"),
+		VPNIPv6:          r.FormValue("vpn_ipv6"),
+		Proto:            r.FormValue("proto"),
+		Dev:              r.FormValue("dev"),
+		Cipher:           r.FormValue("cipher"),
+		TLSVersion:       r.FormValue("tls_version"),
+		TLSCipher:        r.FormValue("tls_cipher"),
+		KeySizeBits:      parseInt("key_size_bits"),
+		HMACDigest:       r.FormValue("hmac_digest"),
+		Compression:      r.FormValue("compression"),
+		DCOEnabled:       parseBool("dco_enabled"),
+		DeviceOS:         r.FormValue("device_os"),
+		DeviceOSVer:      r.FormValue("device_os_ver"),
+		DeviceType:       r.FormValue("device_type"),
+		DeviceVendor:     r.FormValue("device_vendor"),
+		DeviceModel:      r.FormValue("device_model"),
+		DeviceID:         r.FormValue("device_id"),
+		ClientApp:        r.FormValue("client_app"),
+		ClientAppVer:     r.FormValue("client_app_ver"),
+		GeoCountryCode:   r.FormValue("geo_country_code"),
+		GeoCountryName:   r.FormValue("geo_country_name"),
+		GeoRegion:        r.FormValue("geo_region"),
+		GeoCity:          r.FormValue("geo_city"),
+		GeoASN:           r.FormValue("geo_asn"),
+		GeoOrg:           r.FormValue("geo_org"),
+		GeoLat:           parseFloat(r.FormValue("geo_lat")),
+		GeoLon:           parseFloat(r.FormValue("geo_lon")),
+		GeoTimezone:      r.FormValue("geo_timezone"),
+		BytesReceived:    parseUint("bytes_received"),
+		BytesSent:        parseUint("bytes_sent"),
+		PacketsReceived:  parseUint("packets_received"),
+		PacketsSent:      parseUint("packets_sent"),
+		DurationSec:      int64(parseInt("duration_sec")),
+		Reconnects:       int64(parseInt("reconnects")),
+		DisconnectReason: r.FormValue("disconnect_reason"),
+		EnvRaw:           r.FormValue("env_raw"),
+		CreatedAt:        now,
+	}
+
+	if evt.EventType == "" {
+		evt.EventType = "unknown"
+	}
+
+	return evt
+}
+
+func parseFloat(v string) float64 {
+	if v == "" {
+		return 0
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0
+	}
+	return f
+}
+
+// NewForbiddenLocalOnlyError returns standard error for forbidden access.
+func NewForbiddenLocalOnlyError() error {
+	return fmt.Errorf("metrics endpoint is restricted to local connections")
+}
