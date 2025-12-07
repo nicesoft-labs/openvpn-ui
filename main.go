@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
 	"github.com/d3vilh/openvpn-ui/lib"
+	"github.com/d3vilh/openvpn-ui/metrics"
 	"github.com/d3vilh/openvpn-ui/models"
 	"github.com/d3vilh/openvpn-ui/routers"
 	"github.com/d3vilh/openvpn-ui/state"
+	mi "github.com/nicesoft-labs/openvpn-server-config/server/mi"
 )
 
 func main() {
@@ -39,7 +44,30 @@ func main() {
 	models.CreateDefaultEasyRSAConfig(*configDir, defaultSettings.EasyRSAPath, defaultSettings.MIAddress, defaultSettings.MINetwork)
 	state.GlobalCfg = *defaultSettings
 
-	routers.Init(*configDir)
+	metricsCfg := metrics.LoadConfig()
+	var metricsHandlerFunc func(http.ResponseWriter, *http.Request)
+	if metricsCfg.Enabled {
+		if err := os.MkdirAll(filepath.Dir(metricsCfg.DBPath), 0o755); err != nil {
+			logs.Warn("metrics: create db dir: %v", err)
+		}
+		logger := logs.GetBeeLogger()
+		store, err := metrics.NewSQLiteStore(metricsCfg.DBPath, logger)
+		if err != nil {
+			logs.Warn("metrics: init store: %v", err)
+		} else {
+			if err := store.InitSchema(context.Background()); err != nil {
+				logs.Warn("metrics: init schema: %v", err)
+			} else {
+				metricsHandler := metrics.NewHandler(metricsCfg, store, logger)
+				metricsHandlerFunc = metricsHandler.HandleClientEvent
+				miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
+				collector := metrics.NewCollector(metricsCfg, store, miClient, logger)
+				go collector.Run(context.Background())
+			}
+		}
+	}
+
+	routers.Init(*configDir, metricsHandlerFunc)
 
 	lib.AddFuncMaps()
 	web.Run()
@@ -60,6 +88,13 @@ OpenVpnPath = "/etc/openvpn"
 OpenVpnManagementAddress = "127.0.0.1:2080"
 OpenVpnManagementNetwork = "tcp"
 OVConfigLogVerbose = "1"
+
+# metrics
+metrics.enabled = false
+metrics.db_path = /var/lib/nicevpn/metrics.db
+metrics.poll_interval = 30s
+metrics.mi_network = tcp
+metrics.mi_address = 127.0.0.1:2080
 
 # google config
 googleClientID = your-google-clientid

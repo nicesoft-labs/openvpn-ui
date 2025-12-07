@@ -8,11 +8,14 @@
 package routers
 
 import (
+	"net/http"
+
 	"github.com/beego/beego/v2/server/web"
+	"github.com/beego/beego/v2/server/web/context"
 	"github.com/d3vilh/openvpn-ui/controllers"
 )
 
-func Init(configDir string) {
+func Init(configDir string, metricsHandler http.HandlerFunc) {
 	web.SetStaticPath("/swagger", "swagger")
 	web.Router("/", &controllers.MainController{})
 	web.Router("/login", &controllers.LoginController{}, "get:Login;post:Login")
@@ -22,18 +25,24 @@ func Init(configDir string) {
 	web.Router("/profile", &controllers.ProfileController{})
 	web.Router("/settings", &controllers.SettingsController{})
 	web.Router("/ov/config", &controllers.OVConfigController{})
-        web.Router("/logs", &controllers.LogsController{})
-        web.Router("/firewall", &controllers.FirewallController{})
-        web.Router("/ov/clientconfig", &controllers.OVClientConfigController{ConfigDir: configDir})
-        web.Router("/easyrsa/config", &controllers.EasyRSAConfigController{ConfigDir: configDir})
-        web.Router("/dangerzone", &controllers.DangerController{})
-        web.Router("/api/firewall/nft/snapshot", &controllers.APIFirewallNFTController{}, "get:Snapshot")
+	web.Router("/logs", &controllers.LogsController{})
+	web.Router("/firewall", &controllers.FirewallController{})
+	web.Router("/ov/clientconfig", &controllers.OVClientConfigController{ConfigDir: configDir})
+	web.Router("/easyrsa/config", &controllers.EasyRSAConfigController{ConfigDir: configDir})
+	web.Router("/dangerzone", &controllers.DangerController{})
+	web.Router("/api/firewall/nft/snapshot", &controllers.APIFirewallNFTController{}, "get:Snapshot")
 
 	web.Include(&controllers.CertificatesController{ConfigDir: configDir})
 	web.Include(&controllers.DangerController{})
 	web.Include(&controllers.OVConfigController{ConfigDir: configDir})
 	web.Include(&controllers.OVClientConfigController{ConfigDir: configDir})
 	web.Include(&controllers.ProfileController{})
+
+	if metricsHandler != nil {
+		web.Post("/internal/metrics/client-event", func(ctx *context.Context) {
+			metricsHandler(ctx.ResponseWriter, ctx.Request)
+		})
+	}
 
 	ns := web.NewNamespace("/api/v1",
 		web.NSNamespace("/session",
