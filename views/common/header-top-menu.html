@@ -44,6 +44,10 @@
     <a href="{{urlfor "LogsController.Get"}}" class="nav-link">Logs</a>
   </li>
 
+  <li {{if compare .RouterPattern "/analytics"}}class="nav-item"{{end}}>
+    <a href="{{urlfor "AnalyticsController.Get"}}" class="nav-link">Аналитика VPN</a>
+  </li>
+
   <li {{if compare .RouterPattern "/firewall"}}class="nav-item"{{end}}>
     <a href="{{urlfor "FirewallController.Get"}}" class="nav-link">Firewall</a>
   </li>

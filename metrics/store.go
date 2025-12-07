@@ -47,6 +47,11 @@ func NewSQLiteStore(path string, logger *logs.BeeLogger) (*SQLiteStore, error) {
 	return &SQLiteStore{db: db, log: logger}, nil
 }
 
+// DB exposes the underlying database handle.
+func (s *SQLiteStore) DB() *sql.DB {
+	return s.db
+}
+
 // InitSchema creates required tables if they are missing.
 func (s *SQLiteStore) InitSchema(ctx context.Context) error {
 	stmts := []string{

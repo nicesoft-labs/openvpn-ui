@@ -1,0 +1,288 @@
+{{ template "layout/base.html" . }}
+
+{{ define "head" }}
+<title>NiceSOFT NiceVPN UI — Аналитика VPN</title>
+{{ end }}
+
+{{ define "body" }}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <h4>Аналитика VPN</h4>
+      <p class="text-muted mb-0">Использование и активность пользователей за период.</p>
+    </div>
+    <div class="col-md-4 text-md-right mt-2 mt-md-0">
+      <form method="get" class="form-inline justify-content-md-end">
+        <label class="mr-2">Период:</label>
+        <select name="period" class="form-control form-control-sm" onchange="this.form.submit()">
+          <option value="24h" {{ if eq .vm.Period "24h" }}selected{{ end }}>24 часа</option>
+          <option value="7d"  {{ if eq .vm.Period "7d" }}selected{{ end }}>7 дней</option>
+          <option value="30d" {{ if eq .vm.Period "30d" }}selected{{ end }}>30 дней</option>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  {{ if not .vm.MetricsEnabled }}
+    <div class="alert alert-warning">
+      Сбор метрик отключён (metrics.enabled = false). Включите его в конфигурации, чтобы использовать аналитику.
+    </div>
+  {{ else if .vm.DataUnavailable }}
+    <div class="alert alert-warning">
+      Данные временно недоступны. Попробуйте обновить страницу позже.
+    </div>
+  {{ else }}
+    <div class="row kpi-row">
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Всего сессий</div>
+          <div class="kpi-box__value">{{ .vm.TotalSessions }}</div>
+          <div class="kpi-box__muted">За выбранный период</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Уникальные пользователи</div>
+          <div class="kpi-box__value">{{ .vm.UniqueUsers }}</div>
+          <div class="kpi-box__muted">по username</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Трафик</div>
+          <div class="kpi-box__value" id="kpi-traffic-total"></div>
+          <div class="kpi-box__muted">вход + выход, MB</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Средняя длительность сессии</div>
+          <div class="kpi-box__value" id="kpi-avg-duration"></div>
+          <div class="kpi-box__muted">минут</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
+            <span>Сессии по дням</span>
+            <span class="small-muted">кол-во и трафик</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartSessionsByDay"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartSessionsByDay">Нет данных по сессиям</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Топ пользователей по трафику</div>
+          <div class="chart-wrap">
+            <canvas id="chartTopUsersTraffic"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartTopUsersTraffic">Нет данных по пользователям</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Распределение по ОС</div>
+          <div class="chart-wrap"><canvas id="chartOsDistribution"></canvas></div>
+          <div class="empty-state" data-empty-for="chartOsDistribution">Нет данных</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Распределение по шифрам</div>
+          <div class="chart-wrap"><canvas id="chartCipherDistribution"></canvas></div>
+          <div class="empty-state" data-empty-for="chartCipherDistribution">Нет данных</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-7 mb-4">
+        <div class="card-clean">
+          <div class="card-header">
+            <h3 class="card-title">Последние сессии</h3>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>CN</th>
+                  <th>ОС</th>
+                  <th>Страна</th>
+                  <th>Трафик</th>
+                  <th>Длительность</th>
+                  <th>Статус</th>
+                  <th>С начала</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .vm.RecentSessions }}
+                  {{ range .vm.RecentSessions }}
+                  <tr>
+                    <td>{{ .Username }}</td>
+                    <td>{{ .CommonName }}</td>
+                    <td>{{ .DeviceOS }}</td>
+                    <td>{{ .Country }}</td>
+                    <td>{{ printf "%0.1f MB" (divMB .BytesIn .BytesOut) }}</td>
+                    <td>{{ formatDuration .DurationSec }}</td>
+                    <td>{{ .Status }}</td>
+                    <td>{{ .ConnectTime }}</td>
+                  </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="8" class="text-muted">Сессий пока нет</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5 mb-4">
+        <div class="card-clean">
+          <div class="card-header">
+            <h3 class="card-title">Последние события</h3>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
+              <thead>
+                <tr>
+                  <th>Тип</th>
+                  <th>Время</th>
+                  <th>Пользователь</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .vm.RecentEvents }}
+                  {{ range .vm.RecentEvents }}
+                  <tr>
+                    <td>{{ .EventType }}</td>
+                    <td>{{ .EventTime }}</td>
+                    <td>{{ .Username }}</td>
+                    <td>{{ .TrustedIP }}</td>
+                  </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="4" class="text-muted">Событий пока нет</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  {{ end }}
+</div>
+
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+  const vm = {{ tojson .vm }};
+
+  function bytesToMB(value) {
+    return value / 1024 / 1024;
+  }
+
+  function toggleEmpty(id, hasData) {
+    const canvas = document.getElementById(id);
+    const empty = document.querySelector(`[data-empty-for="${id}"]`);
+    if (!canvas || !empty) return;
+    if (hasData) {
+      empty.style.display = 'none';
+      canvas.style.display = 'block';
+    } else {
+      empty.style.display = 'block';
+      canvas.style.display = 'none';
+    }
+  }
+
+  function initKPI() {
+    const traffic = bytesToMB(vm.TotalBytesIn + vm.TotalBytesOut).toFixed(1);
+    const avgMin = vm.AvgSessionDurationSec ? (vm.AvgSessionDurationSec / 60).toFixed(1) : '0';
+    const trafficNode = document.getElementById('kpi-traffic-total');
+    const avgNode = document.getElementById('kpi-avg-duration');
+    if (trafficNode) trafficNode.textContent = traffic;
+    if (avgNode) avgNode.textContent = avgMin;
+  }
+
+  function initSessionsByDay() {
+    const data = vm.SessionsByDay || [];
+    toggleEmpty('chartSessionsByDay', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.Date);
+    const sessions = data.map(i => i.Sessions);
+    const bytes = data.map(i => (bytesToMB(i.BytesIn + i.BytesOut)).toFixed(1));
+    const ctx = document.getElementById('chartSessionsByDay').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Сессии', data: sessions, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
+          { label: 'Трафик (MB)', data: bytes, type: 'line', yAxisID: 'y1', borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.2)', tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Сессии' } },
+          y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'MB' } }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
+  function initTopUsersTraffic() {
+    const data = vm.TopUsersByTraffic || [];
+    toggleEmpty('chartTopUsersTraffic', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.Username || i.CommonName || '—');
+    const bytes = data.map(i => bytesToMB(i.BytesIn + i.BytesOut).toFixed(1));
+    const ctx = document.getElementById('chartTopUsersTraffic').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Трафик (MB)',
+          data: bytes,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)'
+        }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+  }
+
+  function initDoughnut(id, data) {
+    toggleEmpty(id, data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.Key || 'Unknown');
+    const values = data.map(i => i.Value);
+    const ctx = document.getElementById(id).getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values, backgroundColor: ['#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#ef5350', '#29b6f6', '#7e57c2', '#ffca28'] }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initKPI();
+    initSessionsByDay();
+    initTopUsersTraffic();
+    initDoughnut('chartOsDistribution', vm.OsDistribution || []);
+    initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
+  });
+</script>
+
+{{ end }}

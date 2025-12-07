@@ -58,6 +58,7 @@ func main() {
 			if err := store.InitSchema(context.Background()); err != nil {
 				logs.Warn("metrics: init schema: %v", err)
 			} else {
+				metrics.SetGlobalStore(store)
 				metricsHandler := metrics.NewHandler(metricsCfg, store, logger)
 				metricsHandlerFunc = metricsHandler.HandleClientEvent
 				miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)

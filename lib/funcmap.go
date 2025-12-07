@@ -93,6 +93,40 @@ func AddFuncMaps() {
 		}
 		return template.JS(data)
 	})
+	_ = web.AddFuncMap("divMB", func(bytesIn interface{}, bytesOut interface{}) float64 {
+		var inVal, outVal uint64
+		switch v := bytesIn.(type) {
+		case uint64:
+			inVal = v
+		case int64:
+			inVal = uint64(v)
+		}
+		switch v := bytesOut.(type) {
+		case uint64:
+			outVal = v
+		case int64:
+			outVal = uint64(v)
+		}
+		return float64(inVal+outVal) / 1024.0 / 1024.0
+	})
+	_ = web.AddFuncMap("formatDuration", func(sec interface{}) string {
+		var total int64
+		switch v := sec.(type) {
+		case int64:
+			total = v
+		case uint64:
+			total = int64(v)
+		}
+		if total < 60 {
+			return fmt.Sprintf("%ds", total)
+		}
+		minutes := total / 60
+		hours := minutes / 60
+		if hours > 0 {
+			return fmt.Sprintf("%dh %02dm", hours, minutes%60)
+		}
+		return fmt.Sprintf("%dm", minutes)
+	})
 }
 
 func num2str(n int64, sep rune) string {
