@@ -32,7 +32,7 @@
     <div class="col-md-8">
       <h4 class="mb-1">Журнал доступа</h4>
       <p class="text-muted mb-1">Полный список событий подключения и отключения клиентов.</p>
-      <p class="text-muted mb-0">Всего событий: {{ .Total }}</p>
+      <p class="text-muted mb-0">Всего событий: {{ .vm.Total }}</p>
     </div>
     <div class="col-md-4 text-md-right mt-2 mt-md-0">
       <a class="btn btn-sm btn-outline-secondary" href="/analytics">← Вернуться к аналитике</a>
@@ -45,7 +45,7 @@
         <h5 class="mb-0">Полный журнал доступа</h5>
         <small class="text-muted">Постраничный просмотр всех событий</small>
       </div>
-      <span class="badge badge-light">Страница {{ .Page }} из {{ .TotalPages }}</span>
+      <span class="badge badge-light">Страница {{ .vm.Page }} из {{ .vm.TotalPages }}</span>
     </div>
     <div class="card-body table-responsive">
       <table class="table table-sm table-hover log-table">
@@ -71,17 +71,16 @@
 
       <div class="d-flex justify-content-between align-items-center mt-3">
         <div class="text-muted small">
-          Показаны записи {{ if .Total }}{{ .ShownFrom }}–{{ .ShownTo }}{{ else }}0{{ end }} из {{ .Total }}
+	  Показаны записи {{ if .vm.Total }}{{ .vm.ShownFrom }}–{{ .vm.ShownTo }}{{ else }}0{{ end }} из {{ .vm.Total }}
         </div>
         <nav>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ if not .HasPrev }}disabled{{ end }}">
-              <a class="page-link" href="?page={{ .PrevPage }}&page_size={{ .PageSize }}" aria-label="Предыдущая">&laquo;</a>
+		<a class="page-link" href="?page={{ .vm.PrevPage }}&page_size={{ .vm.PageSize }}" aria-label="Предыдущая">&laquo;</a>
             </li>
-            <li class="page-item disabled"><span class="page-link">{{ .Page }} / {{ .TotalPages }}</span></li>
-            <li class="page-item {{ if not .HasNext }}disabled{{ end }}">
-              <a class="page-link" href="?page={{ .NextPage }}&page_size={{ .PageSize }}" aria-label="Следующая">&raquo;</a>
-            </li>
+	    <li class="page-item disabled"><span class="page-link">{{ .vm.Page }} / {{ .vm.TotalPages }}</span></li>
+            <li class="page-item {{ if not .vm.HasNext }}disabled{{ end }}">
+              <a class="page-link" href="?page={{ .vm.NextPage }}&page_size={{ .vm.PageSize }}" aria-label="Следующая">&raquo;</a>
           </ul>
         </nav>
       </div>
@@ -90,7 +89,7 @@
 </div>
 
 <script>
-  const vm = {{ tojson . }};
+  const vm = {{ tojson .vm }};
 
   function bytesToMB(value) { return value / 1024 / 1024; }
   function getEventTimestamp(e) {
