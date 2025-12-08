@@ -3,7 +3,6 @@
 {{ define "head" }}
 <title>NiceSOFT NiceVPN UI — Аналитика VPN</title>
 <style>
-  /* Лёгкая косметика, если ещё нет */
   .metric-card {
     border-radius: 14px;
     border: 1px solid #e9ecef;
@@ -22,6 +21,20 @@
     font-size: .8rem;
     color: #6c757d;
   }
+  .metric-card__sub {
+    font-size: .8rem;
+    color: #6c757d;
+    margin-top: .25rem;
+  }
+  .card-clean {
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,.04);
+  }
+  .card-clean .card-header {
+    border-bottom: 1px solid #eef1f4;
+  }
   .chart-wrap {
     position: relative;
     min-height: 220px;
@@ -33,52 +46,7 @@
     padding: 1.5rem 0;
   }
 
-  .heat-table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 0.85rem;
-  }
-
-  .heat-table th,
-  .heat-table td {
-    border: 1px solid #e5e7eb;
-    padding: 4px 6px;
-    text-align: center;
-    vertical-align: middle;
-  }
-
-  .heat-table thead th {
-    background: #f3f4f6;
-    font-weight: 600;
-  }
-
-  .heat-row-label {
-    text-align: left;
-    padding-left: 8px;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .heat-cell {
-    min-width: 26px;
-  }
-
-  .heat-0 { background: #f9fafb; color: #6b7280; }
-  .heat-1 { background: #e5f3ff; }
-  .heat-2 { background: #d0e5ff; }
-  .heat-3 { background: #b0d4ff; }
-  .heat-4 { background: #7fb6ff; color:#fff; }
-  .heat-5 { background: #3b82f6; color:#fff; }
-
-  .heat-row-weekend .heat-row-label {
-    color: #dc2626;
-    font-weight: 600;
-  }
-
-  /* Лёгкая подсветка только пустых ячеек выходных */
-  .heat-row-weekend .heat-cell.heat-0 {
-    background: #fef2f2;
-  }
+  /* KPI */
   .kpi-row .kpi-box {
     border-radius: 14px;
     box-shadow: 0 3px 10px rgba(0,0,0,.05);
@@ -100,51 +68,130 @@
     color: #6c757d;
     font-size: .85rem;
   }
+  .kpi-box__pill {
+    font-size: .75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #4b5563;
+    margin-left: .25rem;
+  }
 
-  @media (prefers-color-scheme: dark) {
-    .metric-card,
-    .kpi-box,
-    .card-clean {
-      background: #171a1f;
-      border-color: #2a2e35;
-      color: #e5e7eb;
-    }
-    .kpi-box__title,
-    .kpi-box__muted,
-    .small-muted {
-      color: #a8b2c1;
-    }
-    body {
-      background-color: #0f1115;
-      color: #e5e7eb;
-    }
+  /* Heatmap */
+  .heat-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+  .heat-table th,
+  .heat-table td {
+    border: 1px solid #e5e7eb;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .heat-table thead th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+  .heat-row-label {
+    text-align: left;
+    padding-left: 8px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .heat-cell {
+    min-width: 26px;
+  }
+  .heat-0 { background: #f9fafb; color: #6b7280; }
+  .heat-1 { background: #e5f3ff; }
+  .heat-2 { background: #d0e5ff; }
+  .heat-3 { background: #b0d4ff; }
+  .heat-4 { background: #7fb6ff; color:#fff; }
+  .heat-5 { background: #3b82f6; color:#fff; }
+  .heat-row-weekend .heat-row-label {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .heat-row-weekend .heat-cell.heat-0 {
+    background: #fef2f2;
+  }
+
+  /* Журнал доступа */
+  .log-table tbody tr.log-row--warn {
+    background: #fff7ed;
+  }
+  .log-table tbody tr.log-row--risk {
+    background: #fef2f2;
+  }
+  .log-badge {
+    font-size: .75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .log-badge--ok {
+    background: #ecfdf3;
+    color: #166534;
+  }
+  .log-badge--info {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+  .log-badge--warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .log-badge--risk {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .badge-soft {
+    font-size: .7rem;
+    border-radius: 999px;
+    padding: 2px 6px;
+    background: #f3f4f6;
+    color: #4b5563;
   }
 </style>
 {{ end }}
 
 {{ define "body" }}
 <div class="container-fluid">
+  <!-- Заголовок и выбор периода -->
   <div class="row mb-3">
     <div class="col-md-8">
-      <h4>Аналитика VPN</h4>
-      <p class="text-muted mb-0">Использование и активность пользователей за период.</p>
+      <h4 class="mb-1">Аналитика VPN</h4>
+      <p class="text-muted mb-1">
+        Сводка нагрузки, трафика и аномалий доступа.
+      </p>
+      {{ if and .vm.MetricsEnabled (not .vm.DataUnavailable) }}
+      <p class="text-muted mb-0">
+        За период
+        <strong>{{ .vm.From.Format "02.01.2006 15:04" }}</strong>
+        —
+        <strong>{{ .vm.To.Format "02.01.2006 15:04" }}</strong>:
+        {{ .vm.TotalSessions }} сессий от {{ .vm.UniqueUsers }} пользователей,
+        суммарный трафик ~ <span id="summary-traffic-gib">0</span> ГиБ.
+      </p>
+      {{ end }}
     </div>
     <div class="col-md-4 text-md-right mt-2 mt-md-0">
       <form method="get" class="form-inline justify-content-md-end">
         <label class="mr-2">Период:</label>
         <select name="period" class="form-control form-control-sm mr-2" onchange="this.form.submit()">
-          <option value="24h" {{ if eq .vm.Period "24h" }}selected{{ end }}>24 часа</option>
+          <option value="24h" {{ if eq .vm.Period "24h" }}selected{{ end }}>Сегодня</option>
           <option value="7d"  {{ if eq .vm.Period "7d" }}selected{{ end }}>7 дней</option>
           <option value="30d" {{ if eq .vm.Period "30d" }}selected{{ end }}>30 дней</option>
         </select>
-        <label class="mr-2">Range (часы):</label>
+        <label class="mr-2">Глубина (часы):</label>
         <select name="range" class="form-control form-control-sm" onchange="this.form.submit()">
           <option value="6" {{ if eq .vm.RangeHours 6 }}selected{{ end }}>6</option>
           <option value="12" {{ if eq .vm.RangeHours 12 }}selected{{ end }}>12</option>
           <option value="24" {{ if eq .vm.RangeHours 24 }}selected{{ end }}>24</option>
           <option value="48" {{ if eq .vm.RangeHours 48 }}selected{{ end }}>48</option>
           <option value="72" {{ if eq .vm.RangeHours 72 }}selected{{ end }}>72</option>
-          <option value="168" {{ if eq .vm.RangeHours 168 }}selected{{ end }}>168</option>
+          <option value="168" {{ if eq .vm.RangeHours 168 }}selected{{ end }}>7 дней</option>
         </select>
       </form>
     </div>
@@ -152,590 +199,566 @@
 
   {{ if not .vm.MetricsEnabled }}
     <div class="alert alert-warning">
-      Сбор метрик отключён (metrics.enabled = false). Включите его в конфигурации, чтобы использовать аналитику.
+      Сбор метрик отключён (<code>metrics.enabled = false</code>). Включите его в конфигурации, чтобы использовать аналитику.
     </div>
   {{ else if .vm.DataUnavailable }}
     <div class="alert alert-warning">
       Данные временно недоступны. Попробуйте обновить страницу позже.
     </div>
   {{ else }}
-    <!-- Верхний ряд: клиенты + throughput -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>Количество клиентов во времени</span>
-            <span class="small-muted">за {{ .vm.RangeHours }} часов</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartClientsTimeline"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartClientsTimeline">Нет данных по клиентам</div>
-        </div>
-      </div>
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>Пропускная способность</span>
-            <span class="small-muted">Мбит/с (in/out)</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartThroughput"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartThroughput">Нет данных по трафику</div>
+
+  <!-- KPI: базовая сводка -->
+  <div class="row kpi-row mb-3">
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Пользователи</div>
+        <div class="kpi-box__value">{{ .vm.UniqueUsers }}</div>
+        <div class="kpi-box__muted">
+          Уникальные username/CN
         </div>
       </div>
     </div>
-
-    <!-- KPI -->
-    <div class="row kpi-row">
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Всего сессий</div>
-          <div class="kpi-box__value">{{ .vm.TotalSessions }}</div>
-          <div class="kpi-box__muted">За выбранный период</div>
-        </div>
-      </div>
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Уникальные пользователи</div>
-          <div class="kpi-box__value">{{ .vm.UniqueUsers }}</div>
-          <div class="kpi-box__muted">по username / CN</div>
-        </div>
-      </div>
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Трафик</div>
-          <div class="kpi-box__value" id="kpi-traffic-total"></div>
-          <div class="kpi-box__muted">вход + выход, MB</div>
-        </div>
-      </div>
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Средняя длительность</div>
-          <div class="kpi-box__value" id="kpi-avg-duration"></div>
-          <div class="kpi-box__muted">минут</div>
-        </div>
-      </div>
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Пиковые клиенты</div>
-          <div class="kpi-box__value">{{ .vm.PeakClients }}</div>
-          <div class="kpi-box__muted">max n_clients</div>
-        </div>
-      </div>
-      <div class="col-xl-2 col-md-4 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Активных сейчас</div>
-          <div class="kpi-box__value">{{ .vm.ActiveSessionsNow }}</div>
-          <div class="kpi-box__muted">status=active</div>
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Сессий за период</div>
+        <div class="kpi-box__value">{{ .vm.TotalSessions }}</div>
+        <div class="kpi-box__muted">
+          Все успешные сессии
         </div>
       </div>
     </div>
-
-    <div class="row kpi-row">
-      <div class="col-xl-3 col-md-6 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">P95 клиентов / сек.</div>
-          <div class="kpi-box__value">{{ printf "%.0f" .vm.P95Clients }}</div>
-          <div class="kpi-box__muted">по mgmt_snapshots</div>
-        </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Трафик</div>
+        <div class="kpi-box__value" id="kpi-traffic-total"></div>
+        <div class="kpi-box__muted">вход + выход, МБ</div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">P95 входящий трафик</div>
-          <div class="kpi-box__value" id="kpi-p95-inbps"></div>
-          <div class="kpi-box__muted">Мбит/с</div>
-        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Средняя длительность</div>
+        <div class="kpi-box__value" id="kpi-avg-duration"></div>
+        <div class="kpi-box__muted">минут на сессию</div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">P95 исходящий трафик</div>
-          <div class="kpi-box__value" id="kpi-p95-outbps"></div>
-          <div class="kpi-box__muted">Мбит/с</div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">
+          Активно сейчас
         </div>
+        <div class="kpi-box__value">{{ .vm.ActiveSessionsNow }}</div>
+        <div class="kpi-box__muted">по данным <code>client_sessions</code></div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
-        <div class="kpi-box">
-          <div class="kpi-box__title">Активность с MFA</div>
-          <div class="kpi-box__value" id="kpi-mfa-rate"></div>
-          <div class="kpi-box__muted">доля сессий с MFA</div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">Пиковая нагрузка</div>
+        <div class="kpi-box__value">{{ .vm.PeakClients }}</div>
+        <div class="kpi-box__muted">
+          max клиентов, p95 = {{ printf "%.0f" .vm.P95Clients }}
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Трафик и сессии по дням -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>Суммарный трафик по дням</span>
-            <span class="small-muted">последние 30 дней</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartDailyTraffic"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartDailyTraffic">Нет данных по трафику</div>
-        </div>
+  <!-- KPI: безопасность и SLA -->
+  <div class="row kpi-row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">P95 входящего трафика</div>
+        <div class="kpi-box__value" id="kpi-p95-inbps"></div>
+        <div class="kpi-box__muted">Мбит/с по mgmt snapshots</div>
       </div>
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>Сессии по дням</span>
-            <span class="small-muted">кол-во и трафик</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartSessionsByDay"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartSessionsByDay">Нет данных по сессиям</div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">P95 исходящего трафика</div>
+        <div class="kpi-box__value" id="kpi-p95-outbps"></div>
+        <div class="kpi-box__muted">Мбит/с по mgmt snapshots</div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">
+          MFA покрытие
+        </div>
+        <div class="kpi-box__value" id="kpi-mfa-rate"></div>
+        <div class="kpi-box__muted">
+          доля сессий с MFA
         </div>
       </div>
     </div>
-
-    <!-- Топы по трафику -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Топ пользователей по трафику</div>
-          <div class="chart-wrap">
-            <canvas id="chartTopUsersTraffic"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartTopUsersTraffic">Нет данных по пользователям</div>
-        </div>
-      </div>
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Топ-10 клиентов по трафику</div>
-          <div class="chart-wrap">
-            <canvas id="chartTopClientsTraffic"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartTopClientsTraffic">Нет данных по клиентам</div>
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="kpi-box">
+        <div class="kpi-box__title">MFA ошибки</div>
+        <div class="kpi-box__value" id="kpi-mfa-failed"></div>
+        <div class="kpi-box__muted">
+          неуспешные попытки MFA
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Новые графики: события + длительность -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>События во времени</span>
-            <span class="small-muted">подключения / отключения</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartEventsTimeline"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartEventsTimeline">Нет данных по событиям</div>
+  <!-- Нагрузка во времени -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Онлайн-клиенты</span>
+          <span class="small-muted">количество подключенных клиентов во времени</span>
         </div>
+        <div class="chart-wrap">
+          <canvas id="chartClientsTimeline"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Помогает оценить «прайм-тайм» работы пользователей и проверить,
+          выдерживает ли инфраструктура пики нагрузки.
+        </div>
+        <div class="empty-state" data-empty-for="chartClientsTimeline">Нет данных по клиентам</div>
       </div>
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header d-flex justify-content-between">
-            <span>Распределение длительности сессий</span>
-            <span class="small-muted">на основе client_sessions</span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="chartSessionDurationBuckets"></canvas>
-          </div>
-          <div class="empty-state" data-empty-for="chartSessionDurationBuckets">Нет данных по длительности</div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Пропускная способность VPN</span>
+          <span class="small-muted">входящий / исходящий трафик, Мбит/с</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartThroughput"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Основа для capacity-planning: видно, когда поджимает канал и стоит масштабироваться.
+        </div>
+        <div class="empty-state" data-empty-for="chartThroughput">Нет данных по трафику</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Нагрузка по дням -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Трафик по дням</span>
+          <span class="small-muted">последние 30 дней, ГиБ</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartDailyTraffic"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Даёт ощущение «массы» нагрузки: резкие скачки часто совпадают с релизами, инцидентами или сканами.
+        </div>
+        <div class="empty-state" data-empty-for="chartDailyTraffic">Нет данных по трафику</div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Сессии по дням</span>
+          <span class="small-muted">кол-во сессий и уникальных пользователей</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartSessionsByDay"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Можно быстро увидеть рабочие/нерабочие дни, провалы и всплески активности.
+        </div>
+        <div class="empty-state" data-empty-for="chartSessionsByDay">Нет данных по сессиям</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- События и распределение длительности -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Динамика подключений</span>
+          <span class="small-muted">подключения / отключения во времени</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartEventsTimeline"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Помогает заметить «флапающие» подключения и волны массовых переподключений.
+        </div>
+        <div class="empty-state" data-empty-for="chartEventsTimeline">Нет данных по событиям</div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header d-flex justify-content-between">
+          <span>Длительность сессий</span>
+          <span class="small-muted">распределение по диапазонам</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartSessionDurationBuckets"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Короткие сессии в большом количестве часто говорят о проблемах с сетью или конфигурацией.
+        </div>
+        <div class="empty-state" data-empty-for="chartSessionDurationBuckets">Нет данных по длительности</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Журнал доступа -->
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card-clean">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3 class="card-title mb-0">Журнал доступа (последние события)</h3>
+          <small class="text-muted">объединённый взгляд на подключение/отключение с эвристикой риска</small>
+        </div>
+        <div class="card-body table-responsive">
+          <table class="table table-sm table-hover log-table">
+            <thead>
+              <tr>
+                <th>Время</th>
+                <th>Событие</th>
+                <th>Пользователь</th>
+                <th>CN</th>
+                <th>Внешний IP</th>
+                <th>VPN IP</th>
+                <th>ОС / клиент</th>
+                <th>Трафик</th>
+                <th>Длительность</th>
+                <th>Риск</th>
+              </tr>
+            </thead>
+            <tbody id="accessLogBody">
+              <tr id="accessLogEmptyRow">
+                <td colspan="10" class="text-muted">Событий пока нет</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- TLS / PKI -->
-    <div class="row">
-      <div class="col-xl-4 col-lg-6 mb-4">
-        <div class="card-clean h-100">
-          <div class="card-header">
-            <h3 class="card-title">ТОП CA (Issuer)</h3>
-          </div>
-          <div class="card-body table-responsive">
-            {{ if .vm.TLSIssuers }}
-            <table class="table table-sm table-striped">
-              <thead><tr><th>Issuer</th><th>Count</th></tr></thead>
-              <tbody>
-                {{ range .vm.TLSIssuers }}
-                <tr><td>{{ .Issuer }}</td><td>{{ .Count }}</td></tr>
+  <!-- Профиль клиентов: ОС / устройства -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Операционные системы</div>
+        <div class="chart-wrap">
+          <canvas id="chartOsDistribution"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Помогает понять, на какие платформы ориентировать поддержку и изменения конфигураций.
+        </div>
+        <div class="empty-state" data-empty-for="chartOsDistribution">Нет данных</div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Типы устройств</div>
+        <div class="chart-wrap">
+          <canvas id="chartDeviceTypes"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Доля мобильных и десктопных клиентов.
+        </div>
+        <div class="empty-state" data-empty-for="chartDeviceTypes">Нет данных</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Профиль клиентов: VPN-клиенты / Криптопрофиль -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">VPN-клиенты</div>
+        <div class="chart-wrap">
+          <canvas id="chartClientApps"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Какие приложения чаще всего используют для подключения.
+        </div>
+        <div class="empty-state" data-empty-for="chartClientApps">Нет данных</div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Криптопрофиль</div>
+        <div class="chart-wrap">
+          <canvas id="chartCipherDistribution"></canvas>
+        </div>
+        <div class="metric-card__sub">
+          Распределение шифров; можно контролировать соответствие политике.
+        </div>
+        <div class="empty-state" data-empty-for="chartCipherDistribution">Нет данных</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Транспорт и MTU -->
+  <div class="row">
+    <div class="col-lg-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Распределение MTU</div>
+        <div class="chart-wrap"><canvas id="chartMTUStats"></canvas></div>
+        <div class="metric-card__sub">
+          Сильно отличающиеся MTU часто означают специфичные провайдеры или туннели поверх туннелей.
+        </div>
+        <div class="empty-state" data-empty-for="chartMTUStats">Нет данных</div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Протоколы VPN</div>
+        <div class="chart-wrap"><canvas id="chartProtoStats"></canvas></div>
+        <div class="metric-card__sub">
+          Соотношение UDP/TCP и режимов сервера.
+        </div>
+        <div class="empty-state" data-empty-for="chartProtoStats">Нет данных</div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-card__header">Режим туннеля</div>
+        <div class="chart-wrap"><canvas id="chartRedirectStats"></canvas></div>
+        <div class="metric-card__sub">
+          Full-tunnel vs split-tunnel. Важно для оценки рисков и нагрузки.
+        </div>
+        <div class="empty-state" data-empty-for="chartRedirectStats">Нет данных</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Длинные и тяжёлые сессии -->
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="card-clean">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Длинные сессии</h3>
+          <small class="text-muted d-block mt-1">Сессии с большой длительностью — часто это сервисы или «залипшие» клиенты.</small>
+        </div>
+        <div class="card-body table-responsive">
+          {{ if .vm.LongSessions }}
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>CN</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>VPN IP</th>
+                <th>Длительность</th>
+                <th>Трафик</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .vm.LongSessions }}
+              <tr>
+                <td>{{ .CommonName }}</td>
+                <td>{{ .Username }}</td>
+                <td>{{ .TrustedIP }}</td>
+                <td>{{ .VPNIP }}</td>
+                <td>{{ formatDuration .DurationSec }}</td>
+                <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+          {{ else }}
+          <div class="text-muted">Нет длинных сессий за выбранный период.</div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="card-clean">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Сессии с большим трафиком</h3>
+          <small class="text-muted d-block mt-1">Крупные переносы данных, бэкапы, возможные аномалии.</small>
+        </div>
+        <div class="card-body table-responsive">
+          {{ if .vm.HeavySessions }}
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>CN</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>VPN IP</th>
+                <th>Длительность</th>
+                <th>Трафик</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .vm.HeavySessions }}
+              <tr>
+                <td>{{ .CommonName }}</td>
+                <td>{{ .Username }}</td>
+                <td>{{ .TrustedIP }}</td>
+                <td>{{ .VPNIP }}</td>
+                <td>{{ formatDuration .DurationSec }}</td>
+                <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+          {{ else }}
+          <div class="text-muted">Критичных по трафику сессий не обнаружено.</div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Календарь нагрузки -->
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card-clean">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Календарь нагрузки</h3>
+          <small class="text-muted d-block mt-1">
+            Тепловая карта количества сессий по дням недели и часам. Удобно для планирования регламентных работ.
+          </small>
+        </div>
+        <div class="card-body table-responsive">
+          {{ $heat := .vm.HeatmapCalendar }}
+          <table class="table heat-table">
+            <thead>
+              <tr>
+                <th></th>
+                {{ range $h := seq 0 23 }}
+                  <th class="text-center">{{ printf "%02d" $h }}</th>
                 {{ end }}
-              </tbody>
-            </table>
-            {{ else }}
-            <div class="text-muted">Нет данных за выбранный период</div>
-            {{ end }}
-          </div>
-        </div>
-      </div>
-      <div class="col-xl-4 col-lg-6 mb-4">
-        <div class="card-clean h-100">
-          <div class="card-header">
-            <h3 class="card-title">ТОП клиентских сертификатов</h3>
-          </div>
-          <div class="card-body table-responsive">
-            {{ if .vm.TLSCerts }}
-            <table class="table table-sm table-striped">
-              <thead><tr><th>SerialHex</th><th>CNs</th><th>Сессии</th><th>Last seen</th></tr></thead>
-              <tbody>
-                {{ range .vm.TLSCerts }}
-                <tr>
-                  <td>{{ .SerialHex }}</td>
-                  <td>{{ .CommonNames }}</td>
-                  <td>{{ .Sessions }}</td>
-                  <td>{{ formatTsInt .LastSeen }}</td>
-                </tr>
-                {{ end }}
-              </tbody>
-            </table>
-            {{ else }}
-            <div class="text-muted">Нет данных за выбранный период</div>
-            {{ end }}
-          </div>
-        </div>
-      </div>
-      <div class="col-xl-4 mb-4">
-        <div class="card-clean h-100">
-          <div class="card-header">
-            <h3 class="card-title">Проблемные TLS-события</h3>
-          </div>
-          <div class="card-body table-responsive">
-            {{ if .vm.TLSAnomalies }}
-            <table class="table table-sm table-striped">
-              <thead><tr><th>Время</th><th>CN</th><th>IP</th><th>Depth</th><th>Leaf CN</th><th>Issuer</th><th>Причина</th></tr></thead>
-              <tbody>
-                {{ range .vm.TLSAnomalies }}
-                <tr>
-                  <td>{{ .EventTime.Format "2006-01-02 15:04:05" }}</td>
-                  <td>{{ .CommonName }}</td>
-                  <td>{{ .TrustedIP }}</td>
-                  <td>{{ .TLSDepth }}</td>
-                  <td>{{ .LeafCN }}</td>
-                  <td>{{ .IssuerCN }}</td>
-                  <td>{{ .Reason }}</td>
-                </tr>
-                {{ end }}
-              </tbody>
-            </table>
-            {{ else }}
-            <div class="text-muted">Нет данных за выбранный период</div>
-            {{ end }}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Транспорт и MTU -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Распределение MTU</div>
-          <div class="chart-wrap"><canvas id="chartMTUStats"></canvas></div>
-          <div class="empty-state" data-empty-for="chartMTUStats">Нет данных</div>
-        </div>
-      </div>
-      <div class="col-lg-6 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Протоколы</div>
-          <div class="chart-wrap"><canvas id="chartProtoStats"></canvas></div>
-          <div class="empty-state" data-empty-for="chartProtoStats">Нет данных</div>
-        </div>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Тип устройства туннеля</div>
-          <div class="chart-wrap"><canvas id="chartDevTypesExtra"></canvas></div>
-          <div class="empty-state" data-empty-for="chartDevTypesExtra">Нет данных</div>
-        </div>
-      </div>
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Режим туннеля</div>
-          <div class="chart-wrap"><canvas id="chartRedirectStats"></canvas></div>
-          <div class="empty-state" data-empty-for="chartRedirectStats">Нет данных</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-12 mb-4">
-        <div class="card card-clean">
-          <div class="card-header">
-            <h3 class="card-title">Активность по дням недели и времени суток</h3>
-          </div>
-          <div class="card-body table-responsive">
-            {{ $heat := .vm.HeatmapCalendar }}
-            <table class="table heat-table">
-              <thead>
-                <tr>
-                  <th></th>
-                  {{ range $h := seq 0 23 }}
-                    <th class="text-center">{{ printf "%02d" $h }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ $max := $heat.MaxValue }}
+              {{ range $w, $row := $heat.Cells }}
+                <tr class="{{ if or (eq $w 5) (eq $w 6) }}heat-row-weekend{{ end }}">
+                  <th scope="row" class="heat-row-label">
+                    {{ index $heat.RuWeekdaysShort $w }}
+                  </th>
+                  {{ range $h, $val := $row }}
+                    {{ $lvl := heatLevel $val $max }}
+                    <td class="heat-cell heat-{{$lvl}}">{{$val}}</td>
                   {{ end }}
                 </tr>
-              </thead>
-              <tbody>
-                {{ $max := $heat.MaxValue }}
-                {{ range $w, $row := $heat.Cells }}
-                  <tr class="{{ if or (eq $w 5) (eq $w 6) }}heat-row-weekend{{ end }}">
-                    <th scope="row" class="heat-row-label">
-                      {{ index $heat.RuWeekdaysShort $w }}
-                    </th>
-                    {{ range $h, $val := $row }}
-                      {{ $lvl := heatLevel $val $max }}
-                      <td class="heat-cell heat-{{$lvl}}">{{$val}}</td>
-                    {{ end }}
-                  </tr>
-                {{ end }}
-              </tbody>
-            </table>
-          </div>
+              {{ end }}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Распределения: ОС, устройства, клиенты -->
-    <div class="row">
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Распределение по ОС</div>
-          <div class="chart-wrap"><canvas id="chartOsDistribution"></canvas></div>
-          <div class="empty-state" data-empty-for="chartOsDistribution">Нет данных</div>
+  <!-- Расширенная TLS-диагностика -->
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card-clean">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Клиентские сертификаты</h3>
+          <small class="text-muted d-block mt-1">
+            Чаще всего используемые сертификаты. Одинаковый серийный номер у разных CN — повод проверить политику безопасности.
+          </small>
         </div>
-      </div>
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Типы устройств</div>
-          <div class="chart-wrap"><canvas id="chartDeviceTypes"></canvas></div>
-          <div class="empty-state" data-empty-for="chartDeviceTypes">Нет данных</div>
-        </div>
-      </div>
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">VPN клиенты</div>
-          <div class="chart-wrap"><canvas id="chartClientApps"></canvas></div>
-          <div class="empty-state" data-empty-for="chartClientApps">Нет данных</div>
+        <div class="card-body table-responsive">
+          {{ if .vm.TLSCerts }}
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>Серийный номер</th>
+                <th>CN</th>
+                <th>Сессий</th>
+                <th>Last seen</th>
+                <th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .vm.TLSCerts }}
+              <tr>
+                <td>{{ .SerialHex }}</td>
+                <td>{{ .CommonNames }}</td>
+                <td>{{ .Sessions }}</td>
+                <td>{{ formatTsInt .LastSeen }}</td>
+                <td><span class="badge-soft">проверить на шаринг сертификата</span></td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+          {{ else }}
+          <div class="text-muted">Нет активных сертификатов за выбранный период.</div>
+          {{ end }}
         </div>
       </div>
     </div>
+  </div>
 
-    <div class="row">
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Распределение по шифрам</div>
-          <div class="chart-wrap"><canvas id="chartCipherDistribution"></canvas></div>
-          <div class="empty-state" data-empty-for="chartCipherDistribution">Нет данных</div>
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card-clean">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Проблемные TLS-события</h3>
+          <small class="text-muted d-block mt-1">
+            Ошибки проверки сертификатов, блокировки по политике и другие отклонения от нормального TLS-рукопожатия.
+          </small>
         </div>
-      </div>
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">MFA статистика</div>
-          <div class="chart-wrap"><canvas id="chartMFA"></canvas></div>
-          <div class="empty-state" data-empty-for="chartMFA">Нет данных</div>
-        </div>
-      </div>
-      <div class="col-lg-4 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Методы аутентификации</div>
-          <div class="chart-wrap"><canvas id="chartAuthMethods"></canvas></div>
-          <div class="empty-state" data-empty-for="chartAuthMethods">Нет данных</div>
+        <div class="card-body table-responsive">
+          {{ if .vm.TLSAnomalies }}
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>Время</th>
+                <th>CN</th>
+                <th>IP</th>
+                <th>Depth</th>
+                <th>Leaf CN</th>
+                <th>Issuer</th>
+                <th>Причина</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .vm.TLSAnomalies }}
+              <tr>
+                <td>{{ .EventTime.Format "2006-01-02 15:04:05" }}</td>
+                <td>{{ .CommonName }}</td>
+                <td>{{ .TrustedIP }}</td>
+                <td>{{ .TLSDepth }}</td>
+                <td>{{ .LeafCN }}</td>
+                <td>{{ .IssuerCN }}</td>
+                <td>{{ .Reason }}</td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+          {{ else }}
+          <div class="text-muted">Проблемных TLS-событий не зафиксировано.</div>
+          {{ end }}
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Длинные и тяжёлые сессии -->
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <div class="card-clean">
-          <div class="card-header"><h3 class="card-title">Длинные сессии</h3></div>
-          <div class="card-body table-responsive">
-            {{ if .vm.LongSessions }}
-            <table class="table table-sm table-striped">
-              <thead><tr><th>CN</th><th>User</th><th>Trusted IP</th><th>VPN IP</th><th>Длительность</th><th>Трафик</th><th>Подключено</th></tr></thead>
-              <tbody>
-                {{ range .vm.LongSessions }}
-                <tr>
-                  <td>{{ .CommonName }}</td>
-                  <td>{{ .Username }}</td>
-                  <td>{{ .TrustedIP }}</td>
-                  <td>{{ .VPNIP }}</td>
-                  <td>{{ formatDuration .DurationSec }}</td>
-                  <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
-                  <td>{{ .ConnectTime.Format "2006-01-02 15:04:05" }}</td>
-                </tr>
-                {{ end }}
-              </tbody>
-            </table>
-            {{ else }}
-            <div class="text-muted">Нет данных</div>
-            {{ end }}
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6 mb-4">
-        <div class="card-clean">
-          <div class="card-header"><h3 class="card-title">Сессии с большим трафиком</h3></div>
-          <div class="card-body table-responsive">
-            {{ if .vm.HeavySessions }}
-            <table class="table table-sm table-striped">
-              <thead><tr><th>CN</th><th>User</th><th>Trusted IP</th><th>VPN IP</th><th>Длительность</th><th>Трафик</th><th>Подключено</th></tr></thead>
-              <tbody>
-                {{ range .vm.HeavySessions }}
-                <tr>
-                  <td>{{ .CommonName }}</td>
-                  <td>{{ .Username }}</td>
-                  <td>{{ .TrustedIP }}</td>
-                  <td>{{ .VPNIP }}</td>
-                  <td>{{ formatDuration .DurationSec }}</td>
-                  <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
-                  <td>{{ .ConnectTime.Format "2006-01-02 15:04:05" }}</td>
-                </tr>
-                {{ end }}
-              </tbody>
-            </table>
-            {{ else }}
-            <div class="text-muted">Нет данных</div>
-            {{ end }}
-          </div>
-        </div>
-      </div>
+  <!-- Информация для клиентов -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <p class="text-muted" style="font-size:.85rem">
+        Клиентам NiceSOFT доступны дополнительные отчёты и графики под ваши задачи.
+        Вы можете запросить их по адресу
+        <a href="mailto:support@niceos.ru">support@niceos.ru</a>.
+      </p>
     </div>
+  </div>
 
-    <!-- Таблицы: последние сессии и события -->
-    <div class="row">
-      <div class="col-lg-5 mb-4">
-        <div class="card-clean">
-          <div class="card-header">
-            <h3 class="card-title">Последние сессии</h3>
-          </div>
-          <div class="card-body table-responsive">
-            <table class="table table-sm table-striped">
-              <thead>
-                <tr>
-                  <th>Пользователь</th>
-                  <th>CN</th>
-                  <th>ОС</th>
-                  <th>Страна</th>
-                  <th>Трафик</th>
-                  <th>Длительность</th>
-                  <th>Статус</th>
-                  <th>С начала</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{ if .vm.RecentSessions }}
-                  {{ range .vm.RecentSessions }}
-                  <tr>
-                    <td>{{ .Username }}</td>
-                    <td>{{ .CommonName }}</td>
-                    <td>{{ .DeviceOS }}</td>
-                    <td>{{ .Country }}</td>
-                    <td>{{ printf "%0.1f MB" (divMB .BytesIn .BytesOut) }}</td>
-                    <td>{{ formatDuration .DurationSec }}</td>
-                    <td>{{ .Status }}</td>
-                    <td>{{ .ConnectTime }}</td>
-                  </tr>
-                  {{ end }}
-                {{ else }}
-                  <tr><td colspan="8" class="text-muted">Сессий пока нет</td></tr>
-                {{ end }}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-4 mb-4">
-        <div class="card-clean">
-          <div class="card-header">
-            <h3 class="card-title">Последние события</h3>
-          </div>
-          <div class="card-body table-responsive">
-            <table class="table table-sm table-striped">
-              <thead>
-                <tr>
-                  <th>Тип</th>
-                  <th>Время</th>
-                  <th>Пользователь</th>
-                  <th>IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{ if .vm.RecentEvents }}
-                  {{ range .vm.RecentEvents }}
-                  <tr>
-                    <td>{{ .EventType }}</td>
-                    <td>{{ .EventTime }}</td>
-                    <td>{{ .Username }}</td>
-                    <td>{{ .TrustedIP }}</td>
-                  </tr>
-                  {{ end }}
-                {{ else }}
-                  <tr><td colspan="4" class="text-muted">Событий пока нет</td></tr>
-                {{ end }}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-3 mb-4">
-        <div class="card-clean">
-          <div class="card-header">
-            <h3 class="card-title">Проблемные клиенты</h3>
-          </div>
-          <div class="card-body table-responsive">
-            <table class="table table-sm table-striped">
-              <thead>
-                <tr>
-                  <th>CN</th>
-                  <th>User</th>
-                  <th>Сессии</th>
-                  <th>Reconnects</th>
-                  <th>Трафик</th>
-                  <th>Avg dur</th>
-                  <th>Last IP</th>
-                  <th>Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{ if .vm.ProblemClients }}
-                  {{ range .vm.ProblemClients }}
-                  <tr>
-                    <td>{{ .CommonName }}</td>
-                    <td>{{ .Username }}</td>
-                    <td>{{ .Sessions }}</td>
-                    <td>{{ .Reconnects }}</td>
-                    <td>{{ printf "%0.1f MB" (divMB64 .TotalBytes) }}</td>
-                    <td>{{ formatDuration .AvgDurationSec }}</td>
-                    <td>{{ .LastIP }}</td>
-                    <td>{{ formatTsInt .LastSeen }}</td>
-                  </tr>
-                  {{ end }}
-                {{ else }}
-                  <tr><td colspan="8" class="text-muted">Нет данных</td></tr>
-                {{ end }}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  {{ end }}
+  {{ end }} <!-- /metrics enabled -->
 </div>
 
 <script src="/static/js/chart.umd.min.js"></script>
 <script>
-  // Ожидаем, что vm уже содержит агрегаты, подготовленные контроллером.
   const vm = {{ tojson .vm }};
 
   function bytesToMB(value) {
     return value / 1024 / 1024;
   }
-
   function bytesToGiB(value) {
     return value / 1024 / 1024 / 1024;
   }
-
   function toggleEmpty(id, hasData) {
     const canvas = document.getElementById(id);
     const empty = document.querySelector('[data-empty-for="' + id + '"]');
@@ -748,29 +771,43 @@
       canvas.style.display = 'none';
     }
   }
+  function formatTs(ts) {
+    return new Date(ts * 1000).toLocaleString();
+  }
+
+  function initSummary() {
+    const totalBytes = Number(vm.TotalBytesIn || 0) + Number(vm.TotalBytesOut || 0);
+    const gib = bytesToGiB(totalBytes);
+    const span = document.getElementById('summary-traffic-gib');
+    if (span) span.textContent = gib.toFixed(1);
+  }
 
   function initKPI() {
-    const trafficMB = bytesToMB(Number(vm.TotalBytesIn || 0) + Number(vm.TotalBytesOut || 0));
+    const totalBytes = Number(vm.TotalBytesIn || 0) + Number(vm.TotalBytesOut || 0);
+    const trafficMB = bytesToMB(totalBytes);
     const avgMin = vm.AvgSessionDurationSec ? (vm.AvgSessionDurationSec / 60).toFixed(1) : '0';
     const trafficNode = document.getElementById('kpi-traffic-total');
     const avgNode = document.getElementById('kpi-avg-duration');
     const p95InNode = document.getElementById('kpi-p95-inbps');
     const p95OutNode = document.getElementById('kpi-p95-outbps');
     const mfaRateNode = document.getElementById('kpi-mfa-rate');
+    const mfaFailedNode = document.getElementById('kpi-mfa-failed');
     if (trafficNode) trafficNode.textContent = trafficMB.toFixed(1);
     if (avgNode) avgNode.textContent = avgMin;
     if (p95InNode) p95InNode.textContent = (Number(vm.P95InBps || 0) / 1_000_000).toFixed(2);
     if (p95OutNode) p95OutNode.textContent = (Number(vm.P95OutBps || 0) / 1_000_000).toFixed(2);
+
+    const stats = vm.MFAStats || {};
+    const total = Number(stats.TotalSessions || 0);
+    const mfa = Number(stats.MFASessions || 0);
+    const failed = Number(stats.MFAFailed || 0);
     if (mfaRateNode) {
-      const total = Number((vm.MFAStats || {}).TotalSessions || 0);
-      const mfa = Number((vm.MFAStats || {}).MFASessions || 0);
       const rate = total > 0 ? ((mfa / total) * 100).toFixed(1) + '%' : '0%';
       mfaRateNode.textContent = rate;
     }
-  }
-
-  function formatTs(ts) {
-    return new Date(ts * 1000).toLocaleString();
+    if (mfaFailedNode) {
+      mfaFailedNode.textContent = failed.toString();
+    }
   }
 
   function initClientsTimeline() {
@@ -795,19 +832,19 @@
         responsive: true,
         scales: {
           y: { beginAtZero: true, title: { display: true, text: 'Клиенты' } }
-        }
+        },
+        plugins: { legend: { display: false } }
       }
     });
   }
 
-  // vm.Throughput: [{ Ts, InBps, OutBps }, ...] — Bps или bps, сервер считает.
   function initThroughput() {
     const data = vm.Throughput || [];
     toggleEmpty('chartThroughput', data.length > 0);
     if (!data.length) return;
 
     const labels = data.map(p => formatTs(p.Ts));
-    const inbound = data.map(p => Number(p.InBps || 0) / 1_000_000);  // → Мбит/с
+    const inbound = data.map(p => Number(p.InBps || 0) / 1_000_000);
     const outbound = data.map(p => Number(p.OutBps || 0) / 1_000_000);
 
     const ctx = document.getElementById('chartThroughput').getContext('2d');
@@ -825,10 +862,7 @@
         scales: {
           y: {
             beginAtZero: true,
-            title: { display: true, text: 'Мбит/с' },
-            ticks: {
-              callback: v => v.toFixed ? v.toFixed(1) : v
-            }
+            title: { display: true, text: 'Мбит/с' }
           }
         },
         plugins: { legend: { display: true } }
@@ -863,14 +897,13 @@
     });
   }
 
-  // vm.SessionsByDay: [{ Date, Sessions, BytesIn, BytesOut }, ...]
   function initSessionsByDay() {
     const data = vm.SessionsByDay || [];
     toggleEmpty('chartSessionsByDay', data.length > 0);
     if (!data.length) return;
     const labels = data.map(i => i.Date);
     const sessions = data.map(i => Number(i.Sessions || 0));
-    const bytes = data.map(i => bytesToMB(Number(i.BytesIn || 0) + Number(i.BytesOut || 0)));
+    const uniques = data.map(i => Number(i.UniqueUsers || 0));
     const ctx = document.getElementById('chartSessionsByDay').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
@@ -878,66 +911,19 @@
         labels,
         datasets: [
           { label: 'Сессии', data: sessions },
-          { label: 'Трафик (MB)', data: bytes, type: 'line', yAxisID: 'y1', tension: 0.3 }
+          { label: 'Уникальные пользователи', data: uniques }
         ]
       },
       options: {
         responsive: true,
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Сессии' } },
-          y1: {
-            beginAtZero: true,
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: 'MB' }
-          }
+          y: { beginAtZero: true, title: { display: true, text: 'Количество' } }
         },
         plugins: { legend: { display: true } }
       }
     });
   }
 
-  // vm.TopUsersByTraffic: [{ Username, CommonName, BytesIn, BytesOut }, ...]
-  function initTopUsersTraffic() {
-    const data = vm.TopUsersByTraffic || [];
-    toggleEmpty('chartTopUsersTraffic', data.length > 0);
-    if (!data.length) return;
-    const labels = data.map(i => i.Username || i.CommonName || '—');
-    const bytes = data.map(i => bytesToMB(Number(i.BytesIn || 0) + Number(i.BytesOut || 0)));
-    const ctx = document.getElementById('chartTopUsersTraffic').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Трафик (MB)', data: bytes }] },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true } }
-      }
-    });
-  }
-
-  // vm.TopClientsByTraffic: [{ CommonName, TotalBytes }, ...]
-  function initTopClientsTraffic() {
-    const data = vm.TopClientsByTraffic || [];
-    toggleEmpty('chartTopClientsTraffic', data.length > 0);
-    if (!data.length) return;
-    const labels = data.map(i => i.CommonName || '—');
-    const bytes = data.map(i => bytesToGiB(Number(i.TotalBytes || 0)));
-    const ctx = document.getElementById('chartTopClientsTraffic').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Трафик (ГиБ)', data: bytes }] },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true } }
-      }
-    });
-  }
-
-  // vm.EventsTimeline: [{ Ts, Connects, Disconnects }, ...]
   function initEventsTimeline() {
     const data = vm.EventsTimeline || [];
     toggleEmpty('chartEventsTimeline', data.length > 0);
@@ -967,7 +953,6 @@
     });
   }
 
-  // vm.SessionDurationBuckets: [{ Label, Count }, ...]
   function initSessionDurationBuckets() {
     const data = vm.SessionDurationBuckets || [];
     toggleEmpty('chartSessionDurationBuckets', data.length > 0);
@@ -988,37 +973,23 @@
     });
   }
 
-  function initMFAChart() {
-    const stats = vm.MFAStats || {};
-    const data = [
-      { label: 'No MFA', value: Number(stats.TotalSessions || 0) - Number(stats.MFASessions || 0) },
-      { label: 'MFA OK', value: Number(stats.MFASuccess || 0) },
-      { label: 'MFA Failed', value: Number(stats.MFAFailed || 0) }
-    ].filter(i => i.value > 0);
-    toggleEmpty('chartMFA', data.length > 0);
+  function initDoughnut(id, raw) {
+    const data = raw || [];
+    toggleEmpty(id, data.length > 0);
     if (!data.length) return;
-    const ctx = document.getElementById('chartMFA').getContext('2d');
+    const labels = data.map(i => i.Key || i.Label || i.Type || i.App || 'Unknown');
+    const values = data.map(i => Number(i.Value || i.Count || 0));
+    const ctx = document.getElementById(id).getContext('2d');
     new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: data.map(i => i.label),
-        datasets: [{ data: data.map(i => i.value) }]
+        labels,
+        datasets: [{ data: values }]
       },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  }
-
-  function initAuthMethods() {
-    const data = vm.AuthMethods || [];
-    toggleEmpty('chartAuthMethods', data.length > 0);
-    if (!data.length) return;
-    const labels = data.map(i => i.Method || 'unknown');
-    const values = data.map(i => Number(i.Count || 0));
-    const ctx = document.getElementById('chartAuthMethods').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Сессии', data: values }] },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
     });
   }
 
@@ -1036,27 +1007,10 @@
     new Chart(ctx, {
       type: 'bar',
       data: { labels, datasets: [{ label: 'Сессии', data: values }] },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-    });
-  }
-
-  function initDoughnut(id, data) {
-    toggleEmpty(id, data.length > 0);
-    if (!data.length) return;
-    const labels = data.map(i => i.Key || i.Label || 'Unknown');
-    const values = data.map(i => Number(i.Value || i.Count || 0));
-    const ctx = document.getElementById(id).getContext('2d');
-    new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels,
-        datasets: [{
-          data: values
-        }]
-      },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'bottom' } }
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
       }
     });
   }
@@ -1070,8 +1024,12 @@
     const ctx = document.getElementById('chartMTUStats').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
-      data: { labels, datasets: [{ label: 'Количество', data: values }] },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      data: { labels, datasets: [{ label: 'Клиентов', data: values }] },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
     });
   }
 
@@ -1079,34 +1037,111 @@
     initDoughnut('chartProtoStats', (vm.ProtoStats || []).map(i => ({ Label: i.Proto, Count: i.Count })));
   }
 
-  function initDevTypesExtra() {
-    initDoughnut('chartDevTypesExtra', (vm.DevTypesExtra || []).map(i => ({ Label: i.DevType, Count: i.Count })));
-  }
-
   function initRedirectStats() {
     initDoughnut('chartRedirectStats', (vm.RedirectStats || []).map(i => ({ Label: i.Mode, Count: i.Count })));
   }
 
+  function initAccessLog() {
+    const tbody = document.getElementById('accessLogBody');
+    const emptyRow = document.getElementById('accessLogEmptyRow');
+    if (!tbody) return;
+
+    const events = vm.RecentEvents || [];
+    const problemList = vm.ProblemClients || [];
+    const problemMap = {};
+    problemList.forEach(p => {
+      const key = (p.CommonName || '') + '|' + (p.Username || '');
+      problemMap[key] = p;
+    });
+
+    if (!events.length) {
+      if (emptyRow) emptyRow.style.display = '';
+      return;
+    }
+    if (emptyRow) emptyRow.style.display = 'none';
+
+    // Сортируем по времени на всякий случай
+    events.sort((a, b) => {
+      const ta = (a.EventTime && a.EventTime.Valid) ? a.EventTime.Int64 : 0;
+      const tb = (b.EventTime && b.EventTime.Valid) ? b.EventTime.Int64 : 0;
+      return (tb || 0) - (ta || 0);
+    });
+
+    tbody.innerHTML = '';
+    events.forEach(e => {
+      const totalBytes = Number(e.BytesIn || 0) + Number(e.BytesOut || 0);
+      const bytesMB = bytesToMB(totalBytes);
+      const durSec = Number(e.DurationSec || 0);
+      const key = (e.CommonName || '') + '|' + (e.Username || '');
+      const problem = problemMap[key];
+
+      let riskClass = '';
+      let riskLabel = 'Норма';
+      let riskBadgeClass = 'log-badge log-badge--ok';
+
+      if (problem && Number(problem.Reconnects || 0) > 5) {
+        riskClass = 'log-row--risk';
+        riskLabel = 'Частые обрывы';
+        riskBadgeClass = 'log-badge log-badge--risk';
+      } else if (durSec > 0 && durSec < 60 && totalBytes < 1 * 1024 * 1024) {
+        riskClass = 'log-row--warn';
+        riskLabel = 'Очень короткая сессия';
+        riskBadgeClass = 'log-badge log-badge--warn';
+      } else if (bytesMB > 10 * 1024) { // ~10 ГиБ
+        riskClass = 'log-row--warn';
+        riskLabel = 'Очень большой трафик';
+        riskBadgeClass = 'log-badge log-badge--warn';
+      }
+
+      let typeLabel = e.EventType || 'event';
+      let typeBadgeClass = 'log-badge log-badge--info';
+      if (/connect/i.test(typeLabel)) {
+        typeLabel = 'Подключение';
+        typeBadgeClass = 'log-badge log-badge--ok';
+      } else if (/disconnect/i.test(typeLabel)) {
+        typeLabel = 'Отключение';
+        typeBadgeClass = 'log-badge log-badge--info';
+      } else if (/tls/i.test(typeLabel)) {
+        typeLabel = 'TLS';
+        typeBadgeClass = 'log-badge log-badge--warn';
+      }
+
+      const tr = document.createElement('tr');
+      if (riskClass) tr.classList.add(riskClass);
+
+      tr.innerHTML = `
+        <td>${new Date((e.EventTime || 0) * 1000).toLocaleString()}</td>
+        <td><span class="${typeBadgeClass}">${typeLabel}</span></td>
+        <td>${e.Username || '—'}</td>
+        <td>${e.CommonName || '—'}</td>
+        <td>${e.TrustedIP || '—'}</td>
+        <td>${e.VPNIP || '—'}</td>
+        <td>${e.DeviceOS || 'Unknown'}</td>
+        <td>${bytesMB.toFixed(1)} MB</td>
+        <td>${durSec ? (durSec / 60).toFixed(1) + ' мин' : '—'}</td>
+        <td><span class="${riskBadgeClass}">${riskLabel}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    initSummary();
     initKPI();
     initClientsTimeline();
     initThroughput();
-    initSessionsByDay();
     initDailyTraffic();
-    initTopUsersTraffic();
-    initTopClientsTraffic();
+    initSessionsByDay();
     initEventsTimeline();
     initSessionDurationBuckets();
     initDoughnut('chartOsDistribution', vm.OsDistribution || []);
     initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
     initDeviceTypes();
+    initClientApps();
     initMTUStats();
     initProtoStats();
-    initDevTypesExtra();
     initRedirectStats();
-    initClientApps();
-    initMFAChart();
-    initAuthMethods();
+    initAccessLog();
   });
 </script>
 
