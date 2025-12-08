@@ -170,6 +170,67 @@ type ProblemClientRow struct {
 	LastSeen       int64  `json:"LastSeen"`
 }
 
+// TLSIssuerStat aggregates TLS issuer usage.
+type TLSIssuerStat struct {
+	Issuer string `json:"Issuer"`
+	Count  int64  `json:"Count"`
+}
+
+// TLSCertStat aggregates client certificate usage.
+type TLSCertStat struct {
+	SerialHex   string `json:"SerialHex"`
+	CommonNames int64  `json:"CommonNames"`
+	Sessions    int64  `json:"Sessions"`
+	LastSeen    int64  `json:"LastSeen"`
+}
+
+// TLSAnomalyRow describes problematic TLS verification events.
+type TLSAnomalyRow struct {
+	EventTime  time.Time `json:"EventTime"`
+	CommonName string    `json:"CommonName"`
+	TrustedIP  string    `json:"TrustedIP"`
+	TLSDepth   int64     `json:"TLSDepth"`
+	LeafCN     string    `json:"LeafCN"`
+	IssuerCN   string    `json:"IssuerCN"`
+	Reason     string    `json:"Reason"`
+}
+
+// MTUStat aggregates MTU usage.
+type MTUStat struct {
+	MTU   int64 `json:"MTU"`
+	Count int64 `json:"Count"`
+}
+
+// ProtoStat aggregates protocol usage.
+type ProtoStat struct {
+	Proto string `json:"Proto"`
+	Count int64  `json:"Count"`
+}
+
+// DevTypeStat aggregates tunnel device types.
+type DevTypeStat struct {
+	DevType string `json:"DevType"`
+	Count   int64  `json:"Count"`
+}
+
+// RedirectGatewayStat aggregates redirect-gateway policies.
+type RedirectGatewayStat struct {
+	Mode  string `json:"Mode"`
+	Count int64  `json:"Count"`
+}
+
+// HeavySessionRow describes long-lived or heavy-traffic sessions.
+type HeavySessionRow struct {
+	SessionUID  string    `json:"SessionUID"`
+	CommonName  string    `json:"CommonName"`
+	Username    string    `json:"Username"`
+	TrustedIP   string    `json:"TrustedIP"`
+	VPNIP       string    `json:"VPNIP"`
+	DurationSec int64     `json:"DurationSec"`
+	BytesTotal  uint64    `json:"BytesTotal"`
+	ConnectTime time.Time `json:"ConnectTime"`
+}
+
 // UsageHeatmapCell stores aggregated sessions per weekday/hour.
 type UsageHeatmapCell struct {
 	Weekday  int   `json:"Weekday"`
@@ -913,6 +974,262 @@ ORDER BY cnt DESC;
 	return res, rows.Err()
 }
 
+// AggregateTLSIssuerStats counts TLS issuers seen in tls_verify events.
+func AggregateTLSIssuerStats(ctx context.Context, s Store, from, to time.Time) ([]TLSIssuerStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT issuer, COUNT(*) as cnt
+FROM (
+    SELECT
+        CASE
+            WHEN COALESCE(NULLIF(json_extract(env_raw, '$.tls_id_1'), ''), '') != '' THEN json_extract(env_raw, '$.tls_id_1')
+            WHEN COALESCE(NULLIF(json_extract(env_raw, '$.X509_1_CN'), ''), '') != '' THEN json_extract(env_raw, '$.X509_1_CN')
+            ELSE 'Unknown'
+        END AS issuer
+    FROM client_events
+    WHERE event_type = 'tls_verify' AND event_time >= ? AND event_time < ?
+) as sub
+GROUP BY issuer
+ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []TLSIssuerStat
+	for rows.Next() {
+		var r TLSIssuerStat
+		if err := rows.Scan(&r.Issuer, &r.Count); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateTLSCertStats aggregates usage statistics for client certificates.
+func AggregateTLSCertStats(ctx context.Context, s Store, from, to time.Time, limit int) ([]TLSCertStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT
+    COALESCE(NULLIF(json_extract(env_raw, '$.tls_serial_hex_0'), ''), 'unknown') as serial_hex,
+    COUNT(DISTINCT common_name) as common_names,
+    COUNT(*) as sessions,
+    MAX(event_time) as last_seen
+FROM client_events
+WHERE event_type IN ('connect', 'disconnect', 'tls_verify')
+  AND event_time >= ? AND event_time < ?
+GROUP BY serial_hex
+ORDER BY sessions DESC
+LIMIT ?;`, from.Unix(), to.Unix(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []TLSCertStat
+	for rows.Next() {
+		var r TLSCertStat
+		if err := rows.Scan(&r.SerialHex, &r.CommonNames, &r.Sessions, &r.LastSeen); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateTLSAnomalies extracts failed TLS verification events.
+func AggregateTLSAnomalies(ctx context.Context, s Store, from, to time.Time, limit int) ([]TLSAnomalyRow, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT
+    event_time,
+    common_name,
+    trusted_ip,
+    CAST(COALESCE(NULLIF(json_extract(env_raw, '$.NICEVPN_TLS_DEPTH'), ''), '0') AS INTEGER) as tls_depth,
+    COALESCE(json_extract(env_raw, '$.X509_0_CN'), '') as leaf_cn,
+    COALESCE(json_extract(env_raw, '$.X509_1_CN'), '') as issuer_cn,
+    COALESCE(json_extract(env_raw, '$.NICEVPN_AUTH_REASON'), '') as reason
+FROM client_events
+WHERE event_type = 'tls_verify'
+  AND event_time >= ? AND event_time < ?
+  AND (
+        COALESCE(NULLIF(json_extract(env_raw, '$.NICEVPN_AUTH_RESULT'), ''), '') != 'OK'
+        OR (
+            COALESCE(NULLIF(json_extract(env_raw, '$.NICEVPN_TLS_POLICY_MODE'), ''), '') = 'enforce'
+            AND COALESCE(NULLIF(json_extract(env_raw, '$.NICEVPN_AUTH_RESULT'), ''), '') != 'OK'
+        )
+  )
+ORDER BY event_time DESC
+LIMIT ?;`, from.Unix(), to.Unix(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []TLSAnomalyRow
+	for rows.Next() {
+		var (
+			eventTime int64
+			r         TLSAnomalyRow
+		)
+		if err := rows.Scan(&eventTime, &r.CommonName, &r.TrustedIP, &r.TLSDepth, &r.LeafCN, &r.IssuerCN, &r.Reason); err != nil {
+			return nil, err
+		}
+		r.EventTime = time.Unix(eventTime, 0).UTC()
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateMTUStats collects MTU distribution from client events.
+func AggregateMTUStats(ctx context.Context, s Store, from, to time.Time) ([]MTUStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT mtu, COUNT(*) as cnt
+FROM (
+    SELECT CAST(json_extract(env_raw, '$.tun_mtu') AS INTEGER) as mtu
+    FROM client_events
+    WHERE event_type IN ('connect','disconnect','ip_update','tls_verify')
+      AND event_time >= ? AND event_time < ?
+) as sub
+WHERE mtu IS NOT NULL AND mtu > 0
+GROUP BY mtu
+ORDER BY mtu ASC;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []MTUStat
+	for rows.Next() {
+		var r MTUStat
+		if err := rows.Scan(&r.MTU, &r.Count); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateProtoStats collects protocol usage statistics.
+func AggregateProtoStats(ctx context.Context, s Store, from, to time.Time) ([]ProtoStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT proto, COUNT(*) as cnt
+FROM (
+    SELECT COALESCE(NULLIF(json_extract(env_raw, '$.proto_1'), ''), 'unknown') as proto
+    FROM client_events
+    WHERE event_type IN ('connect','disconnect')
+      AND event_time >= ? AND event_time < ?
+) as sub
+GROUP BY proto
+ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []ProtoStat
+	for rows.Next() {
+		var r ProtoStat
+		if err := rows.Scan(&r.Proto, &r.Count); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateDevTypeStats collects tunnel device types.
+func AggregateDevTypeStats(ctx context.Context, s Store, from, to time.Time) ([]DevTypeStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT dev_type, COUNT(*) as cnt
+FROM (
+    SELECT COALESCE(NULLIF(json_extract(env_raw, '$.dev_type'), ''), 'unknown') as dev_type
+    FROM client_events
+    WHERE event_type IN ('connect','disconnect')
+      AND event_time >= ? AND event_time < ?
+) as sub
+GROUP BY dev_type
+ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []DevTypeStat
+	for rows.Next() {
+		var r DevTypeStat
+		if err := rows.Scan(&r.DevType, &r.Count); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
+// AggregateRedirectGatewayStats collects redirect-gateway policies.
+func AggregateRedirectGatewayStats(ctx context.Context, s Store, from, to time.Time) ([]RedirectGatewayStat, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT mode, COUNT(*) as cnt
+FROM (
+    SELECT CASE
+        WHEN json_extract(env_raw, '$.redirect_gateway') = '1' THEN 'full'
+        WHEN json_extract(env_raw, '$.redirect_gateway') = '0' THEN 'split'
+        ELSE 'unknown'
+    END as mode
+    FROM client_events
+    WHERE event_type IN ('connect','disconnect')
+      AND event_time >= ? AND event_time < ?
+) as sub
+GROUP BY mode;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []RedirectGatewayStat
+	for rows.Next() {
+		var r RedirectGatewayStat
+		if err := rows.Scan(&r.Mode, &r.Count); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, rows.Err()
+}
+
 // AggregateDeviceTypeStats groups devices into desktop/mobile/other.
 func AggregateDeviceTypeStats(ctx context.Context, s Store, from, to time.Time) ([]DeviceTypeStat, error) {
 	db, err := getSQLDB(s)
@@ -1057,6 +1374,88 @@ WHERE connect_time >= ? AND connect_time < ?;
 		res = res[:limit]
 	}
 	return res, nil
+}
+
+// AggregateLongLivedSessions returns sessions longer than the specified threshold.
+func AggregateLongLivedSessions(ctx context.Context, s Store, from, to time.Time, minDurationSec int64, limit int) ([]HeavySessionRow, error) {
+	return aggregateHeavySessions(ctx, s, from, to, minDurationSec, 0, limit, true)
+}
+
+// AggregateHeavyTrafficSessions returns sessions that transferred more than minBytes.
+func AggregateHeavyTrafficSessions(ctx context.Context, s Store, from, to time.Time, minBytes uint64, limit int) ([]HeavySessionRow, error) {
+	return aggregateHeavySessions(ctx, s, from, to, 0, minBytes, limit, false)
+}
+
+func aggregateHeavySessions(ctx context.Context, s Store, from, to time.Time, minDurationSec int64, minBytes uint64, limit int, filterDuration bool) ([]HeavySessionRow, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT session_uid, common_name, username, trusted_ip, vpn_ip, duration_sec, bytes_in, bytes_out, connect_time, status
+FROM client_sessions
+WHERE connect_time >= ? AND connect_time < ?;`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	now := time.Now().UTC().Unix()
+	var items []HeavySessionRow
+	for rows.Next() {
+		var (
+			r           HeavySessionRow
+			duration    sql.NullInt64
+			bytesIn     sql.NullInt64
+			bytesOut    sql.NullInt64
+			connectTime int64
+			status      sql.NullString
+		)
+		if err := rows.Scan(&r.SessionUID, &r.CommonName, &r.Username, &r.TrustedIP, &r.VPNIP, &duration, &bytesIn, &bytesOut, &connectTime, &status); err != nil {
+			return nil, err
+		}
+
+		if duration.Valid {
+			r.DurationSec = duration.Int64
+		}
+		r.ConnectTime = time.Unix(connectTime, 0).UTC()
+		if r.DurationSec == 0 && status.String == "active" {
+			r.DurationSec = now - connectTime
+		}
+
+		var total uint64
+		if bytesIn.Valid {
+			total += uint64(bytesIn.Int64)
+		}
+		if bytesOut.Valid {
+			total += uint64(bytesOut.Int64)
+		}
+		r.BytesTotal = total
+
+		if filterDuration && r.DurationSec < minDurationSec {
+			continue
+		}
+		if !filterDuration && r.BytesTotal < minBytes {
+			continue
+		}
+		items = append(items, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].BytesTotal == items[j].BytesTotal {
+			return items[i].DurationSec > items[j].DurationSec
+		}
+		return items[i].BytesTotal > items[j].BytesTotal
+	})
+
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
 }
 
 // AggregateUsageHeatmap builds weekday/hour usage matrix.

@@ -342,6 +342,120 @@
       </div>
     </div>
 
+    <!-- TLS / PKI -->
+    <div class="row">
+      <div class="col-xl-4 col-lg-6 mb-4">
+        <div class="card-clean h-100">
+          <div class="card-header">
+            <h3 class="card-title">ТОП CA (Issuer)</h3>
+          </div>
+          <div class="card-body table-responsive">
+            {{ if .vm.TLSIssuers }}
+            <table class="table table-sm table-striped">
+              <thead><tr><th>Issuer</th><th>Count</th></tr></thead>
+              <tbody>
+                {{ range .vm.TLSIssuers }}
+                <tr><td>{{ .Issuer }}</td><td>{{ .Count }}</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ else }}
+            <div class="text-muted">Нет данных за выбранный период</div>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4 col-lg-6 mb-4">
+        <div class="card-clean h-100">
+          <div class="card-header">
+            <h3 class="card-title">ТОП клиентских сертификатов</h3>
+          </div>
+          <div class="card-body table-responsive">
+            {{ if .vm.TLSCerts }}
+            <table class="table table-sm table-striped">
+              <thead><tr><th>SerialHex</th><th>CNs</th><th>Сессии</th><th>Last seen</th></tr></thead>
+              <tbody>
+                {{ range .vm.TLSCerts }}
+                <tr>
+                  <td>{{ .SerialHex }}</td>
+                  <td>{{ .CommonNames }}</td>
+                  <td>{{ .Sessions }}</td>
+                  <td>{{ formatTsInt .LastSeen }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ else }}
+            <div class="text-muted">Нет данных за выбранный период</div>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4 mb-4">
+        <div class="card-clean h-100">
+          <div class="card-header">
+            <h3 class="card-title">Проблемные TLS-события</h3>
+          </div>
+          <div class="card-body table-responsive">
+            {{ if .vm.TLSAnomalies }}
+            <table class="table table-sm table-striped">
+              <thead><tr><th>Время</th><th>CN</th><th>IP</th><th>Depth</th><th>Leaf CN</th><th>Issuer</th><th>Причина</th></tr></thead>
+              <tbody>
+                {{ range .vm.TLSAnomalies }}
+                <tr>
+                  <td>{{ .EventTime.Format "2006-01-02 15:04:05" }}</td>
+                  <td>{{ .CommonName }}</td>
+                  <td>{{ .TrustedIP }}</td>
+                  <td>{{ .TLSDepth }}</td>
+                  <td>{{ .LeafCN }}</td>
+                  <td>{{ .IssuerCN }}</td>
+                  <td>{{ .Reason }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ else }}
+            <div class="text-muted">Нет данных за выбранный период</div>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Транспорт и MTU -->
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Распределение MTU</div>
+          <div class="chart-wrap"><canvas id="chartMTUStats"></canvas></div>
+          <div class="empty-state" data-empty-for="chartMTUStats">Нет данных</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Протоколы</div>
+          <div class="chart-wrap"><canvas id="chartProtoStats"></canvas></div>
+          <div class="empty-state" data-empty-for="chartProtoStats">Нет данных</div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Тип устройства туннеля</div>
+          <div class="chart-wrap"><canvas id="chartDevTypesExtra"></canvas></div>
+          <div class="empty-state" data-empty-for="chartDevTypesExtra">Нет данных</div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Режим туннеля</div>
+          <div class="chart-wrap"><canvas id="chartRedirectStats"></canvas></div>
+          <div class="empty-state" data-empty-for="chartRedirectStats">Нет данных</div>
+        </div>
+      </div>
+    </div>
+
     <div class="row">
       <div class="col-12 mb-4">
         <div class="card card-clean">
@@ -424,6 +538,64 @@
           <div class="metric-card__header">Методы аутентификации</div>
           <div class="chart-wrap"><canvas id="chartAuthMethods"></canvas></div>
           <div class="empty-state" data-empty-for="chartAuthMethods">Нет данных</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Длинные и тяжёлые сессии -->
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="card-clean">
+          <div class="card-header"><h3 class="card-title">Длинные сессии</h3></div>
+          <div class="card-body table-responsive">
+            {{ if .vm.LongSessions }}
+            <table class="table table-sm table-striped">
+              <thead><tr><th>CN</th><th>User</th><th>Trusted IP</th><th>VPN IP</th><th>Длительность</th><th>Трафик</th><th>Подключено</th></tr></thead>
+              <tbody>
+                {{ range .vm.LongSessions }}
+                <tr>
+                  <td>{{ .CommonName }}</td>
+                  <td>{{ .Username }}</td>
+                  <td>{{ .TrustedIP }}</td>
+                  <td>{{ .VPNIP }}</td>
+                  <td>{{ formatDuration .DurationSec }}</td>
+                  <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
+                  <td>{{ .ConnectTime.Format "2006-01-02 15:04:05" }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ else }}
+            <div class="text-muted">Нет данных</div>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="card-clean">
+          <div class="card-header"><h3 class="card-title">Сессии с большим трафиком</h3></div>
+          <div class="card-body table-responsive">
+            {{ if .vm.HeavySessions }}
+            <table class="table table-sm table-striped">
+              <thead><tr><th>CN</th><th>User</th><th>Trusted IP</th><th>VPN IP</th><th>Длительность</th><th>Трафик</th><th>Подключено</th></tr></thead>
+              <tbody>
+                {{ range .vm.HeavySessions }}
+                <tr>
+                  <td>{{ .CommonName }}</td>
+                  <td>{{ .Username }}</td>
+                  <td>{{ .TrustedIP }}</td>
+                  <td>{{ .VPNIP }}</td>
+                  <td>{{ formatDuration .DurationSec }}</td>
+                  <td>{{ printf "%0.1f MB" (divMB64 .BytesTotal) }}</td>
+                  <td>{{ .ConnectTime.Format "2006-01-02 15:04:05" }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ else }}
+            <div class="text-muted">Нет данных</div>
+            {{ end }}
+          </div>
         </div>
       </div>
     </div>
@@ -889,6 +1061,32 @@
     });
   }
 
+  function initMTUStats() {
+    const data = vm.MTUStats || [];
+    toggleEmpty('chartMTUStats', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.MTU);
+    const values = data.map(i => Number(i.Count || 0));
+    const ctx = document.getElementById('chartMTUStats').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Количество', data: values }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  function initProtoStats() {
+    initDoughnut('chartProtoStats', (vm.ProtoStats || []).map(i => ({ Label: i.Proto, Count: i.Count })));
+  }
+
+  function initDevTypesExtra() {
+    initDoughnut('chartDevTypesExtra', (vm.DevTypesExtra || []).map(i => ({ Label: i.DevType, Count: i.Count })));
+  }
+
+  function initRedirectStats() {
+    initDoughnut('chartRedirectStats', (vm.RedirectStats || []).map(i => ({ Label: i.Mode, Count: i.Count })));
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     initKPI();
     initClientsTimeline();
@@ -902,6 +1100,10 @@
     initDoughnut('chartOsDistribution', vm.OsDistribution || []);
     initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
     initDeviceTypes();
+    initMTUStats();
+    initProtoStats();
+    initDevTypesExtra();
+    initRedirectStats();
     initClientApps();
     initMFAChart();
     initAuthMethods();

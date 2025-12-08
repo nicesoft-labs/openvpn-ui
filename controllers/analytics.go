@@ -40,6 +40,15 @@ type AnalyticsViewModel struct {
 	MFAStats               metrics.MFAStats
 	AuthMethods            []metrics.AuthMethodStat
 	DeviceTypes            []metrics.DeviceTypeStat
+	TLSIssuers             []metrics.TLSIssuerStat
+	TLSCerts               []metrics.TLSCertStat
+	TLSAnomalies           []metrics.TLSAnomalyRow
+	MTUStats               []metrics.MTUStat
+	ProtoStats             []metrics.ProtoStat
+	DevTypesExtra          []metrics.DevTypeStat
+	RedirectStats          []metrics.RedirectGatewayStat
+	LongSessions           []metrics.HeavySessionRow
+	HeavySessions          []metrics.HeavySessionRow
 	ClientApps             []metrics.ClientAppStat
 	ProblemClients         []metrics.ProblemClientRow
 	UsageHeatmap           []metrics.UsageHeatmapCell
@@ -182,6 +191,47 @@ func (c *AnalyticsController) Get() {
 	}
 	if vm.DeviceTypes, err = metrics.AggregateDeviceTypeStats(ctx, store, vm.From, vm.To); err != nil {
 		logs.Warn("metrics: device types: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.TLSIssuers, err = metrics.AggregateTLSIssuerStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: tls issuers: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.TLSCerts, err = metrics.AggregateTLSCertStats(ctx, store, vm.From, vm.To, 20); err != nil {
+		logs.Warn("metrics: tls certs: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.TLSAnomalies, err = metrics.AggregateTLSAnomalies(ctx, store, vm.From, vm.To, 50); err != nil {
+		logs.Warn("metrics: tls anomalies: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.MTUStats, err = metrics.AggregateMTUStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: mtu stats: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.ProtoStats, err = metrics.AggregateProtoStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: proto stats: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.DevTypesExtra, err = metrics.AggregateDevTypeStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: devtype stats: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.RedirectStats, err = metrics.AggregateRedirectGatewayStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: redirect stats: %v", err)
+		vm.DataUnavailable = true
+	}
+	const (
+		minLongSessionDuration = 24 * 3600
+		minHeavyTrafficBytes   = 10 * 1024 * 1024 * 1024 // 10 GiB
+	)
+
+	if vm.LongSessions, err = metrics.AggregateLongLivedSessions(ctx, store, vm.From, vm.To, minLongSessionDuration, 20); err != nil {
+		logs.Warn("metrics: long sessions: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.HeavySessions, err = metrics.AggregateHeavyTrafficSessions(ctx, store, vm.From, vm.To, minHeavyTrafficBytes, 20); err != nil {
+		logs.Warn("metrics: heavy sessions: %v", err)
 		vm.DataUnavailable = true
 	}
 	if vm.ClientApps, err = metrics.AggregateClientAppStats(ctx, store, vm.From, vm.To, 10); err != nil {
