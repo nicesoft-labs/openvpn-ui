@@ -951,6 +951,6 @@ func (c *AnalyticsController) AccessLog() {
 	}
 
 	c.Data["vm"] = vm
-	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Items: []BreadCrumbItem{{Title: "Журнал доступа"}}}
+	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Subtitle: "Журнал доступа"}
 	c.TplName = "analytics/access-log.html"
 }
