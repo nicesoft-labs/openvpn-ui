@@ -669,18 +669,32 @@
                 <th>Серийный номер</th>
                 <th>CN</th>
                 <th>Сессий</th>
+                <th>Уникальных IP</th>
+                <th>Платформ</th>
+                <th>Трафик</th>
                 <th>Last seen</th>
-                <th>Комментарий</th>
+                <th>Риск</th>
               </tr>
             </thead>
             <tbody>
               {{ range .vm.TLSCerts }}
               <tr>
                 <td>{{ .SerialHex }}</td>
-                <td>{{ .CommonNames }}</td>
+                <td>{{ join .CommonNames ", " }}</td>
                 <td>{{ .Sessions }}</td>
-                <td>{{ formatTsInt .LastSeen }}</td>
-                <td><span class="badge-soft">проверить на шаринг сертификата</span></td>
+                <td>{{ .UniqueTrustedIPs }}</td>
+                <td>{{ .UniquePlatforms }}</td>
+                <td>{{ printf "%0.1f MB" (divMB64 .TotalBytes) }}</td>
+                <td>{{ formatTsInt .LastSeenUnix }}</td>
+                <td>
+                  {{ if eq .SharingLevel "high" }}
+                    <span class="log-badge log-badge--risk">Высокий риск шаринга</span>
+                  {{ else if eq .SharingLevel "medium" }}
+                    <span class="log-badge log-badge--warn">Подозрение на шаринг</span>
+                  {{ else }}
+                    <span class="log-badge log-badge--ok">Норма</span>
+                  {{ end }}
+                </td>
               </tr>
               {{ end }}
             </tbody>
@@ -688,6 +702,11 @@
           {{ else }}
           <div class="text-muted">Нет активных сертификатов за выбранный период.</div>
           {{ end }}
+        </div>
+        <div class="card-footer">
+          <a href="/analytics/certs" class="btn btn-sm btn-outline-primary mt-2">
+            Полный список сертификатов
+          </a>
         </div>
       </div>
     </div>

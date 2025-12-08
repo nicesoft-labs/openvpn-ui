@@ -1,0 +1,126 @@
+{{ template "layout/base.html" . }}
+
+{{ define "head" }}
+<title>NiceSOFT NiceVPN UI — Клиентские сертификаты</title>
+{{ end }}
+
+{{ define "body" }}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <h4 class="mb-1">Клиентские сертификаты</h4>
+      <p class="text-muted mb-1">
+        Подробная статистика использования TLS-сертификатов OpenVPN, включая признаки возможного шаринга.
+      </p>
+      <p class="text-muted mb-0">
+        Период:
+        <strong>{{ .vm.From.Format "02.01.2006 15:04" }}</strong> —
+        <strong>{{ .vm.To.Format "02.01.2006 15:04" }}</strong>.
+        Показано {{ .vm.ShownFrom }}–{{ .vm.ShownTo }} из {{ .vm.Total }} сертификатов.
+      </p>
+    </div>
+    <div class="col-md-4 text-md-right mt-2 mt-md-0">
+      <form method="get" class="form-inline justify-content-md-end">
+        <label class="mr-2">Период:</label>
+        <select name="period" class="form-control form-control-sm mr-2" onchange="this.form.submit()">
+          <option value="24h" {{ if eq .vm.Period "24h" }}selected{{ end }}>Сегодня</option>
+          <option value="7d"  {{ if eq .vm.Period "7d" }}selected{{ end }}>7 дней</option>
+          <option value="30d" {{ if eq .vm.Period "30d" }}selected{{ end }}>30 дней</option>
+        </select>
+        <input type="hidden" name="page_size" value="{{ .vm.PageSize }}">
+      </form>
+    </div>
+  </div>
+
+  <div class="card card-default card-clean">
+    <div class="card-header">
+      <h3 class="card-title mb-0">Полная таблица сертификатов</h3>
+      <small class="text-muted d-block mt-1">
+        Один и тот же серийный номер на разных CN, IP, платформах и клиентах — признак возможного распространения профиля.
+      </small>
+    </div>
+    <div class="card-body table-responsive">
+      {{ if .vm.Certs }}
+      <table class="table table-sm table-striped">
+        <thead>
+          <tr>
+            <th>Серийный номер</th>
+            <th>CN</th>
+            <th>Сессий</th>
+            <th>Уникальных IP</th>
+            <th>VPN IP</th>
+            <th>Платформ</th>
+            <th>VPN-клиентов</th>
+            <th>Общий трафик</th>
+            <th>Средняя длит.</th>
+            <th>Last seen</th>
+            <th>Риск шаринга</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .vm.Certs }}
+          <tr>
+            <td><code>{{ .SerialHex }}</code></td>
+            <td>{{ join .CommonNames ", " }}</td>
+            <td>{{ .Sessions }}</td>
+            <td>{{ .UniqueTrustedIPs }}</td>
+            <td>{{ .UniqueVPNIPs }}</td>
+            <td>{{ .UniquePlatforms }}</td>
+            <td>{{ .UniqueClientApps }}</td>
+            <td>{{ printf "%0.1f MB" (divMB64 .TotalBytes) }}</td>
+            <td>{{ printf "%0.1f мин" (divFloat .AvgDurationSec 60) }}</td>
+            <td>{{ formatTsInt .LastSeenUnix }}</td>
+            <td>
+              {{ if eq .SharingLevel "high" }}
+                <span class="log-badge log-badge--risk">Высокий риск</span><br>
+              {{ else if eq .SharingLevel "medium" }}
+                <span class="log-badge log-badge--warn">Подозрение</span><br>
+              {{ else }}
+                <span class="log-badge log-badge--ok">Низкий риск</span><br>
+              {{ end }}
+              {{ range .SharingReasons }}
+                <span class="badge-soft d-inline-block mt-1">{{ . }}</span><br>
+              {{ end }}
+            </td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+      {{ else }}
+      <div class="text-muted">За выбранный период сертификаты не использовались.</div>
+      {{ end }}
+    </div>
+
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <div class="text-muted">
+        Показано {{ .vm.ShownFrom }}–{{ .vm.ShownTo }} из {{ .vm.Total }} сертификатов.
+      </div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item {{ if not .vm.HasPrev }}disabled{{ end }}">
+            <a class="page-link" href="?period={{ .vm.Period }}&page={{ .vm.PrevPage }}&page_size={{ .vm.PageSize }}">«</a>
+          </li>
+          {{ range $i := seq 1 .vm.TotalPages }}
+          <li class="page-item {{ if eq $i $.vm.Page }}active{{ end }}">
+            <a class="page-link" href="?period={{ $.vm.Period }}&page={{ $i }}&page_size={{ $.vm.PageSize }}">{{ $i }}</a>
+          </li>
+          {{ end }}
+          <li class="page-item {{ if not .vm.HasNext }}disabled{{ end }}">
+            <a class="page-link" href="?period={{ .vm.Period }}&page={{ .vm.NextPage }}&page_size={{ .vm.PageSize }}">»</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row mt-3">
+    <div class="col-12">
+      <p class="text-muted" style="font-size:.85rem">
+        Если вам нужны дополнительные отчёты по сертификатам (например, потенциально скомпрометированные профили,
+        истории использования конкретных серийных номеров и т.п.), команда NiceSOFT может подготовить их под ваши задачи.
+        Напишите на <a href="mailto:support@niceos.ru">support@niceos.ru</a>.
+      </p>
+    </div>
+  </div>
+</div>
+{{ end }}

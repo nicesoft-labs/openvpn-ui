@@ -161,6 +161,26 @@ type AccessLogViewModel struct {
 	HasNext    bool
 }
 
+// TLSCertsViewModel represents data for paginated TLS certificate analytics.
+type TLSCertsViewModel struct {
+	Certs []metrics.TLSCertDetailRow
+
+	Period string
+	From   time.Time
+	To     time.Time
+
+	Page       int
+	PageSize   int
+	Total      int64
+	TotalPages int
+	ShownFrom  int64
+	ShownTo    int64
+	PrevPage   int
+	NextPage   int
+	HasPrev    bool
+	HasNext    bool
+}
+
 type AccountSharingSuspect struct {
 	Username          string
 	Sessions          int64
@@ -953,4 +973,100 @@ func (c *AnalyticsController) AccessLog() {
 	c.Data["vm"] = vm
 	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Subtitle: "Журнал доступа"}
 	c.TplName = "analytics/access-log.html"
+}
+
+// Certs renders a paginated list of TLS client certificates with analytics.
+func (c *AnalyticsController) Certs() {
+	if !c.IsLogin {
+		c.Redirect(c.LoginPath(), 302)
+		return
+	}
+
+	store := metrics.GetGlobalStore()
+	if store == nil {
+		vm := TLSCertsViewModel{Page: 1, PageSize: 50, TotalPages: 1}
+		c.Data["vm"] = vm
+		c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Subtitle: "Сертификаты"}
+		c.TplName = "analytics/certs.html"
+		return
+	}
+
+	period := c.GetString("period", "24h")
+
+	loc := time.Local
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	var from, to time.Time
+	switch period {
+	case "7d":
+		to = todayStart.Add(24 * time.Hour)
+		from = to.AddDate(0, 0, -7)
+	case "30d":
+		to = todayStart.Add(24 * time.Hour)
+		from = to.AddDate(0, 0, -30)
+	default:
+		period = "24h"
+		from = todayStart
+		to = todayStart.Add(24 * time.Hour)
+	}
+
+	page, err := c.GetInt("page", 1)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := c.GetInt("page_size", 50)
+	if err != nil || pageSize <= 0 {
+		pageSize = 50
+	}
+
+	ctx := context.Background()
+	total, err := metrics.CountTLSCerts(ctx, store, from, to)
+	if err != nil {
+		logs.Warn("metrics: count tls certs: %v", err)
+	}
+
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+	certs, err := metrics.GetTLSCertsPage(ctx, store, from, to, pageSize, offset)
+	if err != nil {
+		logs.Warn("metrics: tls certs page: %v", err)
+	}
+
+	var shownFrom, shownTo int64
+	if total > 0 {
+		shownFrom = int64(offset) + 1
+		shownTo = int64(page * pageSize)
+		if shownTo > total {
+			shownTo = total
+		}
+	}
+
+	vm := TLSCertsViewModel{
+		Certs:      certs,
+		Period:     period,
+		From:       from,
+		To:         to,
+		Page:       page,
+		PageSize:   pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+		ShownFrom:  shownFrom,
+		ShownTo:    shownTo,
+		PrevPage:   page - 1,
+		NextPage:   page + 1,
+		HasPrev:    page > 1,
+		HasNext:    page < totalPages,
+	}
+
+	c.Data["vm"] = vm
+	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Subtitle: "Клиентские сертификаты"}
+	c.TplName = "analytics/certs.html"
 }
