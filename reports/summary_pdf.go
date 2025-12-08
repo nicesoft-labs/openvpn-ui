@@ -101,12 +101,12 @@ func registerFonts(pdf *gofpdf.Fpdf) error {
 	bold := filepath.Join("assets", "fonts", "DejaVuSans-Bold.ttf")
 
 	pdf.AddUTF8Font(baseFont, "", regular)
-	if pdf.Err() != nil {
+	if pdf.Err() {
 		return fmt.Errorf("failed to add font %s: %w", regular, pdf.Error())
 	}
 
 	pdf.AddUTF8Font(baseFont, "B", bold)
-	if pdf.Err() != nil {
+	if pdf.Err() {
 		return fmt.Errorf("failed to add font %s: %w", bold, pdf.Error())
 	}
 
