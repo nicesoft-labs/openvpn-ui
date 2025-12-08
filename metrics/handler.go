@@ -69,7 +69,7 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		if err := h.store.InsertClientEventTx(ctx, tx, evt); err != nil {
+		if err := sqlite.InsertClientEventTx(ctx, tx, evt); err != nil {
 			tx.Rollback()
 			h.log.Warn("metrics: InsertClientEventTx: %v", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -77,14 +77,14 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		switch evt.EventType {
 		case "connect":
-			if err := h.store.UpsertSessionOnConnectTx(ctx, tx, evt); err != nil {
+			if err := sqlite.UpsertSessionOnConnectTx(ctx, tx, evt); err != nil {
 				tx.Rollback()
 				h.log.Warn("metrics: UpsertSessionOnConnectTx: %v", err)
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
 		case "disconnect":
-			if err := h.store.UpdateSessionOnDisconnectTx(ctx, tx, evt); err != nil {
+			if err := sqlite.UpdateSessionOnDisconnectTx(ctx, tx, evt); err != nil {
 				tx.Rollback()
 				h.log.Warn("metrics: UpdateSessionOnDisconnectTx: %v", err)
 				http.Error(w, "internal error", http.StatusInternalServerError)
