@@ -35,7 +35,9 @@ type OVClient struct {
 	Username        string
 	ClientID        string
 	PeerID          string
-	//DataCipher      string
+	DataCipher      string
+	PacketsReceived *uint64
+	PacketsSent     *uint64
 }
 
 // RoutingPath .
