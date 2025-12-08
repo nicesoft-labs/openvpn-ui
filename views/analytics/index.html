@@ -14,10 +14,19 @@
     <div class="col-md-4 text-md-right mt-2 mt-md-0">
       <form method="get" class="form-inline justify-content-md-end">
         <label class="mr-2">Период:</label>
-        <select name="period" class="form-control form-control-sm" onchange="this.form.submit()">
+        <select name="period" class="form-control form-control-sm mr-2" onchange="this.form.submit()">
           <option value="24h" {{ if eq .vm.Period "24h" }}selected{{ end }}>24 часа</option>
           <option value="7d"  {{ if eq .vm.Period "7d" }}selected{{ end }}>7 дней</option>
           <option value="30d" {{ if eq .vm.Period "30d" }}selected{{ end }}>30 дней</option>
+        </select>
+        <label class="mr-2">Range (часы):</label>
+        <select name="range" class="form-control form-control-sm" onchange="this.form.submit()">
+          <option value="6" {{ if eq .vm.RangeHours 6 }}selected{{ end }}>6</option>
+          <option value="12" {{ if eq .vm.RangeHours 12 }}selected{{ end }}>12</option>
+          <option value="24" {{ if eq .vm.RangeHours 24 }}selected{{ end }}>24</option>
+          <option value="48" {{ if eq .vm.RangeHours 48 }}selected{{ end }}>48</option>
+          <option value="72" {{ if eq .vm.RangeHours 72 }}selected{{ end }}>72</option>
+          <option value="168" {{ if eq .vm.RangeHours 168 }}selected{{ end }}>168</option>
         </select>
       </form>
     </div>
@@ -32,6 +41,33 @@
       Данные временно недоступны. Попробуйте обновить страницу позже.
     </div>
   {{ else }}
+    <div class="row">
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
+            <span>Количество клиентов во времени</span>
+            <span class="small-muted">за {{ .vm.RangeHours }} часов</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartClientsTimeline"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartClientsTimeline">Нет данных по клиентам</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
+            <span>Пропускная способность</span>
+            <span class="small-muted">бит/с</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartThroughput"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartThroughput">Нет данных по трафику</div>
+        </div>
+      </div>
+    </div>
+
     <div class="row kpi-row">
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="kpi-box">
@@ -67,6 +103,18 @@
       <div class="col-lg-6 mb-4">
         <div class="metric-card">
           <div class="metric-card__header d-flex justify-content-between">
+            <span>Суммарный трафик по дням</span>
+            <span class="small-muted">последние 30 дней</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartDailyTraffic"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartDailyTraffic">Нет данных по трафику</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
             <span>Сессии по дням</span>
             <span class="small-muted">кол-во и трафик</span>
           </div>
@@ -83,6 +131,15 @@
             <canvas id="chartTopUsersTraffic"></canvas>
           </div>
           <div class="empty-state" data-empty-for="chartTopUsersTraffic">Нет данных по пользователям</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Топ-10 клиентов по трафику</div>
+          <div class="chart-wrap">
+            <canvas id="chartTopClientsTraffic"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartTopClientsTraffic">Нет данных по клиентам</div>
         </div>
       </div>
     </div>
@@ -192,6 +249,10 @@
     return value / 1024 / 1024;
   }
 
+  function bytesToGiB(value) {
+    return value / 1024 / 1024 / 1024;
+  }
+
   function toggleEmpty(id, hasData) {
     const canvas = document.getElementById(id);
     const empty = document.querySelector(`[data-empty-for="${id}"]`);
@@ -212,6 +273,87 @@
     const avgNode = document.getElementById('kpi-avg-duration');
     if (trafficNode) trafficNode.textContent = traffic;
     if (avgNode) avgNode.textContent = avgMin;
+  }
+
+  function formatTs(ts) {
+    return new Date(ts * 1000).toLocaleString();
+  }
+
+  function initClientsTimeline() {
+    const data = vm.ClientsTimeline || [];
+    toggleEmpty('chartClientsTimeline', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(p => formatTs(p.Ts));
+    const values = data.map(p => p.Val);
+    const ctx = document.getElementById('chartClientsTimeline').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Клиенты онлайн',
+          data: values,
+          borderColor: '#3f51b5',
+          backgroundColor: 'rgba(63, 81, 181, 0.2)',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Клиенты' } } }
+      }
+    });
+  }
+
+  function initThroughput() {
+    const data = vm.Throughput || [];
+    toggleEmpty('chartThroughput', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(p => formatTs(p.Ts));
+    const inbound = data.map(p => (p.InBps / 1_000_000).toFixed(2));
+    const outbound = data.map(p => (p.OutBps / 1_000_000).toFixed(2));
+    const ctx = document.getElementById('chartThroughput').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Входящий трафик (Мбит/с)', data: inbound, borderColor: '#4caf50', backgroundColor: 'rgba(76, 175, 80, 0.15)', tension: 0.3, fill: true },
+          { label: 'Исходящий трафик (Мбит/с)', data: outbound, borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.15)', tension: 0.3, fill: true }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Мбит/с' } } },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
+  function initDailyTraffic() {
+    const data = vm.DailyTraffic || [];
+    toggleEmpty('chartDailyTraffic', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(p => p.Day);
+    const inData = data.map(p => bytesToGiB(p.InBytes).toFixed(2));
+    const outData = data.map(p => bytesToGiB(p.OutBytes).toFixed(2));
+    const ctx = document.getElementById('chartDailyTraffic').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Входящий трафик (ГиБ)', data: inData, backgroundColor: 'rgba(33, 150, 243, 0.7)' },
+          { label: 'Исходящий трафик (ГиБ)', data: outData, backgroundColor: 'rgba(156, 39, 176, 0.7)' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'ГиБ' } } },
+        plugins: { legend: { display: true } }
+      }
+    });
   }
 
   function initSessionsByDay() {
@@ -263,6 +405,27 @@
     });
   }
 
+  function initTopClientsTraffic() {
+    const data = vm.TopClientsByTraffic || [];
+    toggleEmpty('chartTopClientsTraffic', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.CommonName || '—');
+    const bytes = data.map(i => bytesToGiB(i.TotalBytes).toFixed(2));
+    const ctx = document.getElementById('chartTopClientsTraffic').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Трафик (ГиБ)',
+          data: bytes,
+          backgroundColor: 'rgba(0, 150, 136, 0.7)'
+        }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+  }
+
   function initDoughnut(id, data) {
     toggleEmpty(id, data.length > 0);
     if (!data.length) return;
@@ -278,8 +441,12 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     initKPI();
+    initClientsTimeline();
+    initThroughput();
     initSessionsByDay();
+    initDailyTraffic();
     initTopUsersTraffic();
+    initTopClientsTraffic();
     initDoughnut('chartOsDistribution', vm.OsDistribution || []);
     initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
   });
