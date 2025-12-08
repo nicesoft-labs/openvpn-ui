@@ -18,15 +18,20 @@ type AnalyticsViewModel struct {
 	MetricsEnabled  bool
 	DataUnavailable bool
 
-	Period string
-	From   time.Time
-	To     time.Time
+	Period     string
+	From       time.Time
+	To         time.Time
+	RangeHours int
 
 	metrics.MetricsKPI
 
 	SessionsByDay       []metrics.AnalyticsDayStat
+	ClientsTimeline     []metrics.TimePoint
+	Throughput          []metrics.ThroughputPoint
+	DailyTraffic        []metrics.DailyTrafficPoint
 	TopUsersByTraffic   []metrics.AnalyticsUserTraffic
 	TopUsersByDuration  []metrics.AnalyticsUserDuration
+	TopClientsByTraffic []metrics.TopClientPoint
 	OsDistribution      []metrics.AnalyticsKV
 	CipherDistribution  []metrics.AnalyticsKV
 	CountryDistribution []metrics.AnalyticsKV
@@ -68,6 +73,12 @@ func (c *AnalyticsController) Get() {
 	}
 	vm.To = now
 
+	rangeHours, err := c.GetInt("range", 24)
+	if err != nil || rangeHours <= 0 {
+		rangeHours = 24
+	}
+	vm.RangeHours = rangeHours
+
 	ctx := context.Background()
 	kpi, err := metrics.AggregateSessionsKPI(ctx, store, vm.From, vm.To)
 	if err != nil {
@@ -88,12 +99,28 @@ func (c *AnalyticsController) Get() {
 		logs.Warn("metrics: sessions by day: %v", err)
 		vm.DataUnavailable = true
 	}
+	if vm.ClientsTimeline, err = metrics.GetClientsTimeline(ctx, store, vm.RangeHours); err != nil {
+		logs.Warn("metrics: clients timeline: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.Throughput, err = metrics.CalculateThroughput(ctx, store, vm.RangeHours); err != nil {
+		logs.Warn("metrics: throughput: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.DailyTraffic, err = metrics.GetDailyTraffic(ctx, store, 30); err != nil {
+		logs.Warn("metrics: daily traffic: %v", err)
+		vm.DataUnavailable = true
+	}
 	if vm.TopUsersByTraffic, err = metrics.AggregateTopUsersByTraffic(ctx, store, vm.From, vm.To, 10); err != nil {
 		logs.Warn("metrics: top users by traffic: %v", err)
 		vm.DataUnavailable = true
 	}
 	if vm.TopUsersByDuration, err = metrics.AggregateTopUsersByDuration(ctx, store, vm.From, vm.To, 10); err != nil {
 		logs.Warn("metrics: top users by duration: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.TopClientsByTraffic, err = metrics.GetTopClientsByTraffic(ctx, store, vm.RangeHours, 10); err != nil {
+		logs.Warn("metrics: top clients by traffic: %v", err)
 		vm.DataUnavailable = true
 	}
 	if vm.OsDistribution, err = metrics.AggregateOsDistribution(ctx, store, vm.From, vm.To); err != nil {

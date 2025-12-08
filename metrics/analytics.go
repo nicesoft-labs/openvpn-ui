@@ -80,6 +80,32 @@ type AnalyticsEventRow struct {
 	DurationSec int64
 }
 
+// TimePoint represents a single numeric value at timestamp.
+type TimePoint struct {
+	Ts  int64
+	Val float64
+}
+
+// ThroughputPoint holds inbound/outbound bitrate values for timestamp.
+type ThroughputPoint struct {
+	Ts     int64
+	InBps  float64
+	OutBps float64
+}
+
+// DailyTrafficPoint aggregates traffic counters by day.
+type DailyTrafficPoint struct {
+	Day      string
+	InBytes  uint64
+	OutBytes uint64
+}
+
+// TopClientPoint represents traffic usage per client.
+type TopClientPoint struct {
+	CommonName string
+	TotalBytes uint64
+}
+
 func getSQLDB(s Store) (*sql.DB, error) {
 	switch v := s.(type) {
 	case interface{ DB() *sql.DB }:
@@ -345,4 +371,179 @@ LIMIT ?;
 		items = append(items, row)
 	}
 	return items, rows.Err()
+}
+
+// GetClientsTimeline fetches number of clients for the given range of hours.
+func GetClientsTimeline(ctx context.Context, s Store, rangeHours int) ([]TimePoint, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	fromTs := time.Now().UTC().Add(-time.Duration(rangeHours) * time.Hour).Unix()
+	rows, err := db.QueryContext(ctx, `
+SELECT snapshot_time, n_clients
+FROM mgmt_snapshots
+WHERE snapshot_time >= ?
+ORDER BY snapshot_time;
+`, fromTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []TimePoint
+	for rows.Next() {
+		var (
+			ts int64
+			v  int64
+		)
+		if err := rows.Scan(&ts, &v); err != nil {
+			return nil, err
+		}
+		points = append(points, TimePoint{Ts: ts, Val: float64(v)})
+	}
+	return points, rows.Err()
+}
+
+// CalculateThroughput returns bitrate values calculated from snapshot deltas.
+func CalculateThroughput(ctx context.Context, s Store, rangeHours int) ([]ThroughputPoint, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	fromTs := time.Now().UTC().Add(-time.Duration(rangeHours) * time.Hour).Unix()
+	rows, err := db.QueryContext(ctx, `
+SELECT snapshot_time, bytes_in_total, bytes_out_total
+FROM mgmt_snapshots
+WHERE snapshot_time >= ?
+ORDER BY snapshot_time;
+`, fromTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type snapshot struct {
+		ts     int64
+		inTot  int64
+		outTot int64
+	}
+
+	var snapshots []snapshot
+	for rows.Next() {
+		var s snapshot
+		if err := rows.Scan(&s.ts, &s.inTot, &s.outTot); err != nil {
+			return nil, err
+		}
+		snapshots = append(snapshots, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var points []ThroughputPoint
+	for i := 1; i < len(snapshots); i++ {
+		prev := snapshots[i-1]
+		curr := snapshots[i]
+		deltaT := curr.ts - prev.ts
+		if deltaT <= 0 {
+			continue
+		}
+
+		deltaIn := curr.inTot - prev.inTot
+		deltaOut := curr.outTot - prev.outTot
+
+		inBps := float64(deltaIn) * 8.0 / float64(deltaT)
+		outBps := float64(deltaOut) * 8.0 / float64(deltaT)
+
+		points = append(points, ThroughputPoint{Ts: curr.ts, InBps: inBps, OutBps: outBps})
+	}
+
+	return points, nil
+}
+
+// GetDailyTraffic aggregates total traffic per day for the given window in days.
+func GetDailyTraffic(ctx context.Context, s Store, days int) ([]DailyTrafficPoint, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	fromTs := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Unix()
+	rows, err := db.QueryContext(ctx, `
+SELECT
+    date(snapshot_time, 'unixepoch') AS day,
+    MAX(bytes_in_total)  - MIN(bytes_in_total)  AS in_bytes,
+    MAX(bytes_out_total) - MIN(bytes_out_total) AS out_bytes
+FROM mgmt_snapshots
+WHERE snapshot_time >= ?
+GROUP BY day
+ORDER BY day;
+`, fromTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []DailyTrafficPoint
+	for rows.Next() {
+		var (
+			p        DailyTrafficPoint
+			inBytes  int64
+			outBytes int64
+		)
+		if err := rows.Scan(&p.Day, &inBytes, &outBytes); err != nil {
+			return nil, err
+		}
+		if inBytes < 0 {
+			inBytes = 0
+		}
+		if outBytes < 0 {
+			outBytes = 0
+		}
+		p.InBytes = uint64(inBytes)
+		p.OutBytes = uint64(outBytes)
+		points = append(points, p)
+	}
+	return points, rows.Err()
+}
+
+// GetTopClientsByTraffic aggregates traffic per client for the given range of hours.
+func GetTopClientsByTraffic(ctx context.Context, s Store, rangeHours, limit int) ([]TopClientPoint, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	fromTs := time.Now().UTC().Add(-time.Duration(rangeHours) * time.Hour).Unix()
+	rows, err := db.QueryContext(ctx, `
+SELECT
+  json_extract(j.value, '$.CommonName') AS common_name,
+  SUM(
+    COALESCE(json_extract(j.value, '$.BytesReceived'), 0) +
+    COALESCE(json_extract(j.value, '$.BytesSent'), 0)
+  ) AS total_bytes
+FROM mgmt_snapshots,
+     json_each(raw_status_json, '$.ClientList') AS j
+WHERE snapshot_time >= ?
+GROUP BY common_name
+ORDER BY total_bytes DESC
+LIMIT ?;
+`, fromTs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []TopClientPoint
+	for rows.Next() {
+		var p TopClientPoint
+		if err := rows.Scan(&p.CommonName, &p.TotalBytes); err != nil {
+			return nil, err
+		}
+		points = append(points, p)
+	}
+	return points, rows.Err()
 }
