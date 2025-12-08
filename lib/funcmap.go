@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"strconv"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
@@ -109,6 +110,16 @@ func AddFuncMaps() {
 		}
 		return float64(inVal+outVal) / 1024.0 / 1024.0
 	})
+	_ = web.AddFuncMap("divMB64", func(total interface{}) float64 {
+		switch v := total.(type) {
+		case int64:
+			return float64(v) / 1024.0 / 1024.0
+		case uint64:
+			return float64(v) / 1024.0 / 1024.0
+		default:
+			return 0
+		}
+	})
 	_ = web.AddFuncMap("formatDuration", func(sec interface{}) string {
 		var total int64
 		switch v := sec.(type) {
@@ -126,6 +137,19 @@ func AddFuncMaps() {
 			return fmt.Sprintf("%dh %02dm", hours, minutes%60)
 		}
 		return fmt.Sprintf("%dm", minutes)
+	})
+	_ = web.AddFuncMap("formatTsInt", func(ts interface{}) string {
+		var val int64
+		switch v := ts.(type) {
+		case int64:
+			val = v
+		case uint64:
+			val = int64(v)
+		}
+		if val == 0 {
+			return ""
+		}
+		return time.Unix(val, 0).UTC().Format(time.RFC3339)
 	})
 }
 

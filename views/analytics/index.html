@@ -142,32 +142,77 @@
 
     <!-- KPI -->
     <div class="row kpi-row">
-      <div class="col-xl-3 col-md-6 mb-3">
+      <div class="col-xl-2 col-md-4 mb-3">
         <div class="kpi-box">
           <div class="kpi-box__title">Всего сессий</div>
           <div class="kpi-box__value">{{ .vm.TotalSessions }}</div>
           <div class="kpi-box__muted">За выбранный период</div>
         </div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
+      <div class="col-xl-2 col-md-4 mb-3">
         <div class="kpi-box">
           <div class="kpi-box__title">Уникальные пользователи</div>
           <div class="kpi-box__value">{{ .vm.UniqueUsers }}</div>
-          <div class="kpi-box__muted">по username</div>
+          <div class="kpi-box__muted">по username / CN</div>
         </div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
+      <div class="col-xl-2 col-md-4 mb-3">
         <div class="kpi-box">
           <div class="kpi-box__title">Трафик</div>
           <div class="kpi-box__value" id="kpi-traffic-total"></div>
           <div class="kpi-box__muted">вход + выход, MB</div>
         </div>
       </div>
-      <div class="col-xl-3 col-md-6 mb-3">
+      <div class="col-xl-2 col-md-4 mb-3">
         <div class="kpi-box">
-          <div class="kpi-box__title">Средняя длительность сессии</div>
+          <div class="kpi-box__title">Средняя длительность</div>
           <div class="kpi-box__value" id="kpi-avg-duration"></div>
           <div class="kpi-box__muted">минут</div>
+        </div>
+      </div>
+      <div class="col-xl-2 col-md-4 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Пиковые клиенты</div>
+          <div class="kpi-box__value">{{ .vm.PeakClients }}</div>
+          <div class="kpi-box__muted">max n_clients</div>
+        </div>
+      </div>
+      <div class="col-xl-2 col-md-4 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Активных сейчас</div>
+          <div class="kpi-box__value">{{ .vm.ActiveSessionsNow }}</div>
+          <div class="kpi-box__muted">status=active</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row kpi-row">
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">P95 клиентов / сек.</div>
+          <div class="kpi-box__value">{{ printf "%.0f" .vm.P95Clients }}</div>
+          <div class="kpi-box__muted">по mgmt_snapshots</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">P95 входящий трафик</div>
+          <div class="kpi-box__value" id="kpi-p95-inbps"></div>
+          <div class="kpi-box__muted">Мбит/с</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">P95 исходящий трафик</div>
+          <div class="kpi-box__value" id="kpi-p95-outbps"></div>
+          <div class="kpi-box__muted">Мбит/с</div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Активность с MFA</div>
+          <div class="kpi-box__value" id="kpi-mfa-rate"></div>
+          <div class="kpi-box__muted">доля сессий с MFA</div>
         </div>
       </div>
     </div>
@@ -250,7 +295,17 @@
       </div>
     </div>
 
-    <!-- Распределения: ОС, шифры, MFA -->
+    <div class="row">
+      <div class="col-12 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Активность по дням недели и времени суток</div>
+          <div id="heatmapGrid" class="table-responsive"></div>
+          <div class="empty-state" data-empty-for="heatmapGrid">Нет данных по активности</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Распределения: ОС, устройства, клиенты -->
     <div class="row">
       <div class="col-lg-4 mb-4">
         <div class="metric-card">
@@ -261,6 +316,23 @@
       </div>
       <div class="col-lg-4 mb-4">
         <div class="metric-card">
+          <div class="metric-card__header">Типы устройств</div>
+          <div class="chart-wrap"><canvas id="chartDeviceTypes"></canvas></div>
+          <div class="empty-state" data-empty-for="chartDeviceTypes">Нет данных</div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">VPN клиенты</div>
+          <div class="chart-wrap"><canvas id="chartClientApps"></canvas></div>
+          <div class="empty-state" data-empty-for="chartClientApps">Нет данных</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
           <div class="metric-card__header">Распределение по шифрам</div>
           <div class="chart-wrap"><canvas id="chartCipherDistribution"></canvas></div>
           <div class="empty-state" data-empty-for="chartCipherDistribution">Нет данных</div>
@@ -268,16 +340,23 @@
       </div>
       <div class="col-lg-4 mb-4">
         <div class="metric-card">
-          <div class="metric-card__header">MFA / авторизация</div>
-          <div class="chart-wrap"><canvas id="chartMfaStats"></canvas></div>
-          <div class="empty-state" data-empty-for="chartMfaStats">Нет данных</div>
+          <div class="metric-card__header">MFA статистика</div>
+          <div class="chart-wrap"><canvas id="chartMFA"></canvas></div>
+          <div class="empty-state" data-empty-for="chartMFA">Нет данных</div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">Методы аутентификации</div>
+          <div class="chart-wrap"><canvas id="chartAuthMethods"></canvas></div>
+          <div class="empty-state" data-empty-for="chartAuthMethods">Нет данных</div>
         </div>
       </div>
     </div>
 
     <!-- Таблицы: последние сессии и события -->
     <div class="row">
-      <div class="col-lg-7 mb-4">
+      <div class="col-lg-5 mb-4">
         <div class="card-clean">
           <div class="card-header">
             <h3 class="card-title">Последние сессии</h3>
@@ -319,7 +398,7 @@
         </div>
       </div>
 
-      <div class="col-lg-5 mb-4">
+      <div class="col-lg-4 mb-4">
         <div class="card-clean">
           <div class="card-header">
             <h3 class="card-title">Последние события</h3>
@@ -346,6 +425,48 @@
                   {{ end }}
                 {{ else }}
                   <tr><td colspan="4" class="text-muted">Событий пока нет</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-3 mb-4">
+        <div class="card-clean">
+          <div class="card-header">
+            <h3 class="card-title">Проблемные клиенты</h3>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table table-sm table-striped">
+              <thead>
+                <tr>
+                  <th>CN</th>
+                  <th>User</th>
+                  <th>Сессии</th>
+                  <th>Reconnects</th>
+                  <th>Трафик</th>
+                  <th>Avg dur</th>
+                  <th>Last IP</th>
+                  <th>Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .vm.ProblemClients }}
+                  {{ range .vm.ProblemClients }}
+                  <tr>
+                    <td>{{ .CommonName }}</td>
+                    <td>{{ .Username }}</td>
+                    <td>{{ .Sessions }}</td>
+                    <td>{{ .Reconnects }}</td>
+                    <td>{{ printf "%0.1f MB" (divMB64 .TotalBytes) }}</td>
+                    <td>{{ formatDuration .AvgDurationSec }}</td>
+                    <td>{{ .LastIP }}</td>
+                    <td>{{ formatTsInt .LastSeen }}</td>
+                  </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="8" class="text-muted">Нет данных</td></tr>
                 {{ end }}
               </tbody>
             </table>
@@ -387,8 +508,19 @@
     const avgMin = vm.AvgSessionDurationSec ? (vm.AvgSessionDurationSec / 60).toFixed(1) : '0';
     const trafficNode = document.getElementById('kpi-traffic-total');
     const avgNode = document.getElementById('kpi-avg-duration');
+    const p95InNode = document.getElementById('kpi-p95-inbps');
+    const p95OutNode = document.getElementById('kpi-p95-outbps');
+    const mfaRateNode = document.getElementById('kpi-mfa-rate');
     if (trafficNode) trafficNode.textContent = trafficMB.toFixed(1);
     if (avgNode) avgNode.textContent = avgMin;
+    if (p95InNode) p95InNode.textContent = (Number(vm.P95InBps || 0) / 1_000_000).toFixed(2);
+    if (p95OutNode) p95OutNode.textContent = (Number(vm.P95OutBps || 0) / 1_000_000).toFixed(2);
+    if (mfaRateNode) {
+      const total = Number((vm.MFAStats || {}).TotalSessions || 0);
+      const mfa = Number((vm.MFAStats || {}).MFASessions || 0);
+      const rate = total > 0 ? ((mfa / total) * 100).toFixed(1) + '%' : '0%';
+      mfaRateNode.textContent = rate;
+    }
   }
 
   function formatTs(ts) {
@@ -610,6 +742,96 @@
     });
   }
 
+  function initMFAChart() {
+    const stats = vm.MFAStats || {};
+    const data = [
+      { label: 'No MFA', value: Number(stats.TotalSessions || 0) - Number(stats.MFASessions || 0) },
+      { label: 'MFA OK', value: Number(stats.MFASuccess || 0) },
+      { label: 'MFA Failed', value: Number(stats.MFAFailed || 0) }
+    ].filter(i => i.value > 0);
+    toggleEmpty('chartMFA', data.length > 0);
+    if (!data.length) return;
+    const ctx = document.getElementById('chartMFA').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.map(i => i.label),
+        datasets: [{ data: data.map(i => i.value) }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  function initAuthMethods() {
+    const data = vm.AuthMethods || [];
+    toggleEmpty('chartAuthMethods', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.Method || 'unknown');
+    const values = data.map(i => Number(i.Count || 0));
+    const ctx = document.getElementById('chartAuthMethods').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Сессии', data: values }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  function initDeviceTypes() {
+    initDoughnut('chartDeviceTypes', (vm.DeviceTypes || []).map(i => ({ Label: i.Type, Count: i.Count })));
+  }
+
+  function initClientApps() {
+    const data = vm.ClientApps || [];
+    toggleEmpty('chartClientApps', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.App || 'unknown');
+    const values = data.map(i => Number(i.Count || 0));
+    const ctx = document.getElementById('chartClientApps').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Сессии', data: values }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  function initHeatmap() {
+    const data = vm.UsageHeatmap || [];
+    const container = document.getElementById('heatmapGrid');
+    toggleEmpty('heatmapGrid', data.length > 0);
+    if (!container || !data.length) return;
+    const table = document.createElement('table');
+    table.className = 'table table-sm table-bordered mb-0';
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    headRow.appendChild(document.createElement('th'));
+    for (let h = 0; h < 24; h++) {
+      const th = document.createElement('th');
+      th.textContent = h;
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const tbody = document.createElement('tbody');
+    for (let w = 0; w < 7; w++) {
+      const row = document.createElement('tr');
+      const th = document.createElement('th');
+      th.textContent = weekdays[w];
+      row.appendChild(th);
+      for (let h = 0; h < 24; h++) {
+        const cell = document.createElement('td');
+        const found = data.find(i => Number(i.Weekday) === w && Number(i.Hour) === h);
+        cell.textContent = found ? found.Sessions : 0;
+        row.appendChild(cell);
+      }
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    container.innerHTML = '';
+    container.appendChild(table);
+  }
+
   function initDoughnut(id, data) {
     toggleEmpty(id, data.length > 0);
     if (!data.length) return;
@@ -643,7 +865,11 @@
     initSessionDurationBuckets();
     initDoughnut('chartOsDistribution', vm.OsDistribution || []);
     initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
-    initDoughnut('chartMfaStats', vm.MFAStats || []);
+    initDeviceTypes();
+    initClientApps();
+    initMFAChart();
+    initAuthMethods();
+    initHeatmap();
   });
 </script>
 
