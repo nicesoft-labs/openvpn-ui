@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -55,6 +56,25 @@ type AnalyticsViewModel struct {
 	HeatmapCalendar        AnalyticsHeatmapView
 	RecentSessions         []metrics.AnalyticsSessionRow
 	RecentEvents           []metrics.AnalyticsEventRow
+
+	TotalTrafficBytes    uint64
+	TotalTrafficGiB      float64
+	AvgTrafficPerUserMB  float64
+	AvgSessionsPerUser   float64
+	MFACoveragePercent   float64
+	MFAFailurePercent    float64
+	MobileSharePercent   float64
+	DesktopSharePercent  float64
+	OtherSharePercent    float64
+	FullTunnelPercent    float64
+	SplitTunnelPercent   float64
+	WeekendUsagePercent  float64
+	NightUsagePercent    float64
+	ShortSessionPercent  float64
+	TLSAnomaliesCount    int
+	ProblemClientsCount  int
+	OverallHealthLevel   string
+	OverallHealthMessage string
 }
 
 // AnalyticsHeatmapView holds data for calendar heatmap rendering.
@@ -260,6 +280,137 @@ func (c *AnalyticsController) Get() {
 		}
 	}
 	vm.HeatmapCalendar = heatmapView
+
+	totalBytes := vm.TotalBytesIn + vm.TotalBytesOut
+	vm.TotalTrafficBytes = totalBytes
+	vm.TotalTrafficGiB = float64(totalBytes) / (1024 * 1024 * 1024)
+
+	if vm.UniqueUsers > 0 {
+		vm.AvgTrafficPerUserMB = (float64(totalBytes) / (1024 * 1024)) / float64(vm.UniqueUsers)
+		vm.AvgSessionsPerUser = float64(vm.TotalSessions) / float64(vm.UniqueUsers)
+	}
+
+	stats := vm.MFAStats
+	if stats.TotalSessions > 0 {
+		vm.MFACoveragePercent = 100 * float64(stats.MFASessions) / float64(stats.TotalSessions)
+	}
+	if stats.MFASessions > 0 {
+		vm.MFAFailurePercent = 100 * float64(stats.MFAFailed) / float64(stats.MFASessions)
+	}
+
+	var totalDev, mobile, desktop, other int64
+	for _, d := range vm.DeviceTypes {
+		totalDev += d.Count
+		switch d.Type {
+		case "mobile":
+			mobile += d.Count
+		case "desktop":
+			desktop += d.Count
+		default:
+			other += d.Count
+		}
+	}
+	if totalDev > 0 {
+		vm.MobileSharePercent = 100 * float64(mobile) / float64(totalDev)
+		vm.DesktopSharePercent = 100 * float64(desktop) / float64(totalDev)
+		vm.OtherSharePercent = 100 * float64(other) / float64(totalDev)
+	}
+
+	var totalRedirect, full, split int64
+	for _, r := range vm.RedirectStats {
+		totalRedirect += r.Count
+		if r.Mode == "redirect-gateway" {
+			full += r.Count
+		} else {
+			split += r.Count
+		}
+	}
+	if totalRedirect > 0 {
+		vm.FullTunnelPercent = 100 * float64(full) / float64(totalRedirect)
+		vm.SplitTunnelPercent = 100 * float64(split) / float64(totalRedirect)
+	}
+
+	var totalUsage, weekendUsage, nightUsage int64
+	for _, cell := range vm.UsageHeatmap {
+		totalUsage += cell.Sessions
+		if cell.Weekday == 5 || cell.Weekday == 6 {
+			weekendUsage += cell.Sessions
+		}
+		if cell.Hour >= 0 && cell.Hour < 6 {
+			nightUsage += cell.Sessions
+		}
+	}
+	if totalUsage > 0 {
+		vm.WeekendUsagePercent = 100 * float64(weekendUsage) / float64(totalUsage)
+		vm.NightUsagePercent = 100 * float64(nightUsage) / float64(totalUsage)
+	}
+
+	var totalBuckets, shortBuckets int64
+	for _, b := range vm.SessionDurationBuckets {
+		totalBuckets += b.Count
+		if b.Label == "< 5 минут" {
+			shortBuckets += b.Count
+		}
+	}
+	if totalBuckets > 0 {
+		vm.ShortSessionPercent = 100 * float64(shortBuckets) / float64(totalBuckets)
+	}
+
+	vm.TLSAnomaliesCount = len(vm.TLSAnomalies)
+	vm.ProblemClientsCount = len(vm.ProblemClients)
+
+	severity := 0
+	var msgs []string
+
+	if vm.MFACoveragePercent < 30 {
+		severity = 2
+		msgs = append(msgs, "низкое покрытие MFA")
+	} else if vm.MFACoveragePercent < 70 {
+		if severity < 1 {
+			severity = 1
+		}
+		msgs = append(msgs, "MFA включён не у всех")
+	}
+
+	if vm.TLSAnomaliesCount > 0 {
+		if vm.TLSAnomaliesCount > 20 {
+			severity = 2
+			msgs = append(msgs, "много TLS ошибок")
+		} else {
+			if severity < 1 {
+				severity = 1
+			}
+			msgs = append(msgs, "есть TLS предупреждения")
+		}
+	}
+
+	if vm.ShortSessionPercent > 40 {
+		if severity < 1 {
+			severity = 1
+		}
+		msgs = append(msgs, "много коротких сессий (<5 мин)")
+	}
+
+	if vm.ProblemClientsCount > 0 && severity < 1 {
+		severity = 1
+		msgs = append(msgs, "есть проблемные клиенты")
+	}
+
+	switch severity {
+	case 0:
+		vm.OverallHealthLevel = "ok"
+		if len(msgs) == 0 {
+			vm.OverallHealthMessage = "Серьёзных проблем не обнаружено."
+		} else {
+			vm.OverallHealthMessage = "В целом всё хорошо, но: " + strings.Join(msgs, "; ")
+		}
+	case 1:
+		vm.OverallHealthLevel = "warning"
+		vm.OverallHealthMessage = "Есть предупреждения: " + strings.Join(msgs, "; ")
+	case 2:
+		vm.OverallHealthLevel = "critical"
+		vm.OverallHealthMessage = "Критичные проблемы: " + strings.Join(msgs, "; ")
+	}
 
 	c.Data["vm"] = vm
 	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics"}
