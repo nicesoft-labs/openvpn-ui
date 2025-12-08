@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -195,6 +196,26 @@ func AddFuncMaps() {
 			return 4
 		default:
 			return 5
+		}
+	})
+	_ = web.AddFuncMap("eventLabel", func(eventType string) string {
+		switch {
+		case strings.EqualFold(eventType, "connect"):
+			return "Подключение"
+		case strings.EqualFold(eventType, "disconnect"):
+			return "Отключение"
+		default:
+			return eventType
+		}
+	})
+	_ = web.AddFuncMap("eventBadgeClass", func(eventType string) string {
+		switch {
+		case strings.EqualFold(eventType, "connect"):
+			return "badge-success"
+		case strings.EqualFold(eventType, "disconnect"):
+			return "badge-secondary"
+		default:
+			return "badge-light"
 		}
 	})
 }

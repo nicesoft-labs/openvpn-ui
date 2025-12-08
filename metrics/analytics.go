@@ -586,6 +586,59 @@ LIMIT ?;
 	return items, rows.Err()
 }
 
+// GetAccessLogPage returns paginated access log entries and total count.
+func GetAccessLogPage(ctx context.Context, s Store, page, pageSize int) ([]AnalyticsEventRow, int64, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	offset := (page - 1) * pageSize
+
+	var total int64
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM client_events;`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
+       COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
+       bytes_received, bytes_sent, duration_sec
+FROM client_events
+ORDER BY event_time DESC
+LIMIT ? OFFSET ?;
+`, pageSize, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var items []AnalyticsEventRow
+	for rows.Next() {
+		var (
+			eventTime int64
+			row       AnalyticsEventRow
+		)
+		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
+			return nil, 0, err
+		}
+		row.EventTime = time.Unix(eventTime, 0).UTC()
+		items = append(items, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
 // GetClientsTimeline fetches number of clients for the given range of hours.
 func GetClientsTimeline(ctx context.Context, s Store, rangeHours int) ([]TimePoint, error) {
 	db, err := getSQLDB(s)

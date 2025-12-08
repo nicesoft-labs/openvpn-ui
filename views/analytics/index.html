@@ -646,8 +646,9 @@
 
       <div class="col-lg-4 mb-4">
         <div class="card-clean">
-          <div class="card-header">
-            <h3 class="card-title">Последние события</h3>
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <h3 class="card-title mb-0">Последние события</h3>
+            <a class="btn btn-sm btn-outline-primary" href="/analytics/access-log">Журнал доступа</a>
           </div>
           <div class="card-body table-responsive">
             <table class="table table-sm table-striped">
@@ -663,8 +664,8 @@
                 {{ if .vm.RecentEvents }}
                   {{ range .vm.RecentEvents }}
                   <tr>
-                    <td>{{ .EventType }}</td>
-                    <td>{{ .EventTime }}</td>
+                    <td><span class="badge {{ eventBadgeClass .EventType }}">{{ eventLabel .EventType }}</span></td>
+                    <td>{{ .EventTime.Format "2006-01-02 15:04:05" }}</td>
                     <td>{{ .Username }}</td>
                     <td>{{ .TrustedIP }}</td>
                   </tr>

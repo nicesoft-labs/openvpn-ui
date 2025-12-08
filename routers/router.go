@@ -27,6 +27,7 @@ func Init(configDir string, metricsHandler http.HandlerFunc) {
 	web.Router("/ov/config", &controllers.OVConfigController{})
 	web.Router("/logs", &controllers.LogsController{})
 	web.Router("/analytics", &controllers.AnalyticsController{})
+	web.Router("/analytics/access-log", &controllers.AccessLogController{})
 	web.Router("/reports", &controllers.ReportsController{}, "get:Get")
 	web.Router("/reports/download", &controllers.ReportsController{}, "post:Download")
 	web.Router("/firewall", &controllers.FirewallController{})

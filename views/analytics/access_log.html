@@ -1,0 +1,110 @@
+{{ template "layout/base.html" . }}
+
+{{ define "head" }}
+<title>NiceSOFT NiceVPN UI — Журнал доступа</title>
+<style>
+  .log-card {
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,.04);
+  }
+  .pagination-info {
+    font-size: 0.9rem;
+  }
+</style>
+{{ end }}
+
+{{ define "body" }}
+<div class="container-fluid px-3 px-md-4">
+  <div class="d-flex align-items-center justify-content-between mt-3 mb-2">
+    <div>
+      <h1 class="h3 mb-0">Журнал доступа</h1>
+      <p class="text-muted mb-0">Полная история подключений и отключений пользователей</p>
+    </div>
+    <a href="/analytics" class="btn btn-outline-secondary">← Назад к аналитике</a>
+  </div>
+
+  {{ $vm := .vm }}
+  {{ if not $vm.MetricsEnabled }}
+    <div class="alert alert-warning">Хранилище метрик недоступно, журнал нельзя загрузить.</div>
+  {{ else if $vm.DataUnavailable }}
+    <div class="alert alert-warning">Не удалось получить данные журнала. Попробуйте обновить страницу позже.</div>
+  {{ else }}
+    <div class="log-card p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="pagination-info text-muted">
+          Всего записей: {{ $vm.Total }} • Страница {{ $vm.Page }} из {{ $vm.TotalPage }}
+        </div>
+        <form class="form-inline" method="get">
+          <input type="hidden" name="page" value="1" />
+          <label class="mr-2 text-muted" for="page_size">На странице</label>
+          <select class="form-control form-control-sm" name="page_size" id="page_size" onchange="this.form.submit()">
+              <option value="25" {{ if eq 25 $vm.PageSize }}selected{{ end }}>25</option>
+              <option value="50" {{ if eq 50 $vm.PageSize }}selected{{ end }}>50</option>
+              <option value="100" {{ if eq 100 $vm.PageSize }}selected{{ end }}>100</option>
+              <option value="200" {{ if eq 200 $vm.PageSize }}selected{{ end }}>200</option>
+          </select>
+        </form>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead class="thead-light">
+            <tr>
+              <th style="width: 140px;">Время</th>
+              <th style="width: 130px;">Событие</th>
+              <th>Пользователь</th>
+              <th>CN</th>
+              <th>Trusted IP</th>
+              <th>VPN IP</th>
+              <th>ОС</th>
+              <th>Трафик</th>
+              <th>Длительность</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ if $vm.Events }}
+              {{ range $vm.Events }}
+                <tr>
+                  <td>{{ .EventTime.Format "2006-01-02 15:04:05" }}</td>
+                  <td><span class="badge {{ eventBadgeClass .EventType }}">{{ eventLabel .EventType }}</span></td>
+                  <td>{{ .Username }}</td>
+                  <td>{{ .CommonName }}</td>
+                  <td>{{ .TrustedIP }}</td>
+                  <td>{{ .VPNIP }}</td>
+                  <td>{{ .DeviceOS }}</td>
+                  <td>{{ printf "%0.1f MB" (divMB .BytesIn .BytesOut) }}</td>
+                  <td>{{ formatDuration .DurationSec }}</td>
+                </tr>
+              {{ end }}
+            {{ else }}
+              <tr>
+                <td colspan="9" class="text-center text-muted">Записей пока нет</td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <nav aria-label="Access log pagination" class="mt-3">
+        <ul class="pagination mb-0">
+          <li class="page-item {{ if eq $vm.Page 1 }}disabled{{ end }}">
+            <a class="page-link" href="?page={{ if $vm.PrevPage }}{{ $vm.PrevPage }}{{ else }}1{{ end }}&page_size={{ $vm.PageSize }}">Назад</a>
+          </li>
+
+          {{ range $i := seq 1 $vm.TotalPage }}
+            <li class="page-item {{ if eq $i $vm.Page }}active{{ end }}">
+              <a class="page-link" href="?page={{ $i }}&page_size={{ $vm.PageSize }}">{{ $i }}</a>
+            </li>
+          {{ end }}
+
+          <li class="page-item {{ if or (eq $vm.Page $vm.TotalPage) (eq $vm.TotalPage 0) }}disabled{{ end }}">
+            <a class="page-link" href="?page={{ if $vm.NextPage }}{{ $vm.NextPage }}{{ else }}{{ $vm.Page }}{{ end }}&page_size={{ $vm.PageSize }}">Вперёд</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  {{ end }}
+</div>
+{{ end }}
