@@ -11,6 +11,13 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
+const (
+	baseFont      = "DejaVuSans"
+	primaryColorR = 34
+	primaryColorG = 64
+	primaryColorB = 120
+)
+
 // GenerateSummaryPDF builds enterprise-styled VPN summary report.
 func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.Time, w io.Writer) error {
 	kpi, err := metrics.AggregateSessionsKPI(ctx, store, from, to)
@@ -44,36 +51,34 @@ func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.
 	}
 
 	pdf.AliasNbPages("")
-	footer := func() {
-		pdf.SetFooterFunc(func() {
-			pdf.SetY(-15)
-			pdf.SetDrawColor(210, 210, 210)
-			pdf.Line(10, pdf.GetY(), 200, pdf.GetY())
-			pdf.SetTextColor(120, 120, 120)
-			pdf.SetFont(baseFont, "", 9)
-			pdf.CellFormat(0, 10, fmt.Sprintf("Страница %d / {nb}", pdf.PageNo()), "", 0, "R", false, 0, "")
-			pdf.SetY(pdf.GetY() - 2)
-			pdf.SetX(10)
-			pdf.CellFormat(0, 10, "NiceVPN / NiceSOFT", "", 0, "L", false, 0, "")
-		})
-	}
+	pdf.SetFooterFunc(func() {
+		pdf.SetY(-18)
+		pdf.SetDrawColor(210, 210, 210)
+		pdf.Line(10, pdf.GetY(), 200, pdf.GetY())
+		pdf.SetTextColor(120, 120, 120)
 
-	footer()
+		pdf.SetFont(baseFont, "", 8)
+		pdf.CellFormat(0, 5, "© NiceVPN - продукт компании  ООО \"НАЙС СОФТ ГРУПП\". Работает на НАЙС.ОС - Российское ПО запись в реестре №30128 от 22.10.2025", "", 1, "L", false, 0, "")
+
+		pdf.SetFont(baseFont, "", 9)
+		pdf.CellFormat(0, 8, fmt.Sprintf("Страница %d / {nb}", pdf.PageNo()), "", 0, "R", false, 0, "")
+		pdf.SetY(pdf.GetY() - 2)
+		pdf.SetX(10)
+		pdf.CellFormat(0, 8, "NiceVPN / NiceSOFT", "", 0, "L", false, 0, "")
+	})
+
 	addTitlePage(pdf, from, to)
 	addKPISummary(pdf, kpi)
 	addSessionsByDay(pdf, sessionsByDay)
 	addTopUsers(pdf, topUsersByTraffic, topUsersByDuration)
 	addTopClients(pdf, topClientsByTraffic)
 
+	if err := pdf.Err(); err != nil {
+		return err
+	}
+
 	return pdf.Output(w)
 }
-
-const (
-	baseFont      = "DejaVuSans"
-	primaryColorR = 34
-	primaryColorG = 64
-	primaryColorB = 120
-)
 
 func newReport() *gofpdf.Fpdf {
 	pdf := gofpdf.New("P", "mm", "A4", "")
@@ -85,8 +90,17 @@ func newReport() *gofpdf.Fpdf {
 func registerFonts(pdf *gofpdf.Fpdf) error {
 	regular := filepath.Join("assets", "fonts", "DejaVuSans.ttf")
 	bold := filepath.Join("assets", "fonts", "DejaVuSans-Bold.ttf")
+
 	pdf.AddUTF8Font(baseFont, "", regular)
+	if err := pdf.Err(); err != nil {
+		return fmt.Errorf("failed to add font %s: %w", regular, err)
+	}
+
 	pdf.AddUTF8Font(baseFont, "B", bold)
+	if err := pdf.Err(); err != nil {
+		return fmt.Errorf("failed to add font %s: %w", bold, err)
+	}
+
 	return nil
 }
 
@@ -94,10 +108,15 @@ func addTitlePage(pdf *gofpdf.Fpdf, from, to time.Time) {
 	pdf.AddPage()
 	addTopBand(pdf)
 
-	pdf.SetFont(baseFont, "B", 24)
+	pdf.SetFont(baseFont, "", 12)
+	pdf.SetTextColor(90, 90, 90)
+	pdf.Cell(0, 8, "Отчёт по использованию VPN-инфраструктуры")
+	pdf.Ln(10)
+
+	pdf.SetFont(baseFont, "B", 22)
 	pdf.SetTextColor(primaryColorR, primaryColorG, primaryColorB)
 	pdf.Cell(0, 14, "NiceVPN — Сводный отчёт по VPN")
-	pdf.Ln(16)
+	pdf.Ln(18)
 
 	pdf.SetFont(baseFont, "", 14)
 	pdf.SetTextColor(30, 30, 30)
@@ -115,10 +134,12 @@ func addTitlePage(pdf *gofpdf.Fpdf, from, to time.Time) {
 	pdf.SetFont(baseFont, "", 11)
 	pdf.MultiCell(0, 7, "Отчёт предназначен для руководителей и отражает базовые показатели использования VPN. Отражены ключевые показатели, динамика по дням, а также топ пользователей и клиентов по трафику за выбранный период.", "", "L", false)
 
-	pdf.SetY(260)
+	pdf.SetY(254)
 	pdf.SetTextColor(100, 100, 100)
 	pdf.SetFont(baseFont, "", 10)
-	pdf.Cell(0, 8, "Отчёт сформирован системой NiceVPN")
+	pdf.Cell(0, 6, "Отчёт сформирован системой NiceVPN")
+	pdf.Ln(6)
+	pdf.Cell(0, 6, "© NiceVPN - продукт компании  ООО \"НАЙС СОФТ ГРУПП\". Работает на НАЙС.ОС - Российское ПО запись в реестре №30128 от 22.10.2025")
 }
 
 func addTopBand(pdf *gofpdf.Fpdf) {
@@ -152,6 +173,16 @@ func addSectionHeader(pdf *gofpdf.Fpdf, title string, subtitle string) {
 	pdf.SetFont(baseFont, "", 11)
 }
 
+func ensureTableRowSpace(pdf *gofpdf.Fpdf, rowHeight float64, header func()) {
+	_, y := pdf.GetXY()
+	_, pageH := pdf.GetPageSize()
+	_, _, _, bottomMargin := pdf.GetMargins()
+	if y+rowHeight+bottomMargin > pageH {
+		pdf.AddPage()
+		header()
+	}
+}
+
 func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 	pdf.AddPage()
 	addSectionHeader(pdf, "Ключевые показатели за период", "Основные метрики использования NiceVPN")
@@ -167,20 +198,24 @@ func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 		{"Максимум одновременных клиентов", fmt.Sprintf("%d", kpi.MaxConcurrentSessions)},
 	}
 
-	leftX := pdf.GetX()
-	y := pdf.GetY()
+	cols := 2
 	cardW := 90.0
 	cardH := 28.0
+	gapX := 10.0
+	gapY := 6.0
+	startX := pdf.GetX()
+	startY := pdf.GetY()
 
-	for idx, card := range cards {
-		if idx%2 == 0 && idx != 0 {
-			y += cardH + 4
-			leftX = pdf.GetX()
-		}
-		x := leftX + float64(idx%2)*(cardW+10)
+	for i, card := range cards {
+		row := i / cols
+		col := i % cols
+		x := startX + float64(col)*(cardW+gapX)
+		y := startY + float64(row)*(cardH+gapY)
 		drawKPICard(pdf, x, y, cardW, cardH, card.title, card.value)
 	}
-	pdf.Ln(cardH*3/2 + 10)
+
+	rows := (len(cards) + cols - 1) / cols
+	pdf.SetY(startY + float64(rows)*(cardH+gapY) + 5)
 }
 
 func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
@@ -200,15 +235,19 @@ func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
 }
 
 func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
-	pdf.AddPage()
-	addSectionHeader(pdf, "Сводка по дням", "Динамика сессий и трафика")
-
 	headers := []string{"Дата", "Сессии", "Трафик входящий (GiB)", "Трафик исходящий (GiB)", "Сред. длительность (мин)"}
 	widths := []float64{32, 25, 48, 48, 45}
 
-	renderTableHeader(pdf, headers, widths)
+	sectionHeader := func() {
+		addSectionHeader(pdf, "Сводка по дням", "Динамика сессий и трафика")
+		renderTableHeader(pdf, headers, widths)
+	}
+
+	pdf.AddPage()
+	sectionHeader()
 
 	for idx, d := range stats {
+		ensureTableRowSpace(pdf, 8, sectionHeader)
 		fill := idx%2 == 0
 		pdf.CellFormat(widths[0], 8, d.Date, "", 0, "L", fill, 0, "")
 		pdf.CellFormat(widths[1], 8, fmt.Sprintf("%d", d.Sessions), "", 0, "R", fill, 0, "")
@@ -219,15 +258,19 @@ func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 }
 
 func addTopUsers(pdf *gofpdf.Fpdf, users []metrics.AnalyticsUserTraffic, durations []metrics.AnalyticsUserDuration) {
-	pdf.AddPage()
-	addSectionHeader(pdf, "Топ пользователей по трафику", "Лидеры по объёму переданных данных")
-
 	headers := []string{"#", "Пользователь", "CN", "Сессий", "Трафик (GiB)", "Сред. длительность (мин)"}
 	widths := []float64{10, 45, 40, 25, 35, 40}
 
-	renderTableHeader(pdf, headers, widths)
+	sectionHeader := func() {
+		addSectionHeader(pdf, "Топ пользователей по трафику", "Лидеры по объёму переданных данных")
+		renderTableHeader(pdf, headers, widths)
+	}
+
+	pdf.AddPage()
+	sectionHeader()
 
 	for idx, u := range users {
+		ensureTableRowSpace(pdf, 8, sectionHeader)
 		fill := idx%2 == 0
 		durationMinutes := lookupAvgDuration(u.Username, u.CommonName, durations)
 		username := u.Username
@@ -242,31 +285,37 @@ func addTopUsers(pdf *gofpdf.Fpdf, users []metrics.AnalyticsUserTraffic, duratio
 			fmt.Sprintf("%d", u.Sessions),
 			formatGiB(int64(u.BytesIn + u.BytesOut)),
 			formatMinutes(int64(durationMinutes * 60)),
-		}, fill, highlight)
+		}, fill, highlight, nil)
 	}
 }
 
 func addTopClients(pdf *gofpdf.Fpdf, clients []metrics.TopClientPoint) {
-	pdf.AddPage()
-	addSectionHeader(pdf, "Топ клиентов по трафику", "Клиенты, передавшие максимальный объём данных")
-
 	headers := []string{"#", "Common Name", "Трафик (GiB)", "Статус"}
 	widths := []float64{10, 70, 40, 60}
 
-	renderTableHeader(pdf, headers, widths)
+	sectionHeader := func() {
+		addSectionHeader(pdf, "Топ клиентов по трафику", "Клиенты, передавшие максимальный объём данных")
+		renderTableHeader(pdf, headers, widths)
+	}
+
+	pdf.AddPage()
+	sectionHeader()
 
 	for idx, c := range clients {
+		ensureTableRowSpace(pdf, 8, sectionHeader)
 		fill := idx%2 == 0
 		status := "Был активен в периоде"
+		statusColor := &[3]int{97, 97, 97}
 		if c.ActiveNow {
 			status = "Активен в периоде"
+			statusColor = &[3]int{46, 125, 50}
 		}
 		drawTableRow(pdf, widths, []string{
 			fmt.Sprintf("%d", idx+1),
 			c.CommonName,
 			formatGiB(int64(c.TotalBytes)),
 			status,
-		}, fill, idx < 3)
+		}, fill, idx < 3, statusColor)
 	}
 }
 
@@ -283,17 +332,24 @@ func renderTableHeader(pdf *gofpdf.Fpdf, headers []string, widths []float64) {
 	pdf.SetTextColor(30, 30, 30)
 }
 
-func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool, emphasize bool) {
+func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool, emphasize bool, statusColor *[3]int) {
 	if emphasize {
-		pdf.SetFillColor(248, 251, 255)
-	} else {
+		pdf.SetFillColor(232, 240, 252)
+	} else if fill {
 		pdf.SetFillColor(245, 245, 245)
+	} else {
+		pdf.SetFillColor(255, 255, 255)
 	}
+
 	fontStyle := ""
+	fontSize := 10.0
 	if emphasize {
 		fontStyle = "B"
+		fontSize = 11.0
 	}
-	pdf.SetFont(baseFont, fontStyle, 10)
+
+	pdf.SetFont(baseFont, fontStyle, fontSize)
+	defaultTextColor := [3]int{30, 30, 30}
 	for i, cell := range cells {
 		align := "L"
 		if i == 0 || i >= len(cells)-2 {
@@ -302,13 +358,22 @@ func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool,
 		if i >= len(cells)-2 {
 			align = "R"
 		}
-		if i == len(cells)-1 && len(cells) == 4 { // status column
+		if i == len(cells)-1 && len(cells) == 4 {
 			align = "L"
 		}
-		pdf.CellFormat(widths[i], 8, cell, "", 0, align, fill, 0, "")
+
+		if statusColor != nil && i == len(cells)-1 {
+			pdf.SetTextColor(statusColor[0], statusColor[1], statusColor[2])
+		}
+
+		pdf.CellFormat(widths[i], 8, cell, "", 0, align, true, 0, "")
+		if statusColor != nil && i == len(cells)-1 {
+			pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
+		}
 	}
 	pdf.Ln(-1)
 	pdf.SetFont(baseFont, "", 10)
+	pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
 }
 
 func lookupAvgDuration(username, cn string, durations []metrics.AnalyticsUserDuration) float64 {
