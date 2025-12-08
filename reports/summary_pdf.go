@@ -73,8 +73,8 @@ func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.
 	addTopUsers(pdf, topUsersByTraffic, topUsersByDuration)
 	addTopClients(pdf, topClientsByTraffic)
 
-	if err := pdf.Err(); err != nil {
-		return err
+	if pdf.Err() {
+		return pdf.Error()
 	}
 
 	return pdf.Output(w)
@@ -92,13 +92,13 @@ func registerFonts(pdf *gofpdf.Fpdf) error {
 	bold := filepath.Join("assets", "fonts", "DejaVuSans-Bold.ttf")
 
 	pdf.AddUTF8Font(baseFont, "", regular)
-	if err := pdf.Err(); err != nil {
-		return fmt.Errorf("failed to add font %s: %w", regular, err)
+	if pdf.Err() {
+		return fmt.Errorf("failed to add font %s: %w", regular, pdf.Error())
 	}
 
 	pdf.AddUTF8Font(baseFont, "B", bold)
-	if err := pdf.Err(); err != nil {
-		return fmt.Errorf("failed to add font %s: %w", bold, err)
+	if pdf.Err() {
+		return fmt.Errorf("failed to add font %s: %w", bold, pdf.Error())
 	}
 
 	return nil
