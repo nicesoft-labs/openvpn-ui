@@ -2,6 +2,77 @@
 
 {{ define "head" }}
 <title>NiceSOFT NiceVPN UI — Аналитика VPN</title>
+<style>
+  /* Лёгкая косметика, если ещё нет */
+  .metric-card {
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,.04);
+    padding: 16px 16px 12px;
+    height: 100%;
+  }
+  .metric-card__header {
+    font-weight: 600;
+    font-size: .95rem;
+    margin-bottom: .5rem;
+  }
+  .metric-card__header .small-muted {
+    font-weight: 400;
+    font-size: .8rem;
+    color: #6c757d;
+  }
+  .chart-wrap {
+    position: relative;
+    min-height: 220px;
+  }
+  .empty-state {
+    font-size: .9rem;
+    color: #6c757d;
+    text-align: center;
+    padding: 1.5rem 0;
+  }
+  .kpi-row .kpi-box {
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.05);
+    padding: 16px;
+    background: #fff;
+    height: 100%;
+  }
+  .kpi-box__title {
+    font-size: .9rem;
+    color: #6c757d;
+    margin-bottom: .25rem;
+  }
+  .kpi-box__value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .kpi-box__muted {
+    color: #6c757d;
+    font-size: .85rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .metric-card,
+    .kpi-box,
+    .card-clean {
+      background: #171a1f;
+      border-color: #2a2e35;
+      color: #e5e7eb;
+    }
+    .kpi-box__title,
+    .kpi-box__muted,
+    .small-muted {
+      color: #a8b2c1;
+    }
+    body {
+      background-color: #0f1115;
+      color: #e5e7eb;
+    }
+  }
+</style>
 {{ end }}
 
 {{ define "body" }}
@@ -41,6 +112,7 @@
       Данные временно недоступны. Попробуйте обновить страницу позже.
     </div>
   {{ else }}
+    <!-- Верхний ряд: клиенты + throughput -->
     <div class="row">
       <div class="col-lg-6 mb-4">
         <div class="metric-card">
@@ -58,7 +130,7 @@
         <div class="metric-card">
           <div class="metric-card__header d-flex justify-content-between">
             <span>Пропускная способность</span>
-            <span class="small-muted">бит/с</span>
+            <span class="small-muted">Мбит/с (in/out)</span>
           </div>
           <div class="chart-wrap">
             <canvas id="chartThroughput"></canvas>
@@ -68,6 +140,7 @@
       </div>
     </div>
 
+    <!-- KPI -->
     <div class="row kpi-row">
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="kpi-box">
@@ -99,6 +172,7 @@
       </div>
     </div>
 
+    <!-- Трафик и сессии по дням -->
     <div class="row">
       <div class="col-lg-6 mb-4">
         <div class="metric-card">
@@ -124,6 +198,10 @@
           <div class="empty-state" data-empty-for="chartSessionsByDay">Нет данных по сессиям</div>
         </div>
       </div>
+    </div>
+
+    <!-- Топы по трафику -->
+    <div class="row">
       <div class="col-lg-6 mb-4">
         <div class="metric-card">
           <div class="metric-card__header">Топ пользователей по трафику</div>
@@ -144,23 +222,60 @@
       </div>
     </div>
 
+    <!-- Новые графики: события + длительность -->
     <div class="row">
       <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
+            <span>События во времени</span>
+            <span class="small-muted">подключения / отключения</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartEventsTimeline"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartEventsTimeline">Нет данных по событиям</div>
+        </div>
+      </div>
+      <div class="col-lg-6 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header d-flex justify-content-between">
+            <span>Распределение длительности сессий</span>
+            <span class="small-muted">на основе client_sessions</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartSessionDurationBuckets"></canvas>
+          </div>
+          <div class="empty-state" data-empty-for="chartSessionDurationBuckets">Нет данных по длительности</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Распределения: ОС, шифры, MFA -->
+    <div class="row">
+      <div class="col-lg-4 mb-4">
         <div class="metric-card">
           <div class="metric-card__header">Распределение по ОС</div>
           <div class="chart-wrap"><canvas id="chartOsDistribution"></canvas></div>
           <div class="empty-state" data-empty-for="chartOsDistribution">Нет данных</div>
         </div>
       </div>
-      <div class="col-lg-6 mb-4">
+      <div class="col-lg-4 mb-4">
         <div class="metric-card">
           <div class="metric-card__header">Распределение по шифрам</div>
           <div class="chart-wrap"><canvas id="chartCipherDistribution"></canvas></div>
           <div class="empty-state" data-empty-for="chartCipherDistribution">Нет данных</div>
         </div>
       </div>
+      <div class="col-lg-4 mb-4">
+        <div class="metric-card">
+          <div class="metric-card__header">MFA / авторизация</div>
+          <div class="chart-wrap"><canvas id="chartMfaStats"></canvas></div>
+          <div class="empty-state" data-empty-for="chartMfaStats">Нет данных</div>
+        </div>
+      </div>
     </div>
 
+    <!-- Таблицы: последние сессии и события -->
     <div class="row">
       <div class="col-lg-7 mb-4">
         <div class="card-clean">
@@ -243,6 +358,7 @@
 
 <script src="/static/js/chart.umd.min.js"></script>
 <script>
+  // Ожидаем, что vm уже содержит агрегаты, подготовленные контроллером.
   const vm = {{ tojson .vm }};
 
   function bytesToMB(value) {
@@ -255,7 +371,7 @@
 
   function toggleEmpty(id, hasData) {
     const canvas = document.getElementById(id);
-    const empty = document.querySelector(`[data-empty-for="${id}"]`);
+    const empty = document.querySelector('[data-empty-for="' + id + '"]');
     if (!canvas || !empty) return;
     if (hasData) {
       empty.style.display = 'none';
@@ -267,11 +383,11 @@
   }
 
   function initKPI() {
-    const traffic = bytesToMB(vm.TotalBytesIn + vm.TotalBytesOut).toFixed(1);
+    const trafficMB = bytesToMB(Number(vm.TotalBytesIn || 0) + Number(vm.TotalBytesOut || 0));
     const avgMin = vm.AvgSessionDurationSec ? (vm.AvgSessionDurationSec / 60).toFixed(1) : '0';
     const trafficNode = document.getElementById('kpi-traffic-total');
     const avgNode = document.getElementById('kpi-avg-duration');
-    if (trafficNode) trafficNode.textContent = traffic;
+    if (trafficNode) trafficNode.textContent = trafficMB.toFixed(1);
     if (avgNode) avgNode.textContent = avgMin;
   }
 
@@ -284,7 +400,7 @@
     toggleEmpty('chartClientsTimeline', data.length > 0);
     if (!data.length) return;
     const labels = data.map(p => formatTs(p.Ts));
-    const values = data.map(p => p.Val);
+    const values = data.map(p => Number(p.Val || 0));
     const ctx = document.getElementById('chartClientsTimeline').getContext('2d');
     new Chart(ctx, {
       type: 'line',
@@ -293,39 +409,50 @@
         datasets: [{
           label: 'Клиенты онлайн',
           data: values,
-          borderColor: '#3f51b5',
-          backgroundColor: 'rgba(63, 81, 181, 0.2)',
           tension: 0.3,
           fill: true
         }]
       },
       options: {
         responsive: true,
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Клиенты' } } }
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Клиенты' } }
+        }
       }
     });
   }
 
+  // vm.Throughput: [{ Ts, InBps, OutBps }, ...] — Bps или bps, сервер считает.
   function initThroughput() {
     const data = vm.Throughput || [];
     toggleEmpty('chartThroughput', data.length > 0);
     if (!data.length) return;
+
     const labels = data.map(p => formatTs(p.Ts));
-    const inbound = data.map(p => (p.InBps / 1_000_000).toFixed(2));
-    const outbound = data.map(p => (p.OutBps / 1_000_000).toFixed(2));
+    const inbound = data.map(p => Number(p.InBps || 0) / 1_000_000);  // → Мбит/с
+    const outbound = data.map(p => Number(p.OutBps || 0) / 1_000_000);
+
     const ctx = document.getElementById('chartThroughput').getContext('2d');
     new Chart(ctx, {
       type: 'line',
       data: {
         labels,
         datasets: [
-          { label: 'Входящий трафик (Мбит/с)', data: inbound, borderColor: '#4caf50', backgroundColor: 'rgba(76, 175, 80, 0.15)', tension: 0.3, fill: true },
-          { label: 'Исходящий трафик (Мбит/с)', data: outbound, borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.15)', tension: 0.3, fill: true }
+          { label: 'Входящий (Мбит/с)', data: inbound, tension: 0.3, fill: true },
+          { label: 'Исходящий (Мбит/с)', data: outbound, tension: 0.3, fill: true }
         ]
       },
       options: {
         responsive: true,
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Мбит/с' } } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Мбит/с' },
+            ticks: {
+              callback: v => v.toFixed ? v.toFixed(1) : v
+            }
+          }
+        },
         plugins: { legend: { display: true } }
       }
     });
@@ -336,106 +463,171 @@
     toggleEmpty('chartDailyTraffic', data.length > 0);
     if (!data.length) return;
     const labels = data.map(p => p.Day);
-    const inData = data.map(p => bytesToGiB(p.InBytes).toFixed(2));
-    const outData = data.map(p => bytesToGiB(p.OutBytes).toFixed(2));
+    const inData = data.map(p => bytesToGiB(Number(p.InBytes || 0)));
+    const outData = data.map(p => bytesToGiB(Number(p.OutBytes || 0)));
     const ctx = document.getElementById('chartDailyTraffic').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
       data: {
         labels,
         datasets: [
-          { label: 'Входящий трафик (ГиБ)', data: inData, backgroundColor: 'rgba(33, 150, 243, 0.7)' },
-          { label: 'Исходящий трафик (ГиБ)', data: outData, backgroundColor: 'rgba(156, 39, 176, 0.7)' }
-        ]
-      },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'ГиБ' } } },
-        plugins: { legend: { display: true } }
-      }
-    });
-  }
-
-  function initSessionsByDay() {
-    const data = vm.SessionsByDay || [];
-    toggleEmpty('chartSessionsByDay', data.length > 0);
-    if (!data.length) return;
-    const labels = data.map(i => i.Date);
-    const sessions = data.map(i => i.Sessions);
-    const bytes = data.map(i => (bytesToMB(i.BytesIn + i.BytesOut)).toFixed(1));
-    const ctx = document.getElementById('chartSessionsByDay').getContext('2d');
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Сессии', data: sessions, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
-          { label: 'Трафик (MB)', data: bytes, type: 'line', yAxisID: 'y1', borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.2)', tension: 0.3 }
+          { label: 'Входящий (ГиБ)', data: inData },
+          { label: 'Исходящий (ГиБ)', data: outData }
         ]
       },
       options: {
         responsive: true,
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'Сессии' } },
-          y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'MB' } }
+          y: { beginAtZero: true, title: { display: true, text: 'ГиБ' } }
         },
         plugins: { legend: { display: true } }
       }
     });
   }
 
+  // vm.SessionsByDay: [{ Date, Sessions, BytesIn, BytesOut }, ...]
+  function initSessionsByDay() {
+    const data = vm.SessionsByDay || [];
+    toggleEmpty('chartSessionsByDay', data.length > 0);
+    if (!data.length) return;
+    const labels = data.map(i => i.Date);
+    const sessions = data.map(i => Number(i.Sessions || 0));
+    const bytes = data.map(i => bytesToMB(Number(i.BytesIn || 0) + Number(i.BytesOut || 0)));
+    const ctx = document.getElementById('chartSessionsByDay').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Сессии', data: sessions },
+          { label: 'Трафик (MB)', data: bytes, type: 'line', yAxisID: 'y1', tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Сессии' } },
+          y1: {
+            beginAtZero: true,
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'MB' }
+          }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
+  // vm.TopUsersByTraffic: [{ Username, CommonName, BytesIn, BytesOut }, ...]
   function initTopUsersTraffic() {
     const data = vm.TopUsersByTraffic || [];
     toggleEmpty('chartTopUsersTraffic', data.length > 0);
     if (!data.length) return;
     const labels = data.map(i => i.Username || i.CommonName || '—');
-    const bytes = data.map(i => bytesToMB(i.BytesIn + i.BytesOut).toFixed(1));
+    const bytes = data.map(i => bytesToMB(Number(i.BytesIn || 0) + Number(i.BytesOut || 0)));
     const ctx = document.getElementById('chartTopUsersTraffic').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Трафик (MB)',
-          data: bytes,
-          backgroundColor: 'rgba(75, 192, 192, 0.6)'
-        }]
-      },
-      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+      data: { labels, datasets: [{ label: 'Трафик (MB)', data: bytes }] },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } }
+      }
     });
   }
 
+  // vm.TopClientsByTraffic: [{ CommonName, TotalBytes }, ...]
   function initTopClientsTraffic() {
     const data = vm.TopClientsByTraffic || [];
     toggleEmpty('chartTopClientsTraffic', data.length > 0);
     if (!data.length) return;
     const labels = data.map(i => i.CommonName || '—');
-    const bytes = data.map(i => bytesToGiB(i.TotalBytes).toFixed(2));
+    const bytes = data.map(i => bytesToGiB(Number(i.TotalBytes || 0)));
     const ctx = document.getElementById('chartTopClientsTraffic').getContext('2d');
     new Chart(ctx, {
       type: 'bar',
+      data: { labels, datasets: [{ label: 'Трафик (ГиБ)', data: bytes }] },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } }
+      }
+    });
+  }
+
+  // vm.EventsTimeline: [{ Ts, Connects, Disconnects }, ...]
+  function initEventsTimeline() {
+    const data = vm.EventsTimeline || [];
+    toggleEmpty('chartEventsTimeline', data.length > 0);
+    if (!data.length) return;
+
+    const labels = data.map(i => formatTs(i.Ts));
+    const connects = data.map(i => Number(i.Connects || 0));
+    const disconnects = data.map(i => Number(i.Disconnects || 0));
+
+    const ctx = document.getElementById('chartEventsTimeline').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Трафик (ГиБ)',
-          data: bytes,
-          backgroundColor: 'rgba(0, 150, 136, 0.7)'
-        }]
+        datasets: [
+          { label: 'Подключения', data: connects, tension: 0.3, fill: false },
+          { label: 'Отключения', data: disconnects, tension: 0.3, fill: false }
+        ]
       },
-      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'События' } }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
+  // vm.SessionDurationBuckets: [{ Label, Count }, ...]
+  function initSessionDurationBuckets() {
+    const data = vm.SessionDurationBuckets || [];
+    toggleEmpty('chartSessionDurationBuckets', data.length > 0);
+    if (!data.length) return;
+
+    const labels = data.map(i => i.Label || '—');
+    const counts = data.map(i => Number(i.Count || 0));
+
+    const ctx = document.getElementById('chartSessionDurationBuckets').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Сессии', data: counts }] },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Количество сессий' } } },
+        plugins: { legend: { display: false } }
+      }
     });
   }
 
   function initDoughnut(id, data) {
     toggleEmpty(id, data.length > 0);
     if (!data.length) return;
-    const labels = data.map(i => i.Key || 'Unknown');
-    const values = data.map(i => i.Value);
+    const labels = data.map(i => i.Key || i.Label || 'Unknown');
+    const values = data.map(i => Number(i.Value || i.Count || 0));
     const ctx = document.getElementById(id).getContext('2d');
     new Chart(ctx, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data: values, backgroundColor: ['#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#ef5350', '#29b6f6', '#7e57c2', '#ffca28'] }] },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      data: {
+        labels,
+        datasets: [{
+          data: values
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
     });
   }
 
@@ -447,8 +639,11 @@
     initDailyTraffic();
     initTopUsersTraffic();
     initTopClientsTraffic();
+    initEventsTimeline();
+    initSessionDurationBuckets();
     initDoughnut('chartOsDistribution', vm.OsDistribution || []);
     initDoughnut('chartCipherDistribution', vm.CipherDistribution || []);
+    initDoughnut('chartMfaStats', vm.MFAStats || []);
   });
 </script>
 
