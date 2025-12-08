@@ -105,10 +105,10 @@ metrics.poll_interval = 30s
 metrics.mi_network = tcp
 metrics.mi_address = 127.0.0.1:2080
 
-# google config
-googleClientID = your-google-clientid
-googleClientSecret = your-google-secret
-googleRedirectURL = http://localhost:8080/auth/google/callback
+# yandex config
+yandexClientID = your-yandex-clientid
+yandexClientSecret = your-yandex-secret
+yandexRedirectURL = http://localhost:8080/auth/yandex/callback
 `
 
 func ensureConfigFile(configDir, configFile string) error {

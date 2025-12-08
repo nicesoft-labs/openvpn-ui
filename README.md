@@ -827,18 +827,18 @@ For MFA authentication you can use optional `Passphrase` when generating new Cli
 
   </details>
 
-### Authentication with Google APIs (OAuth 2.0)
-Starting from vestion `0.9.5.5` OpenVPN-UI support [OAuth 2.0 authentication with Google APIs](https://developers.google.com/identity/protocols/oauth2).
+### Authentication with Yandex (OAuth 2.0)
+Starting from version `0.9.5.5` OpenVPN-UI supports [OAuth 2.0 authentication with Yandex](https://yandex.ru/dev/id/doc/ru/) instead of Google.
 
-Gogle configurations can be passed as Environment Variables. Here we can update secrets , cliendID from [google developer console](https://console.developers.google.com/) and allowed domains checked which email domains are allowed. 
+Yandex configurations can be passed as Environment Variables. Set secrets and client ID in [Yandex OAuth applications](https://oauth.yandex.com/client/new) and restrict access with allowed email domains.
 
-Required ENV variables for google login to work.
->          GOOGLE_CLIENT_ID
->          GOOGLE_CLIENT_SECRET
->          GOOGLE_REDIRECT_URL
+Required ENV variables for Yandex login to work.
+>          YANDEX_CLIENT_ID
+>          YANDEX_CLIENT_SECRET
+>          YANDEX_REDIRECT_URL
 >          ALLOWED_DOMAINS
 
-Kudos to [opsnin](https://github.com/d3vilh/openvpn-ui/pull/89) for this feature.
+Kudos to [opsnin](https://github.com/d3vilh/openvpn-ui/pull/89) for the original OAuth feature.
 ### User Management
 Starting from `v.0.9.2` OpenVPN UI has user management feature. 
 
