@@ -72,6 +72,7 @@ func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.
 		pdf.CellFormat(0, 8, "NiceVPN / NiceSOFT", "", 0, "L", false, 0, "")
 	})
 
+	// Страницы в логичном порядке для руководителя
 	addTitlePage(pdf, from, to)
 	addKPISummary(pdf, kpi)
 	addExecutiveSummary(pdf, kpi, sessionsByDay, topUsersByTraffic, topClientsByTraffic)
@@ -100,12 +101,12 @@ func registerFonts(pdf *gofpdf.Fpdf) error {
 	bold := filepath.Join("assets", "fonts", "DejaVuSans-Bold.ttf")
 
 	pdf.AddUTF8Font(baseFont, "", regular)
-	if pdf.Err() {
+	if pdf.Err() != nil {
 		return fmt.Errorf("failed to add font %s: %w", regular, pdf.Error())
 	}
 
 	pdf.AddUTF8Font(baseFont, "B", bold)
-	if pdf.Err() {
+	if pdf.Err() != nil {
 		return fmt.Errorf("failed to add font %s: %w", bold, pdf.Error())
 	}
 
@@ -199,13 +200,15 @@ func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 	addTopBand(pdf)
 	addSectionHeader(pdf, "Ключевые показатели за период", "Основные метрики использования NiceVPN")
 
+	totalBytes := kpi.TotalBytesIn + kpi.TotalBytesOut
+
 	cards := []struct {
 		title string
 		value string
 	}{
 		{"Всего сессий", fmt.Sprintf("%d", kpi.TotalSessions)},
 		{"Уникальные пользователи", fmt.Sprintf("%d", kpi.UniqueUsers)},
-		{"Суммарный трафик", fmt.Sprintf("%s GiB", formatGiB(kpi.TotalBytesIn+kpi.TotalBytesOut))},
+		{"Суммарный трафик", fmt.Sprintf("%s GiB", formatGiB(totalBytes))},
 		{"Средняя длительность сессии", fmt.Sprintf("%s мин", formatMinutes(kpi.AvgSessionDurationSec))},
 		{"Максимум одновременных клиентов", fmt.Sprintf("%d", kpi.MaxConcurrentSessions)},
 	}
@@ -249,7 +252,7 @@ func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
 	pdf.CellFormat(w-10, 10, value, "", 0, "L", false, 0, "")
 }
 
-// addExecutiveSummary builds a short textual summary with derived KPIs for management.
+// Краткая текстовая аналитика для руководителя
 func addExecutiveSummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, stats []metrics.AnalyticsDayStat, users []metrics.AnalyticsUserTraffic, clients []metrics.TopClientPoint) {
 	pdf.AddPage()
 	addTopBand(pdf)
@@ -257,16 +260,16 @@ func addExecutiveSummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, stats []metri
 
 	totalBytes := kpi.TotalBytesIn + kpi.TotalBytesOut
 
-	var daysWithSessions int64
+	var daysWithSessions uint64
 	var maxDaySessions int64
 	var maxDaySessionsDate string
-	var maxDayTrafficBytes int64
+	var maxDayTrafficBytes uint64
 	var maxDayTrafficDate string
 
 	for _, d := range stats {
 		daysWithSessions++
-		if d.Sessions > maxDaySessions {
-			maxDaySessions = d.Sessions
+		if int64(d.Sessions) > maxDaySessions {
+			maxDaySessions = int64(d.Sessions)
 			maxDaySessionsDate = d.Date
 		}
 		dayBytes := d.BytesIn + d.BytesOut
@@ -283,11 +286,11 @@ func addExecutiveSummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, stats []metri
 		avgTrafficGiBPerDay = bytesToGiB(totalBytes) / float64(daysWithSessions)
 	}
 
-	// Traffic concentration for users
+	// Концентрация трафика по пользователям
 	var topUserLabel string
 	var topUserShare, top3UsersShare float64
 	if totalBytes > 0 && len(users) > 0 {
-		var top3Bytes int64
+		var top3Bytes uint64
 		for i, u := range users {
 			userBytes := u.BytesIn + u.BytesOut
 			if i == 0 {
@@ -301,7 +304,7 @@ func addExecutiveSummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, stats []metri
 		top3UsersShare = float64(top3Bytes) / float64(totalBytes)
 	}
 
-	// Traffic concentration for clients
+	// Концентрация трафика по клиентам
 	var topClientLabel string
 	var topClientShare float64
 	if totalBytes > 0 && len(clients) > 0 {
@@ -374,7 +377,7 @@ func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	}
 }
 
-// addPeakDaysByTraffic prints top-5 days by total traffic.
+// Топ-5 дней по объёму трафика
 func addPeakDaysByTraffic(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	if len(stats) == 0 {
 		return
@@ -383,15 +386,15 @@ func addPeakDaysByTraffic(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	type dayAgg struct {
 		Date           string
 		Sessions       int64
-		TotalBytes     int64
-		AvgDurationSec int64
+		TotalBytes     uint64
+		AvgDurationSec float64
 	}
 
 	days := make([]dayAgg, len(stats))
 	for i, d := range stats {
 		days[i] = dayAgg{
 			Date:           d.Date,
-			Sessions:       d.Sessions,
+			Sessions:       int64(d.Sessions),
 			TotalBytes:     d.BytesIn + d.BytesOut,
 			AvgDurationSec: d.AvgDurationSec,
 		}
@@ -427,6 +430,7 @@ func addPeakDaysByTraffic(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	}
 }
 
+// Топ пользователей по трафику (таблица, где раньше у тебя всё ехало)
 func addTopUsers(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, users []metrics.AnalyticsUserTraffic, durations []metrics.AnalyticsUserDuration) {
 	if len(users) == 0 {
 		return
@@ -435,6 +439,7 @@ func addTopUsers(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, users []metrics.Analy
 	totalBytes := kpi.TotalBytesIn + kpi.TotalBytesOut
 
 	headers := []string{"#", "Пользователь", "Сессий", "Трафик (GiB)", "Доля трафика (%)", "Сред. длит. (мин)"}
+	// Ширины подобраны так, чтобы всё аккуратно влезало на 180 мм (A4 с полями 15 мм)
 	widths := []float64{10, 70, 20, 32, 23, 25}
 
 	headerRow := func() {
@@ -449,6 +454,7 @@ func addTopUsers(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, users []metrics.Analy
 	for idx, u := range users {
 		ensureTableRowSpace(pdf, tableRowHeight, headerRow)
 		fill := idx%2 == 0
+
 		durationMinutes := lookupAvgDuration(u.Username, u.CommonName, durations)
 		userLabel := formatUserLabel(u.Username, u.CommonName)
 
@@ -466,11 +472,12 @@ func addTopUsers(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI, users []metrics.Analy
 			fmt.Sprintf("%d", u.Sessions),
 			formatGiB(userBytes),
 			formatPercent(sharePercent),
-			formatMinutes(int64(durationMinutes * 60)),
+			fmt.Sprintf("%.1f", durationMinutes),
 		}, fill, highlight, nil)
 	}
 }
 
+// Топ пользователей по суммарному времени
 func addTopUsersByDuration(pdf *gofpdf.Fpdf, durations []metrics.AnalyticsUserDuration) {
 	if len(durations) == 0 {
 		return
@@ -636,6 +643,7 @@ func lookupAvgDuration(username, cn string, durations []metrics.AnalyticsUserDur
 			if d.Sessions == 0 {
 				return 0
 			}
+			// минуты
 			return float64(d.TotalDurationSec) / float64(d.Sessions) / 60.0
 		}
 	}
@@ -664,26 +672,26 @@ func formatUserLabel(username, cn string) string {
 	}
 }
 
-func formatGiB(bytes int64) string {
-	if bytes <= 0 {
+func formatGiB(bytes uint64) string {
+	if bytes == 0 {
 		return "0.00"
 	}
 	val := bytesToGiB(bytes)
 	return fmt.Sprintf("%.2f", val)
 }
 
-func bytesToGiB(bytes int64) float64 {
-	if bytes <= 0 {
+func bytesToGiB(bytes uint64) float64 {
+	if bytes == 0 {
 		return 0
 	}
 	return float64(bytes) / 1024.0 / 1024.0 / 1024.0
 }
 
-func formatMinutes(sec int64) string {
+func formatMinutes(sec float64) string {
 	if sec <= 0 {
 		return "0.0"
 	}
-	val := float64(sec) / 60.0
+	val := sec / 60.0
 	return fmt.Sprintf("%.1f", val)
 }
 
