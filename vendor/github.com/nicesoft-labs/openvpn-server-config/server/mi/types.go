@@ -24,20 +24,18 @@ type Status struct {
 
 // OVClient .
 type OVClient struct {
-        CommonName      string
-        RealAddress     string
-        VirtualAddress  string
-        VirtualIPv6     string
-        BytesReceived   uint64
-        BytesSent       uint64
-        ConnectedSince  string
-        ConnectedSinceT string
-        Username        string
-        ClientID        string
-        PeerID          string
-        DataCipher      string
-        PacketsReceived *uint64
-        PacketsSent     *uint64
+	CommonName      string
+	RealAddress     string
+	VirtualAddress  string
+	VirtualIPv6     string
+	BytesReceived   uint64
+	BytesSent       uint64
+	ConnectedSince  string
+	ConnectedSinceT string
+	Username        string
+	ClientID        string
+	PeerID          string
+	//DataCipher      string
 }
 
 // RoutingPath .

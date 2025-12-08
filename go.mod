@@ -8,13 +8,14 @@ require (
 	github.com/beego/beego/v2 v2.3.4
 	github.com/cloudfoundry/gosigar v1.3.81
 	github.com/go-ldap/ldap/v3 v3.4.9
-github.com/google/nftables v0.2.0
-github.com/mattn/go-sqlite3 v1.14.24
-github.com/nicesoft-labs/openvpn-server-config v0.0.0-20251202193553-29de1ef67a6e
-github.com/vishvananda/netlink v1.3.0
-golang.org/x/oauth2 v0.24.0
-google.golang.org/api v0.214.0
-gopkg.in/hlandau/passlib.v1 v1.0.11
+	github.com/google/nftables v0.2.0
+	github.com/jung-kurt/gofpdf v1.16.2
+	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/nicesoft-labs/openvpn-server-config v0.0.0-20251202193553-29de1ef67a6e
+	github.com/vishvananda/netlink v1.3.0
+	golang.org/x/oauth2 v0.24.0
+	google.golang.org/api v0.214.0
+	gopkg.in/hlandau/passlib.v1 v1.0.11
 )
 
 require (
@@ -37,10 +38,10 @@ require (
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
-github.com/mdlayher/socket v0.5.0 // indirect
-github.com/mitchellh/mapstructure v1.5.0 // indirect
-github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-github.com/pkg/errors v0.9.1 // indirect
+	github.com/mdlayher/socket v0.5.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.61.0 // indirect
@@ -48,8 +49,8 @@ github.com/pkg/errors v0.9.1 // indirect
 	github.com/shiena/ansicolor v0.0.0-20230509054315-a9deabde6e02 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-github.com/vishvananda/netns v0.0.4 // indirect
-go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	github.com/vishvananda/netns v0.0.4 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
 	go.opentelemetry.io/otel v1.33.0 // indirect
 	go.opentelemetry.io/otel/metric v1.33.0 // indirect
