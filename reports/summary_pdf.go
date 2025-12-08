@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"time"
+	"unicode"
 
 	"github.com/d3vilh/openvpn-ui/metrics"
 	"github.com/jung-kurt/gofpdf"
@@ -16,6 +17,9 @@ const (
 	primaryColorR = 34
 	primaryColorG = 64
 	primaryColorB = 120
+
+	bottomMargin   = 20.0
+	tableRowHeight = 8.0
 )
 
 // GenerateSummaryPDF builds enterprise-styled VPN summary report.
@@ -171,15 +175,17 @@ func addSectionHeader(pdf *gofpdf.Fpdf, title string, subtitle string) {
 	}
 	pdf.SetTextColor(30, 30, 30)
 	pdf.SetFont(baseFont, "", 11)
+	pdf.Ln(2)
 }
 
 func ensureTableRowSpace(pdf *gofpdf.Fpdf, rowHeight float64, header func()) {
 	_, y := pdf.GetXY()
 	_, pageH := pdf.GetPageSize()
-	_, _, _, bottomMargin := pdf.GetMargins()
 	if y+rowHeight+bottomMargin > pageH {
 		pdf.AddPage()
-		header()
+		if header != nil {
+			header()
+		}
 	}
 }
 
@@ -209,13 +215,16 @@ func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 	for i, card := range cards {
 		row := i / cols
 		col := i % cols
+		if col == 0 {
+			ensureTableRowSpace(pdf, cardH+gapY, nil)
+		}
 		x := startX + float64(col)*(cardW+gapX)
 		y := startY + float64(row)*(cardH+gapY)
 		drawKPICard(pdf, x, y, cardW, cardH, card.title, card.value)
 	}
 
 	rows := (len(cards) + cols - 1) / cols
-	pdf.SetY(startY + float64(rows)*(cardH+gapY) + 5)
+	pdf.SetY(startY + float64(rows)*(cardH+gapY) + 7)
 }
 
 func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
@@ -236,7 +245,7 @@ func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
 
 func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	headers := []string{"Дата", "Сессии", "Трафик входящий (GiB)", "Трафик исходящий (GiB)", "Сред. длительность (мин)"}
-	widths := []float64{32, 25, 48, 48, 45}
+	widths := []float64{30, 25, 45, 45, 35}
 
 	sectionHeader := func() {
 		addSectionHeader(pdf, "Сводка по дням", "Динамика сессий и трафика")
@@ -247,19 +256,21 @@ func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	sectionHeader()
 
 	for idx, d := range stats {
-		ensureTableRowSpace(pdf, 8, sectionHeader)
+		ensureTableRowSpace(pdf, tableRowHeight, sectionHeader)
 		fill := idx%2 == 0
-		pdf.CellFormat(widths[0], 8, d.Date, "", 0, "L", fill, 0, "")
-		pdf.CellFormat(widths[1], 8, fmt.Sprintf("%d", d.Sessions), "", 0, "R", fill, 0, "")
-		pdf.CellFormat(widths[2], 8, formatGiB(int64(d.BytesIn)), "", 0, "R", fill, 0, "")
-		pdf.CellFormat(widths[3], 8, formatGiB(int64(d.BytesOut)), "", 0, "R", fill, 0, "")
-		pdf.CellFormat(widths[4], 8, formatMinutes(int64(d.AvgDurationSec)), "", 1, "R", fill, 0, "")
+		drawTableRow(pdf, widths, []string{
+			d.Date,
+			fmt.Sprintf("%d", d.Sessions),
+			formatGiB(int64(d.BytesIn)),
+			formatGiB(int64(d.BytesOut)),
+			formatMinutes(int64(d.AvgDurationSec)),
+		}, fill, false, nil)
 	}
 }
 
 func addTopUsers(pdf *gofpdf.Fpdf, users []metrics.AnalyticsUserTraffic, durations []metrics.AnalyticsUserDuration) {
 	headers := []string{"#", "Пользователь", "CN", "Сессий", "Трафик (GiB)", "Сред. длительность (мин)"}
-	widths := []float64{10, 45, 40, 25, 35, 40}
+	widths := []float64{10, 40, 35, 25, 35, 35}
 
 	sectionHeader := func() {
 		addSectionHeader(pdf, "Топ пользователей по трафику", "Лидеры по объёму переданных данных")
@@ -270,7 +281,7 @@ func addTopUsers(pdf *gofpdf.Fpdf, users []metrics.AnalyticsUserTraffic, duratio
 	sectionHeader()
 
 	for idx, u := range users {
-		ensureTableRowSpace(pdf, 8, sectionHeader)
+		ensureTableRowSpace(pdf, tableRowHeight, sectionHeader)
 		fill := idx%2 == 0
 		durationMinutes := lookupAvgDuration(u.Username, u.CommonName, durations)
 		username := u.Username
@@ -302,7 +313,7 @@ func addTopClients(pdf *gofpdf.Fpdf, clients []metrics.TopClientPoint) {
 	sectionHeader()
 
 	for idx, c := range clients {
-		ensureTableRowSpace(pdf, 8, sectionHeader)
+		ensureTableRowSpace(pdf, tableRowHeight, sectionHeader)
 		fill := idx%2 == 0
 		status := "Был активен в периоде"
 		statusColor := &[3]int{97, 97, 97}
@@ -325,9 +336,9 @@ func renderTableHeader(pdf *gofpdf.Fpdf, headers []string, widths []float64) {
 	pdf.SetDrawColor(220, 220, 220)
 	pdf.SetFont(baseFont, "B", 11)
 	for i, h := range headers {
-		pdf.CellFormat(widths[i], 8, h, "", 0, "C", true, 0, "")
+		pdf.CellFormat(widths[i], tableRowHeight, h, "1", 0, "C", true, 0, "")
 	}
-	pdf.Ln(-1)
+	pdf.Ln(0)
 	pdf.SetFont(baseFont, "", 10)
 	pdf.SetTextColor(30, 30, 30)
 }
@@ -350,28 +361,40 @@ func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool,
 
 	pdf.SetFont(baseFont, fontStyle, fontSize)
 	defaultTextColor := [3]int{30, 30, 30}
+	isNumericCell := func(s string) bool {
+		hasDigit := false
+		for _, r := range s {
+			switch {
+			case unicode.IsDigit(r):
+				hasDigit = true
+			case r == '.' || r == ',' || r == ' ' || r == '%' || r == '-' || unicode.IsLetter(r):
+				continue
+			default:
+				return false
+			}
+		}
+		return hasDigit
+	}
+
 	for i, cell := range cells {
 		align := "L"
-		if i == 0 || i >= len(cells)-2 {
+		if i == 0 {
 			align = "C"
-		}
-		if i >= len(cells)-2 {
+		} else if isNumericCell(cell) {
 			align = "R"
-		}
-		if i == len(cells)-1 && len(cells) == 4 {
-			align = "L"
 		}
 
 		if statusColor != nil && i == len(cells)-1 {
 			pdf.SetTextColor(statusColor[0], statusColor[1], statusColor[2])
 		}
 
-		pdf.CellFormat(widths[i], 8, cell, "", 0, align, true, 0, "")
+		useFill := fill || emphasize
+		pdf.CellFormat(widths[i], tableRowHeight, cell, "1", 0, align, useFill, 0, "")
 		if statusColor != nil && i == len(cells)-1 {
 			pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
 		}
 	}
-	pdf.Ln(-1)
+	pdf.Ln(0)
 	pdf.SetFont(baseFont, "", 10)
 	pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
 }
