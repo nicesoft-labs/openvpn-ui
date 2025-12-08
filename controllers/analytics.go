@@ -25,18 +25,26 @@ type AnalyticsViewModel struct {
 
 	metrics.MetricsKPI
 
-	SessionsByDay       []metrics.AnalyticsDayStat
-	ClientsTimeline     []metrics.TimePoint
-	Throughput          []metrics.ThroughputPoint
-	DailyTraffic        []metrics.DailyTrafficPoint
-	TopUsersByTraffic   []metrics.AnalyticsUserTraffic
-	TopUsersByDuration  []metrics.AnalyticsUserDuration
-	TopClientsByTraffic []metrics.TopClientPoint
-	OsDistribution      []metrics.AnalyticsKV
-	CipherDistribution  []metrics.AnalyticsKV
-	CountryDistribution []metrics.AnalyticsKV
-	RecentSessions      []metrics.AnalyticsSessionRow
-	RecentEvents        []metrics.AnalyticsEventRow
+	SessionsByDay          []metrics.AnalyticsDayStat
+	ClientsTimeline        []metrics.TimePoint
+	Throughput             []metrics.ThroughputPoint
+	DailyTraffic           []metrics.DailyTrafficPoint
+	TopUsersByTraffic      []metrics.AnalyticsUserTraffic
+	TopUsersByDuration     []metrics.AnalyticsUserDuration
+	TopClientsByTraffic    []metrics.TopClientPoint
+	OsDistribution         []metrics.AnalyticsKV
+	CipherDistribution     []metrics.AnalyticsKV
+	CountryDistribution    []metrics.AnalyticsKV
+	SessionDurationBuckets []metrics.AnalyticsBucket
+	EventsTimeline         []metrics.EventsTimelinePoint
+	MFAStats               metrics.MFAStats
+	AuthMethods            []metrics.AuthMethodStat
+	DeviceTypes            []metrics.DeviceTypeStat
+	ClientApps             []metrics.ClientAppStat
+	ProblemClients         []metrics.ProblemClientRow
+	UsageHeatmap           []metrics.UsageHeatmapCell
+	RecentSessions         []metrics.AnalyticsSessionRow
+	RecentEvents           []metrics.AnalyticsEventRow
 }
 
 // Get handles GET /analytics.
@@ -107,6 +115,10 @@ func (c *AnalyticsController) Get() {
 		logs.Warn("metrics: throughput: %v", err)
 		vm.DataUnavailable = true
 	}
+	if vm.EventsTimeline, err = metrics.AggregateEventsTimeline(ctx, store, vm.From, vm.To, 60); err != nil {
+		logs.Warn("metrics: events timeline: %v", err)
+		vm.DataUnavailable = true
+	}
 	if vm.DailyTraffic, err = metrics.GetDailyTraffic(ctx, store, 30); err != nil {
 		logs.Warn("metrics: daily traffic: %v", err)
 		vm.DataUnavailable = true
@@ -141,6 +153,34 @@ func (c *AnalyticsController) Get() {
 	}
 	if vm.RecentEvents, err = metrics.GetRecentEvents(ctx, store, 20); err != nil {
 		logs.Warn("metrics: recent events: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.SessionDurationBuckets, err = metrics.AggregateSessionDurationBuckets(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: duration buckets: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.MFAStats, err = metrics.AggregateMFAStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: mfa stats: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.AuthMethods, err = metrics.AggregateAuthMethodStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: auth methods: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.DeviceTypes, err = metrics.AggregateDeviceTypeStats(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: device types: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.ClientApps, err = metrics.AggregateClientAppStats(ctx, store, vm.From, vm.To, 10); err != nil {
+		logs.Warn("metrics: client apps: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.ProblemClients, err = metrics.AggregateProblemClients(ctx, store, vm.From, vm.To, 10); err != nil {
+		logs.Warn("metrics: problem clients: %v", err)
+		vm.DataUnavailable = true
+	}
+	if vm.UsageHeatmap, err = metrics.AggregateUsageHeatmap(ctx, store, vm.From, vm.To); err != nil {
+		logs.Warn("metrics: usage heatmap: %v", err)
 		vm.DataUnavailable = true
 	}
 
