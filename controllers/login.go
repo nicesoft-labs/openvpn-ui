@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"log"
 	"os"
@@ -13,8 +14,6 @@ import (
 	"github.com/d3vilh/openvpn-ui/lib"
 	"github.com/d3vilh/openvpn-ui/models"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	oauth2api "google.golang.org/api/oauth2/v2"
 )
 
 // Initialize OAuth2 configuration
@@ -24,20 +23,28 @@ var (
 	allowedDomains   []string
 )
 
+type yandexUserInfo struct {
+	DefaultEmail string   `json:"default_email"`
+	Emails       []string `json:"emails"`
+	Login        string   `json:"login"`
+	FirstName    string   `json:"first_name"`
+	LastName     string   `json:"last_name"`
+}
+
 func init() {
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
+	clientID := os.Getenv("YANDEX_CLIENT_ID")
+	clientSecret := os.Getenv("YANDEX_CLIENT_SECRET")
+	redirectURL := os.Getenv("YANDEX_REDIRECT_URL")
 	allowedDomainsStr := os.Getenv("ALLOWED_DOMAINS")
 
 	if clientID == "" {
-		log.Println("Environment variable GOOGLE_CLIENT_ID not set")
+		log.Println("Environment variable YANDEX_CLIENT_ID not set")
 	}
 	if clientSecret == "" {
-		log.Println("Environment variable GOOGLE_CLIENT_SECRET not set")
+		log.Println("Environment variable YANDEX_CLIENT_SECRET not set")
 	}
 	if redirectURL == "" {
-		log.Println("Environment variable GOOGLE_REDIRECT_URL not set")
+		log.Println("Environment variable YANDEX_REDIRECT_URL not set")
 	}
 	if allowedDomainsStr == "" {
 		log.Println("Environment variable ALLOWED_DOMAINS not set")
@@ -46,8 +53,11 @@ func init() {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
+		Scopes:       []string{"login:email"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://oauth.yandex.ru/authorize",
+			TokenURL: "https://oauth.yandex.ru/token",
+		},
 	}
 
 	if allowedDomainsStr != "" {
@@ -114,12 +124,12 @@ func (c *LoginController) Logout() {
 	c.Ctx.Redirect(302, c.URLFor("LoginController.Login"))
 }
 
-func (c *LoginController) GoogleLogin() {
+func (c *LoginController) YandexLogin() {
 	url := oauthConf.AuthCodeURL(oauthStateString)
 	c.Redirect(url, 302)
 }
 
-func (c *LoginController) GoogleCallback() {
+func (c *LoginController) YandexCallback() {
 	state := c.GetString("state")
 	if state != oauthStateString {
 		c.Ctx.WriteString("Invalid OAuth state")
@@ -134,22 +144,37 @@ func (c *LoginController) GoogleCallback() {
 	}
 
 	client := oauthConf.Client(context.Background(), token)
-	service, err := oauth2api.New(client)
-	if err != nil {
-		c.Ctx.WriteString("Failed to create OAuth2 service: " + err.Error())
-		return
-	}
-
-	userinfo, err := service.Userinfo.Get().Do()
+	resp, err := client.Get("https://login.yandex.ru/info?format=json")
 	if err != nil {
 		c.Ctx.WriteString("Failed to get user info: " + err.Error())
 		return
+	}
+	defer resp.Body.Close()
+
+	var userinfo yandexUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userinfo); err != nil {
+		c.Ctx.WriteString("Failed to decode user info: " + err.Error())
+		return
+	}
+
+	email := userinfo.DefaultEmail
+	if email == "" && len(userinfo.Emails) > 0 {
+		email = userinfo.Emails[0]
+	}
+	if email == "" && userinfo.Login != "" {
+		email = userinfo.Login
 	}
 
 	logs.Info("User Info: %+v", userinfo)
 
 	// Check if the user's email domain is allowed
-	emailDomain := strings.Split(userinfo.Email, "@")[1]
+	emailParts := strings.Split(email, "@")
+	if len(emailParts) < 2 {
+		c.Ctx.WriteString("Invalid email received from Yandex")
+		return
+	}
+
+	emailDomain := emailParts[1]
 	allowed := false
 	for _, domain := range allowedDomains {
 		if emailDomain == domain {
@@ -165,16 +190,16 @@ func (c *LoginController) GoogleCallback() {
 		return
 	}
 
-	user, err := lib.GetUserByEmail(userinfo.Email)
+	user, err := lib.GetUserByEmail(email)
 	if err != nil {
 		if err.Error() == "user not found" {
 			// Create a new user if not found and set the default values
 			user = &models.User{
-				Email:         userinfo.Email,
-				Name:          userinfo.Email, // Set the name to the email address
-				Login:         userinfo.Email,
+				Email:         email,
+				Name:          email, // Set the name to the email address
+				Login:         email,
 				Lastlogintime: time.Now(),
-				Allowed:       true, // Set to true because authenticated with Google
+				Allowed:       true, // Set to true because authenticated with Yandex
 			}
 			err = user.Insert()
 			if err != nil {
@@ -189,7 +214,7 @@ func (c *LoginController) GoogleCallback() {
 		// Update existing user's allowed status, last login time, and name
 		user.Allowed = true
 		user.Lastlogintime = time.Now()
-		user.Name = userinfo.Email // Set the name to the email address
+		user.Name = email // Set the name to the email address
 		err = user.Update("Allowed", "Lastlogintime", "Name")
 		if err != nil {
 			c.Ctx.WriteString("Failed to update user: " + err.Error())
@@ -208,7 +233,7 @@ func (c *LoginController) GoogleCallback() {
 	c.SetLogin(user)
 
 	flash := web.NewFlash()
-	flash.Success("Successfully logged in with Google")
+	flash.Success("Successfully logged in with Yandex")
 	flash.Store(&c.Controller)
 
 	c.Redirect(c.URLFor("MainController.Get"), 302)
