@@ -998,9 +998,9 @@ func AggregateMFAStats(ctx context.Context, s Store, from, to time.Time) (MFASta
 	row := db.QueryRowContext(ctx, `
 SELECT
     COUNT(*) as total_sessions,
-    SUM(CASE WHEN mfa_used=1 THEN 1 ELSE 0 END) as mfa_sessions,
-    SUM(CASE WHEN mfa_used=1 AND mfa_ok=1 THEN 1 ELSE 0 END) as mfa_success,
-    SUM(CASE WHEN mfa_used=1 AND mfa_ok=0 THEN 1 ELSE 0 END) as mfa_failed
+    COALESCE(SUM(CASE WHEN mfa_used=1 THEN 1 ELSE 0 END), 0) as mfa_sessions,
+    COALESCE(SUM(CASE WHEN mfa_used=1 AND mfa_ok=1 THEN 1 ELSE 0 END), 0) as mfa_success,
+    COALESCE(SUM(CASE WHEN mfa_used=1 AND mfa_ok=0 THEN 1 ELSE 0 END), 0) as mfa_failed
 FROM client_sessions
 WHERE connect_time >= ? AND connect_time < ?;
 `, from.Unix(), to.Unix())
@@ -1011,6 +1011,7 @@ WHERE connect_time >= ? AND connect_time < ?;
 	}
 	return stats, nil
 }
+
 
 // AggregateAuthMethodStats groups sessions by authentication method.
 func AggregateAuthMethodStats(ctx context.Context, s Store, from, to time.Time) ([]AuthMethodStat, error) {
