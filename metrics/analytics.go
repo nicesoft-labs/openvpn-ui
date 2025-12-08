@@ -1066,22 +1066,26 @@ func AggregateUsageHeatmap(ctx context.Context, s Store, from, to time.Time) ([]
 		return nil, err
 	}
 
-	rows, err := db.QueryContext(ctx, `SELECT connect_time FROM client_sessions WHERE connect_time >= ? AND connect_time < ?;`, from.Unix(), to.Unix())
+	fromUTC := from.UTC().Unix()
+	toUTC := to.UTC().Unix()
+
+	rows, err := db.QueryContext(ctx, `SELECT connect_time FROM client_sessions WHERE connect_time >= ? AND connect_time < ?;`, fromUTC, toUTC)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	counts := make(map[int]int64)
+	loc := time.Local
+	var counts [7][24]int64
 	for rows.Next() {
 		var ts int64
 		if err := rows.Scan(&ts); err != nil {
 			return nil, err
 		}
-		tm := time.Unix(ts, 0).UTC()
+		tm := time.Unix(ts, 0).In(loc)
 		weekday := int(tm.Weekday()+6) % 7 // convert Sunday=0 to Monday=0..Sunday=6
-		key := weekday*24 + tm.Hour()
-		counts[key]++
+		hour := tm.Hour()
+		counts[weekday][hour]++
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1090,8 +1094,7 @@ func AggregateUsageHeatmap(ctx context.Context, s Store, from, to time.Time) ([]
 	var res []UsageHeatmapCell
 	for weekday := 0; weekday < 7; weekday++ {
 		for hour := 0; hour < 24; hour++ {
-			idx := weekday*24 + hour
-			res = append(res, UsageHeatmapCell{Weekday: weekday, Hour: hour, Sessions: counts[idx]})
+			res = append(res, UsageHeatmapCell{Weekday: weekday, Hour: hour, Sessions: counts[weekday][hour]})
 		}
 	}
 	return res, nil

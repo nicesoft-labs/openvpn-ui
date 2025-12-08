@@ -77,17 +77,22 @@ func (c *AnalyticsController) Get() {
 	period := c.GetString("period", "24h")
 	vm.Period = period
 
-	now := time.Now().UTC()
+	loc := time.Local
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
 	switch period {
 	case "7d":
-		vm.From = now.Add(-7 * 24 * time.Hour)
+		vm.To = todayStart.Add(24 * time.Hour)
+		vm.From = vm.To.AddDate(0, 0, -7)
 	case "30d":
-		vm.From = now.Add(-30 * 24 * time.Hour)
+		vm.To = todayStart.Add(24 * time.Hour)
+		vm.From = vm.To.AddDate(0, 0, -30)
 	default:
-		vm.From = now.Add(-24 * time.Hour)
 		vm.Period = "24h"
+		vm.From = todayStart
+		vm.To = todayStart.Add(24 * time.Hour)
 	}
-	vm.To = now
 
 	rangeHours, err := c.GetInt("range", 24)
 	if err != nil || rangeHours <= 0 {
