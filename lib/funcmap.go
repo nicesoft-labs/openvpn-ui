@@ -120,6 +120,22 @@ func AddFuncMaps() {
 			return 0
 		}
 	})
+	_ = web.AddFuncMap("divGiB", func(bytesIn interface{}, bytesOut interface{}) float64 {
+		var inVal, outVal uint64
+		switch v := bytesIn.(type) {
+		case uint64:
+			inVal = v
+		case int64:
+			inVal = uint64(v)
+		}
+		switch v := bytesOut.(type) {
+		case uint64:
+			outVal = v
+		case int64:
+			outVal = uint64(v)
+		}
+		return float64(inVal+outVal) / 1024.0 / 1024.0 / 1024.0
+	})
 	_ = web.AddFuncMap("formatDuration", func(sec interface{}) string {
 		var total int64
 		switch v := sec.(type) {

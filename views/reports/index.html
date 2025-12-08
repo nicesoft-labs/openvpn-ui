@@ -1,0 +1,106 @@
+{{ template "layout/base.html" . }}
+
+{{ define "head" }}
+<title>NiceSOFT NiceVPN UI — Отчёты VPN</title>
+{{ end }}
+
+{{ define "body" }}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <h4>Отчёты VPN</h4>
+      <p class="text-muted mb-0">
+        Формирование сводных PDF-отчётов по использованию VPN за выбранный период.
+      </p>
+    </div>
+  </div>
+
+  {{ if not .vm.MetricsEnabled }}
+    <div class="alert alert-warning">
+      Сбор метрик отключён. Включите metrics.enabled в конфигурации, чтобы использовать отчёты.
+    </div>
+  {{ else if .vm.DataUnavailable }}
+    <div class="alert alert-warning">
+      Данные для указанных дат временно недоступны. Попробуйте изменить период или повторить позже.
+    </div>
+  {{ else }}
+    <div class="card-clean mb-4">
+      <div class="card-header">
+        <h3 class="card-title">Параметры отчёта</h3>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/reports/download" class="form-inline">
+          <div class="form-group mr-3 mb-2">
+            <label class="mr-2">Тип отчёта:</label>
+            <select name="report_type" class="form-control form-control-sm">
+              <option value="executive" {{ if eq .vm.ReportType "executive" }}selected{{ end }}>Сводный отчёт (руководителю)</option>
+            </select>
+          </div>
+
+          <div class="form-group mr-3 mb-2">
+            <label class="mr-2">Период:</label>
+            <select name="preset" class="form-control form-control-sm" id="presetSelect">
+              <option value="7d" {{ if eq .vm.PeriodPreset "7d" }}selected{{ end }}>Последние 7 дней</option>
+              <option value="30d" {{ if eq .vm.PeriodPreset "30d" }}selected{{ end }}>Последние 30 дней</option>
+              <option value="custom" {{ if eq .vm.PeriodPreset "custom" }}selected{{ end }}>Произвольный период</option>
+            </select>
+          </div>
+
+          <div class="form-group mr-3 mb-2 preset-custom">
+            <label class="mr-2">С:</label>
+            <input type="date" name="from" value="{{ .vm.FromStr }}" class="form-control form-control-sm">
+          </div>
+
+          <div class="form-group mr-3 mb-2 preset-custom">
+            <label class="mr-2">По:</label>
+            <input type="date" name="to" value="{{ .vm.ToStr }}" class="form-control form-control-sm">
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm mb-2">
+            Скачать PDF-отчёт
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-4 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Всего сессий</div>
+          <div class="kpi-box__value">{{ .vm.KPI.TotalSessions }}</div>
+          <div class="kpi-box__muted">за выбранный период</div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Уникальные пользователи</div>
+          <div class="kpi-box__value">{{ .vm.KPI.UniqueUsers }}</div>
+          <div class="kpi-box__muted">по username</div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-3">
+        <div class="kpi-box">
+          <div class="kpi-box__title">Суммарный трафик</div>
+          <div class="kpi-box__value">{{ printf "%.1f" (divGiB .vm.KPI.TotalBytesIn .vm.KPI.TotalBytesOut) }} GiB</div>
+          <div class="kpi-box__muted">вход + выход</div>
+        </div>
+      </div>
+    </div>
+  {{ end }}
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const preset = document.getElementById('presetSelect');
+    const customFields = document.querySelectorAll('.preset-custom');
+    function updateVisibility() {
+      const isCustom = preset.value === 'custom';
+      customFields.forEach(el => el.style.display = isCustom ? 'flex' : 'none');
+    }
+    if (preset) {
+      preset.addEventListener('change', updateVisibility);
+      updateVisibility();
+    }
+  });
+</script>
+{{ end }}
