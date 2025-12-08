@@ -262,9 +262,21 @@ func (s *SQLiteStore) upsertSessionOnConnect(ctx context.Context, exec execer, e
 	sessionUID := makeSessionUID(evt.CommonName, evt.VPNIP, connectTime)
 	now := time.Now().UTC().Unix()
 
+	args := []any{
+		sessionUID, evt.VPNInstanceID, evt.CommonName, evt.Username, "", "", "",
+		evt.TrustedIP, evt.TrustedPort, evt.UntrustedIP, evt.UntrustedPort, evt.VPNIP, evt.VPNIPv6, evt.Proto, evt.Dev,
+		evt.Cipher, evt.TLSVersion, evt.TLSCipher, evt.KeySizeBits, evt.HMACDigest, evt.Compression, boolToInt(evt.DCOEnabled),
+		evt.DeviceOS, evt.DeviceOSVer, evt.DeviceType, evt.DeviceVendor, evt.DeviceModel, evt.DeviceID, evt.ClientApp, evt.ClientAppVer,
+		evt.GeoCountryCode, evt.GeoCountryName, evt.GeoRegion, evt.GeoCity, evt.GeoASN, evt.GeoOrg, evt.GeoLat, evt.GeoLon, evt.GeoTimezone,
+		evt.AuthMethod, boolToInt(evt.MFAUsed), boolToInt(evt.MFAOK), 0, 0, 0,
+		connectTime, nil, evt.DurationSec, connectTime, evt.BytesReceived, evt.BytesSent, evt.PacketsReceived, evt.PacketsSent,
+		0, 0, evt.Reconnects, "active", evt.DisconnectReason, now, now,
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(args)), ",")
+
 	_, err := exec.ExecContext(
 		ctx,
-		`INSERT INTO client_sessions (
+		fmt.Sprintf(`INSERT INTO client_sessions (
             session_uid, vpn_instance_id, common_name, username, department, user_group, user_role,
             trusted_ip, trusted_port, untrusted_ip, untrusted_port, vpn_ip, vpn_ipv6, proto, dev,
             cipher, tls_version, tls_cipher, key_size_bits, hmac_digest, compression, dco_enabled,
@@ -273,7 +285,7 @@ func (s *SQLiteStore) upsertSessionOnConnect(ctx context.Context, exec execer, e
             auth_method, mfa_used, mfa_ok, is_split_tunnel, is_admin_session, is_external_user,
             connect_time, disconnect_time, duration_sec, last_seen, bytes_in, bytes_out, packets_in, packets_out,
             max_bps_in, max_bps_out, reconnects, status, disconnect_reason, created_at, updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?)
+        ) VALUES (%s)
         ON CONFLICT(session_uid) DO UPDATE SET
             username=COALESCE(NULLIF(excluded.username,''), client_sessions.username),
             vpn_instance_id=COALESCE(NULLIF(excluded.vpn_instance_id,''), client_sessions.vpn_instance_id),
@@ -315,15 +327,8 @@ func (s *SQLiteStore) upsertSessionOnConnect(ctx context.Context, exec execer, e
             status='active',
             disconnect_reason=excluded.disconnect_reason,
             updated_at=excluded.updated_at
-        ;`,
-		sessionUID, evt.VPNInstanceID, evt.CommonName, evt.Username, "", "", "",
-		evt.TrustedIP, evt.TrustedPort, evt.UntrustedIP, evt.UntrustedPort, evt.VPNIP, evt.VPNIPv6, evt.Proto, evt.Dev,
-		evt.Cipher, evt.TLSVersion, evt.TLSCipher, evt.KeySizeBits, evt.HMACDigest, evt.Compression, boolToInt(evt.DCOEnabled),
-		evt.DeviceOS, evt.DeviceOSVer, evt.DeviceType, evt.DeviceVendor, evt.DeviceModel, evt.DeviceID, evt.ClientApp, evt.ClientAppVer,
-		evt.GeoCountryCode, evt.GeoCountryName, evt.GeoRegion, evt.GeoCity, evt.GeoASN, evt.GeoOrg, evt.GeoLat, evt.GeoLon, evt.GeoTimezone,
-		evt.AuthMethod, boolToInt(evt.MFAUsed), boolToInt(evt.MFAOK), 0, 0, 0,
-		connectTime, nil, evt.DurationSec, connectTime, evt.BytesReceived, evt.BytesSent, evt.PacketsReceived, evt.PacketsSent,
-		0, 0, evt.Reconnects, "active", evt.DisconnectReason, now, now,
+        ;`, placeholders),
+		args...,
 	)
 	return err
 }
@@ -339,7 +344,11 @@ func (s *SQLiteStore) UpdateSessionOnDisconnectTx(ctx context.Context, tx *sql.T
 }
 
 func (s *SQLiteStore) updateSessionOnDisconnect(ctx context.Context, exec execer, evt *ClientEvent) error {
-	sessionUID, connectTime, err := s.findLatestActiveSession(ctx, s.db, evt.CommonName, evt.VPNIP, evt.TrustedIP, evt.TrustedPort)
+	q, ok := exec.(querier)
+	if !ok {
+		q = s.db
+	}
+	sessionUID, connectTime, err := s.findLatestActiveSession(ctx, q, evt.CommonName, evt.VPNIP, evt.TrustedIP, evt.TrustedPort)
 	if err != nil {
 		return err
 	}

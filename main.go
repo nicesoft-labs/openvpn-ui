@@ -59,28 +59,26 @@ func main() {
 			logs.Warn("metrics: create db dir: %v", err)
 		}
 		logger := logs.GetBeeLogger()
-		store, err := metrics.NewSQLiteStore(metricsCfg.DBPath, logger, debugMode)
+		sqliteStore, err := metrics.NewSQLiteStore(metricsCfg.DBPath, logger, debugMode)
 		if err != nil {
 			logs.Warn("metrics: init store: %v", err)
 		} else {
-			if err := store.InitSchema(context.Background()); err != nil {
+			if err := sqliteStore.InitSchema(context.Background()); err != nil {
 				logs.Warn("metrics: init schema: %v", err)
 			} else {
-                                metrics.SetGlobalStore(store)
-                                metricsHandler := metrics.NewHandler(metricsCfg, store, logger)
-                                metricsHandlerFunc = metricsHandler.HandleClientEvent
-                                miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
-                                collector := metrics.NewCollector(metricsCfg, store, miClient, logger)
-                                go collector.Run(context.Background())
-                                if metricsCfg.LogEnrichmentEnabled {
-                                        if sqlite, ok := store.(*metrics.SQLiteStore); ok {
-                                                enricher := metrics.NewLogEnricher(metricsCfg, sqlite, logger, debugMode)
-                                                go enricher.Run(context.Background())
-                                        }
-                                }
-                        }
-                }
-        }
+				metrics.SetGlobalStore(sqliteStore)
+				metricsHandler := metrics.NewHandler(metricsCfg, sqliteStore, logger)
+				metricsHandlerFunc = metricsHandler.HandleClientEvent
+				miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
+				collector := metrics.NewCollector(metricsCfg, sqliteStore, miClient, logger)
+				go collector.Run(context.Background())
+				if metricsCfg.LogEnrichmentEnabled {
+					enricher := metrics.NewLogEnricher(metricsCfg, sqliteStore, logger, debugMode)
+					go enricher.Run(context.Background())
+				}
+			}
+		}
+	}
 
 	routers.Init(*configDir, metricsHandlerFunc)
 
