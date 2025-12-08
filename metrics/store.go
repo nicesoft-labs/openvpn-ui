@@ -16,14 +16,27 @@ import (
 	mi "github.com/nicesoft-labs/openvpn-server-config/server/mi"
 )
 
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type querier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 // Store abstracts metrics storage backend.
 type Store interface {
 	InitSchema(ctx context.Context) error
 
 	InsertClientEvent(ctx context.Context, evt *ClientEvent) error
+	InsertClientEventTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error
 
 	UpsertSessionOnConnect(ctx context.Context, evt *ClientEvent) error
+	UpsertSessionOnConnectTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error
 	UpdateSessionOnDisconnect(ctx context.Context, evt *ClientEvent) error
+	UpdateSessionOnDisconnectTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error
+
+	UpdateSessionCryptoFromLog(ctx context.Context, cn, vpnIP, trustedIP string, trustedPort int, tlsVersion, tlsCipher, cipher, hmac string, keyBits int) error
 
 	UpdateSessionsFromStatus(ctx context.Context, status *mi.Status) error
 	InsertMgmtSnapshot(ctx context.Context, snapshotTime time.Time, status *mi.Status, stats *mi.LoadStats) error
@@ -112,8 +125,7 @@ func (s *SQLiteStore) InitSchema(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_client_events_cn_time ON client_events(common_name, event_time);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_events_vpnip_time ON client_events(vpn_ip, event_time);`,
 		`CREATE TABLE IF NOT EXISTS client_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_uid TEXT NOT NULL,
+            session_uid TEXT PRIMARY KEY,
             vpn_instance_id TEXT,
             common_name TEXT NOT NULL,
             username TEXT,
@@ -199,7 +211,16 @@ func (s *SQLiteStore) InitSchema(ctx context.Context) error {
 
 // InsertClientEvent stores raw client event.
 func (s *SQLiteStore) InsertClientEvent(ctx context.Context, evt *ClientEvent) error {
-	_, err := s.db.ExecContext(
+	return s.insertClientEvent(ctx, s.db, evt)
+}
+
+// InsertClientEventTx stores raw event inside provided transaction.
+func (s *SQLiteStore) InsertClientEventTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error {
+	return s.insertClientEvent(ctx, tx, evt)
+}
+
+func (s *SQLiteStore) insertClientEvent(ctx context.Context, exec execer, evt *ClientEvent) error {
+	_, err := exec.ExecContext(
 		ctx,
 		`INSERT INTO client_events (
             event_type, event_time, vpn_instance_id, common_name, username, auth_method,
@@ -223,11 +244,25 @@ func (s *SQLiteStore) InsertClientEvent(ctx context.Context, evt *ClientEvent) e
 	return err
 }
 
-// UpsertSessionOnConnect inserts new session for connect event.
+// UpsertSessionOnConnect inserts new session for connect event or enriches existing active one.
 func (s *SQLiteStore) UpsertSessionOnConnect(ctx context.Context, evt *ClientEvent) error {
-	uid := fmt.Sprintf("%s-%d", evt.CommonName, evt.EventTime.Unix())
+	return s.upsertSessionOnConnect(ctx, s.db, evt)
+}
+
+// UpsertSessionOnConnectTx inserts or updates session inside a transaction.
+func (s *SQLiteStore) UpsertSessionOnConnectTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error {
+	return s.upsertSessionOnConnect(ctx, tx, evt)
+}
+
+func (s *SQLiteStore) upsertSessionOnConnect(ctx context.Context, exec execer, evt *ClientEvent) error {
+	connectTime := evt.EventTime.Unix()
+	if connectTime == 0 {
+		connectTime = time.Now().UTC().Unix()
+	}
+	sessionUID := makeSessionUID(evt.CommonName, evt.VPNIP, connectTime)
 	now := time.Now().UTC().Unix()
-	_, err := s.db.ExecContext(
+
+	_, err := exec.ExecContext(
 		ctx,
 		`INSERT INTO client_sessions (
             session_uid, vpn_instance_id, common_name, username, department, user_group, user_role,
@@ -238,14 +273,56 @@ func (s *SQLiteStore) UpsertSessionOnConnect(ctx context.Context, evt *ClientEve
             auth_method, mfa_used, mfa_ok, is_split_tunnel, is_admin_session, is_external_user,
             connect_time, disconnect_time, duration_sec, last_seen, bytes_in, bytes_out, packets_in, packets_out,
             max_bps_in, max_bps_out, reconnects, status, disconnect_reason, created_at, updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		uid, evt.VPNInstanceID, evt.CommonName, evt.Username, "", "", "",
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?)
+        ON CONFLICT(session_uid) DO UPDATE SET
+            username=COALESCE(NULLIF(excluded.username,''), client_sessions.username),
+            vpn_instance_id=COALESCE(NULLIF(excluded.vpn_instance_id,''), client_sessions.vpn_instance_id),
+            trusted_ip=COALESCE(NULLIF(excluded.trusted_ip,''), client_sessions.trusted_ip),
+            trusted_port=CASE WHEN excluded.trusted_port>0 THEN excluded.trusted_port ELSE client_sessions.trusted_port END,
+            untrusted_ip=COALESCE(NULLIF(excluded.untrusted_ip,''), client_sessions.untrusted_ip),
+            untrusted_port=CASE WHEN excluded.untrusted_port>0 THEN excluded.untrusted_port ELSE client_sessions.untrusted_port END,
+            vpn_ip=COALESCE(NULLIF(excluded.vpn_ip,''), client_sessions.vpn_ip),
+            vpn_ipv6=COALESCE(NULLIF(excluded.vpn_ipv6,''), client_sessions.vpn_ipv6),
+            proto=COALESCE(NULLIF(excluded.proto,''), client_sessions.proto),
+            dev=COALESCE(NULLIF(excluded.dev,''), client_sessions.dev),
+            cipher=COALESCE(NULLIF(excluded.cipher,''), client_sessions.cipher),
+            tls_version=COALESCE(NULLIF(excluded.tls_version,''), client_sessions.tls_version),
+            tls_cipher=COALESCE(NULLIF(excluded.tls_cipher,''), client_sessions.tls_cipher),
+            key_size_bits=CASE WHEN excluded.key_size_bits>0 THEN excluded.key_size_bits ELSE client_sessions.key_size_bits END,
+            hmac_digest=COALESCE(NULLIF(excluded.hmac_digest,''), client_sessions.hmac_digest),
+            compression=COALESCE(NULLIF(excluded.compression,''), client_sessions.compression),
+            dco_enabled=COALESCE(excluded.dco_enabled, client_sessions.dco_enabled),
+            device_os=COALESCE(NULLIF(excluded.device_os,''), client_sessions.device_os),
+            device_os_ver=COALESCE(NULLIF(excluded.device_os_ver,''), client_sessions.device_os_ver),
+            device_type=COALESCE(NULLIF(excluded.device_type,''), client_sessions.device_type),
+            device_vendor=COALESCE(NULLIF(excluded.device_vendor,''), client_sessions.device_vendor),
+            device_model=COALESCE(NULLIF(excluded.device_model,''), client_sessions.device_model),
+            device_id=COALESCE(NULLIF(excluded.device_id,''), client_sessions.device_id),
+            client_app=COALESCE(NULLIF(excluded.client_app,''), client_sessions.client_app),
+            client_app_ver=COALESCE(NULLIF(excluded.client_app_ver,''), client_sessions.client_app_ver),
+            auth_method=COALESCE(NULLIF(excluded.auth_method,''), client_sessions.auth_method),
+            mfa_used=COALESCE(excluded.mfa_used, client_sessions.mfa_used),
+            mfa_ok=COALESCE(excluded.mfa_ok, client_sessions.mfa_ok),
+            connect_time=COALESCE(client_sessions.connect_time, excluded.connect_time),
+            disconnect_time=NULL,
+            duration_sec=CASE WHEN excluded.duration_sec>0 THEN excluded.duration_sec ELSE client_sessions.duration_sec END,
+            last_seen=excluded.last_seen,
+            bytes_in=CASE WHEN excluded.bytes_in>0 THEN excluded.bytes_in ELSE client_sessions.bytes_in END,
+            bytes_out=CASE WHEN excluded.bytes_out>0 THEN excluded.bytes_out ELSE client_sessions.bytes_out END,
+            packets_in=CASE WHEN excluded.packets_in>0 THEN excluded.packets_in ELSE client_sessions.packets_in END,
+            packets_out=CASE WHEN excluded.packets_out>0 THEN excluded.packets_out ELSE client_sessions.packets_out END,
+            reconnects=CASE WHEN excluded.reconnects>0 THEN excluded.reconnects ELSE client_sessions.reconnects END,
+            status='active',
+            disconnect_reason=excluded.disconnect_reason,
+            updated_at=excluded.updated_at
+        ;`,
+		sessionUID, evt.VPNInstanceID, evt.CommonName, evt.Username, "", "", "",
 		evt.TrustedIP, evt.TrustedPort, evt.UntrustedIP, evt.UntrustedPort, evt.VPNIP, evt.VPNIPv6, evt.Proto, evt.Dev,
 		evt.Cipher, evt.TLSVersion, evt.TLSCipher, evt.KeySizeBits, evt.HMACDigest, evt.Compression, boolToInt(evt.DCOEnabled),
 		evt.DeviceOS, evt.DeviceOSVer, evt.DeviceType, evt.DeviceVendor, evt.DeviceModel, evt.DeviceID, evt.ClientApp, evt.ClientAppVer,
 		evt.GeoCountryCode, evt.GeoCountryName, evt.GeoRegion, evt.GeoCity, evt.GeoASN, evt.GeoOrg, evt.GeoLat, evt.GeoLon, evt.GeoTimezone,
 		evt.AuthMethod, boolToInt(evt.MFAUsed), boolToInt(evt.MFAOK), 0, 0, 0,
-		evt.EventTime.Unix(), nil, evt.DurationSec, evt.EventTime.Unix(), evt.BytesReceived, evt.BytesSent, evt.PacketsReceived, evt.PacketsSent,
+		connectTime, nil, evt.DurationSec, connectTime, evt.BytesReceived, evt.BytesSent, evt.PacketsReceived, evt.PacketsSent,
 		0, 0, evt.Reconnects, "active", evt.DisconnectReason, now, now,
 	)
 	return err
@@ -253,11 +330,20 @@ func (s *SQLiteStore) UpsertSessionOnConnect(ctx context.Context, evt *ClientEve
 
 // UpdateSessionOnDisconnect finalizes active session using disconnect event data.
 func (s *SQLiteStore) UpdateSessionOnDisconnect(ctx context.Context, evt *ClientEvent) error {
-	sessionID, connectTime, err := s.findLatestActiveSession(ctx, evt.CommonName, evt.VPNIP)
+	return s.updateSessionOnDisconnect(ctx, s.db, evt)
+}
+
+// UpdateSessionOnDisconnectTx finalizes session within a transaction.
+func (s *SQLiteStore) UpdateSessionOnDisconnectTx(ctx context.Context, tx *sql.Tx, evt *ClientEvent) error {
+	return s.updateSessionOnDisconnect(ctx, tx, evt)
+}
+
+func (s *SQLiteStore) updateSessionOnDisconnect(ctx context.Context, exec execer, evt *ClientEvent) error {
+	sessionUID, connectTime, err := s.findLatestActiveSession(ctx, s.db, evt.CommonName, evt.VPNIP, evt.TrustedIP, evt.TrustedPort)
 	if err != nil {
 		return err
 	}
-	if sessionID == 0 {
+	if sessionUID == "" {
 		return errors.New("active session not found")
 	}
 
@@ -266,12 +352,13 @@ func (s *SQLiteStore) UpdateSessionOnDisconnect(ctx context.Context, evt *Client
 		duration = evt.EventTime.Unix() - connectTime
 	}
 
-	_, err = s.db.ExecContext(
+	now := time.Now().UTC().Unix()
+	_, err = exec.ExecContext(
 		ctx,
 		`UPDATE client_sessions SET disconnect_time=?, duration_sec=?, bytes_in=?, bytes_out=?, packets_in=?, packets_out=?,
-            reconnects=?, status='disconnected', disconnect_reason=?, updated_at=? WHERE id=?`,
+            reconnects=?, status='closed', disconnect_reason=?, last_seen=?, updated_at=? WHERE session_uid=?`,
 		evt.EventTime.Unix(), duration, evt.BytesReceived, evt.BytesSent, evt.PacketsReceived, evt.PacketsSent,
-		evt.Reconnects, evt.DisconnectReason, time.Now().UTC().Unix(), sessionID,
+		evt.Reconnects, evt.DisconnectReason, evt.EventTime.Unix(), now, sessionUID,
 	)
 	return err
 }
@@ -288,55 +375,34 @@ func (s *SQLiteStore) UpdateSessionsFromStatus(ctx context.Context, status *mi.S
 		if cl == nil {
 			continue
 		}
-		if s.debug {
-			s.log.Debug(
-				"metrics: status client common_name=%s user=%s vpn_ip=%s real_addr=%s bytes_in=%d bytes_out=%d connected_since=%s",
-				cl.CommonName, cl.Username, cl.VirtualAddress, cl.RealAddress, cl.BytesReceived, cl.BytesSent, cl.ConnectedSince,
-			)
-		}
 		trustedIP, trustedPort := splitHostPort(cl.RealAddress)
 		vpnIP := cl.VirtualAddress
 		connectTime := parseUnix(cl.ConnectedSinceT)
+		sessionUID := makeSessionUID(cl.CommonName, vpnIP, connectTime)
 
-		sessionID, _, err := s.findLatestActiveSession(ctx, cl.CommonName, vpnIP)
-		if err != nil {
-			return err
-		}
-		if sessionID == 0 {
-			evt := &ClientEvent{
-				EventType:     "connect",
-				EventTime:     time.Unix(connectTime, 0).UTC(),
-				CommonName:    cl.CommonName,
-				Username:      cl.Username,
-				TrustedIP:     trustedIP,
-				TrustedPort:   trustedPort,
-				VPNIP:         vpnIP,
-				VPNIPv6:       cl.VirtualIPv6,
-				Cipher:        cl.DataCipher,
-				BytesReceived: cl.BytesReceived,
-				BytesSent:     cl.BytesSent,
-			}
-			if err := s.UpsertSessionOnConnect(ctx, evt); err != nil {
-				s.log.Warn("metrics: create session from status: %v", err)
-				continue
-			}
-			sessionID, _, err = s.findLatestActiveSession(ctx, cl.CommonName, vpnIP)
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = s.db.ExecContext(
+		_, err := s.db.ExecContext(
 			ctx,
-			`UPDATE client_sessions SET last_seen=?, bytes_in=?, bytes_out=?, cipher=?, trusted_ip=?, trusted_port=?, vpn_ip=?,
-                vpn_ipv6=?, status='active', updated_at=? WHERE id=?`,
-			now, cl.BytesReceived, cl.BytesSent, cl.DataCipher, trustedIP, trustedPort, vpnIP, cl.VirtualIPv6, now, sessionID,
+			`INSERT INTO client_sessions (
+            session_uid, vpn_instance_id, common_name, username, trusted_ip, trusted_port, vpn_ip, vpn_ipv6, cipher,
+            connect_time, last_seen, bytes_in, bytes_out, status, created_at, updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(session_uid) DO UPDATE SET
+            trusted_ip=COALESCE(NULLIF(excluded.trusted_ip,''), client_sessions.trusted_ip),
+            trusted_port=CASE WHEN excluded.trusted_port>0 THEN excluded.trusted_port ELSE client_sessions.trusted_port END,
+            vpn_ip=COALESCE(NULLIF(excluded.vpn_ip,''), client_sessions.vpn_ip),
+            vpn_ipv6=COALESCE(NULLIF(excluded.vpn_ipv6,''), client_sessions.vpn_ipv6),
+            username=COALESCE(NULLIF(excluded.username,''), client_sessions.username),
+            cipher=COALESCE(NULLIF(excluded.cipher,''), client_sessions.cipher),
+            bytes_in=excluded.bytes_in,
+            bytes_out=excluded.bytes_out,
+            last_seen=excluded.last_seen,
+            status='active',
+            updated_at=excluded.updated_at;`,
+			sessionUID, "", cl.CommonName, cl.Username, trustedIP, trustedPort, vpnIP, cl.VirtualIPv6, cl.DataCipher,
+			connectTime, now, cl.BytesReceived, cl.BytesSent, "active", now, now,
 		)
 		if err != nil {
 			return err
-		}
-		if s.debug {
-			s.log.Debug("metrics: updated active session id=%d cn=%s vpn_ip=%s bytes_in=%d bytes_out=%d", sessionID, cl.CommonName, vpnIP, cl.BytesReceived, cl.BytesSent)
 		}
 	}
 	return nil
@@ -372,23 +438,69 @@ func (s *SQLiteStore) InsertMgmtSnapshot(ctx context.Context, snapshotTime time.
 	return err
 }
 
-func (s *SQLiteStore) findLatestActiveSession(ctx context.Context, commonName, vpnIP string) (int64, int64, error) {
+// UpdateSessionCryptoFromLog enriches active session crypto fields using log data.
+func (s *SQLiteStore) UpdateSessionCryptoFromLog(ctx context.Context, cn, vpnIP, trustedIP string, trustedPort int, tlsVersion, tlsCipher, cipher, hmac string, keyBits int) error {
+	sessionUID, _, err := s.findLatestActiveSession(ctx, s.db, cn, vpnIP, trustedIP, trustedPort)
+	if err != nil {
+		return err
+	}
+	if sessionUID == "" {
+		return nil
+	}
+	_, err = s.db.ExecContext(
+		ctx,
+		`UPDATE client_sessions SET
+            tls_version=COALESCE(NULLIF(?,''), tls_version),
+            tls_cipher=COALESCE(NULLIF(?,''), tls_cipher),
+            cipher=COALESCE(NULLIF(?,''), cipher),
+            hmac_digest=COALESCE(NULLIF(?,''), hmac_digest),
+            key_size_bits=CASE WHEN ?>0 THEN ? ELSE key_size_bits END,
+            updated_at=?
+        WHERE session_uid=?`,
+		tlsVersion, tlsCipher, cipher, hmac, keyBits, keyBits, time.Now().UTC().Unix(), sessionUID,
+	)
+	return err
+}
+
+func (s *SQLiteStore) findLatestActiveSession(ctx context.Context, q querier, commonName, vpnIP, trustedIP string, trustedPort int) (string, int64, error) {
 	var row *sql.Row
-	if vpnIP != "" {
-		row = s.db.QueryRowContext(ctx, `SELECT id, connect_time FROM client_sessions WHERE vpn_ip=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, vpnIP)
-	} else {
-		row = s.db.QueryRowContext(ctx, `SELECT id, connect_time FROM client_sessions WHERE common_name=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, commonName)
+	switch {
+	case vpnIP != "":
+		row = q.QueryRowContext(ctx, `SELECT session_uid, connect_time FROM client_sessions WHERE vpn_ip=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, vpnIP)
+	case trustedIP != "":
+		if trustedPort > 0 {
+			row = q.QueryRowContext(ctx, `SELECT session_uid, connect_time FROM client_sessions WHERE trusted_ip=? AND trusted_port=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, trustedIP, trustedPort)
+		} else {
+			row = q.QueryRowContext(ctx, `SELECT session_uid, connect_time FROM client_sessions WHERE trusted_ip=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, trustedIP)
+		}
+	default:
+		row = q.QueryRowContext(ctx, `SELECT session_uid, connect_time FROM client_sessions WHERE common_name=? AND status='active' ORDER BY connect_time DESC LIMIT 1`, commonName)
 	}
 
-	var id int64
+	var uid string
 	var connect int64
-	if err := row.Scan(&id, &connect); err != nil {
+	if err := row.Scan(&uid, &connect); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, 0, nil
+			return "", 0, nil
 		}
-		return 0, 0, err
+		return "", 0, err
 	}
-	return id, connect, nil
+	return uid, connect, nil
+}
+
+func makeSessionUID(commonName, vpnIP string, connectTime int64) string {
+	if connectTime == 0 {
+		connectTime = time.Now().UTC().Unix()
+	}
+	cn := commonName
+	if cn == "" {
+		cn = "anon"
+	}
+	ip := vpnIP
+	if ip == "" {
+		ip = "unknown"
+	}
+	return fmt.Sprintf("%s-%s-%d", cn, ip, connectTime)
 }
 
 func splitHostPort(addr string) (string, int) {

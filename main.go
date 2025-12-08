@@ -66,15 +66,21 @@ func main() {
 			if err := store.InitSchema(context.Background()); err != nil {
 				logs.Warn("metrics: init schema: %v", err)
 			} else {
-				metrics.SetGlobalStore(store)
-				metricsHandler := metrics.NewHandler(metricsCfg, store, logger)
-				metricsHandlerFunc = metricsHandler.HandleClientEvent
-				miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
-				collector := metrics.NewCollector(metricsCfg, store, miClient, logger)
-				go collector.Run(context.Background())
-			}
-		}
-	}
+                                metrics.SetGlobalStore(store)
+                                metricsHandler := metrics.NewHandler(metricsCfg, store, logger)
+                                metricsHandlerFunc = metricsHandler.HandleClientEvent
+                                miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
+                                collector := metrics.NewCollector(metricsCfg, store, miClient, logger)
+                                go collector.Run(context.Background())
+                                if metricsCfg.LogEnrichmentEnabled {
+                                        if sqlite, ok := store.(*metrics.SQLiteStore); ok {
+                                                enricher := metrics.NewLogEnricher(metricsCfg, sqlite, logger, debugMode)
+                                                go enricher.Run(context.Background())
+                                        }
+                                }
+                        }
+                }
+        }
 
 	routers.Init(*configDir, metricsHandlerFunc)
 
@@ -104,6 +110,8 @@ metrics.db_path = /var/lib/nicevpn/metrics.db
 metrics.poll_interval = 30s
 metrics.mi_network = tcp
 metrics.mi_address = 127.0.0.1:2080
+metrics.log_enrichment_enabled = true
+metrics.openvpn_log_path = /var/log/openvpn/openvpn.log
 
 # google config
 googleClientID = your-google-clientid

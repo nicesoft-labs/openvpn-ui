@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -62,28 +63,64 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	ctx := r.Context()
-	if err := h.store.InsertClientEvent(ctx, evt); err != nil {
-		h.log.Warn("metrics: InsertClientEvent: %v", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		if h.debug {
-			h.log.Debug("metrics: failed to persist client-event to store: %v", err)
+	if sqlite, ok := h.store.(*SQLiteStore); ok {
+		tx, err := sqlite.db.BeginTx(ctx, nil)
+		if err != nil {
+			h.log.Warn("metrics: begin tx: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
 		}
-		return
-	}
-
-	switch evt.EventType {
-	case "connect":
-		if err := h.store.UpsertSessionOnConnect(ctx, evt); err != nil {
-			h.log.Warn("metrics: UpsertSessionOnConnect: %v", err)
-			if h.debug {
-				h.log.Debug("metrics: connect session upsert error: %v", err)
+		if err := h.store.InsertClientEventTx(ctx, tx, evt); err != nil {
+			tx.Rollback()
+			h.log.Warn("metrics: InsertClientEventTx: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		switch evt.EventType {
+		case "connect":
+			if err := h.store.UpsertSessionOnConnectTx(ctx, tx, evt); err != nil {
+				tx.Rollback()
+				h.log.Warn("metrics: UpsertSessionOnConnectTx: %v", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+		case "disconnect":
+			if err := h.store.UpdateSessionOnDisconnectTx(ctx, tx, evt); err != nil {
+				tx.Rollback()
+				h.log.Warn("metrics: UpdateSessionOnDisconnectTx: %v", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
 			}
 		}
-	case "disconnect":
-		if err := h.store.UpdateSessionOnDisconnect(ctx, evt); err != nil {
-			h.log.Warn("metrics: UpdateSessionOnDisconnect: %v", err)
+		if err := tx.Commit(); err != nil {
+			h.log.Warn("metrics: commit tx: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		if err := h.store.InsertClientEvent(ctx, evt); err != nil {
+			h.log.Warn("metrics: InsertClientEvent: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			if h.debug {
-				h.log.Debug("metrics: disconnect session update error: %v", err)
+				h.log.Debug("metrics: failed to persist client-event to store: %v", err)
+			}
+			return
+		}
+
+		switch evt.EventType {
+		case "connect":
+			if err := h.store.UpsertSessionOnConnect(ctx, evt); err != nil {
+				h.log.Warn("metrics: UpsertSessionOnConnect: %v", err)
+				if h.debug {
+					h.log.Debug("metrics: connect session upsert error: %v", err)
+				}
+			}
+		case "disconnect":
+			if err := h.store.UpdateSessionOnDisconnect(ctx, evt); err != nil {
+				h.log.Warn("metrics: UpdateSessionOnDisconnect: %v", err)
+				if h.debug {
+					h.log.Debug("metrics: disconnect session update error: %v", err)
+				}
 			}
 		}
 	}
@@ -108,6 +145,7 @@ func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
 			if n, err := strconv.Atoi(v); err == nil {
 				return n
 			}
+			h.log.Warn("metrics: invalid int field %s=%s", name, v)
 		}
 		return 0
 	}
@@ -117,6 +155,7 @@ func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
 			if n, err := strconv.ParseUint(v, 10, 64); err == nil {
 				return n
 			}
+			h.log.Warn("metrics: invalid uint field %s=%s", name, v)
 		}
 		return 0
 	}
@@ -129,6 +168,7 @@ func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
 			if v == "1" {
 				return true
 			}
+			h.log.Warn("metrics: invalid bool field %s=%s", name, v)
 		}
 		return false
 	}
