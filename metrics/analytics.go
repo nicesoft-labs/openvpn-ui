@@ -321,9 +321,13 @@ LIMIT ?;
 			row         AnalyticsSessionRow
 			dConnect    int64
 			dDisconnect sql.NullInt64
+			dDuration   sql.NullInt64
 		)
-		if err := rows.Scan(&row.SessionUID, &row.CommonName, &row.Username, &row.DeviceOS, &row.Country, &row.Cipher, &row.BytesIn, &row.BytesOut, &row.DurationSec, &dConnect, &dDisconnect, &row.Status); err != nil {
+		if err := rows.Scan(&row.SessionUID, &row.CommonName, &row.Username, &row.DeviceOS, &row.Country, &row.Cipher, &row.BytesIn, &row.BytesOut, &dDuration, &dConnect, &dDisconnect, &row.Status); err != nil {
 			return nil, err
+		}
+		if dDuration.Valid {
+			row.DurationSec = dDuration.Int64
 		}
 		row.ConnectTime = time.Unix(dConnect, 0).UTC()
 		if dDisconnect.Valid {
