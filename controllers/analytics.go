@@ -146,6 +146,21 @@ type SessionInsightRow struct {
 	RiskReasons []string
 }
 
+// AccessLogViewModel represents data for the full access log view.
+type AccessLogViewModel struct {
+	Events     []metrics.AnalyticsEventRow
+	Page       int
+	PageSize   int
+	Total      int64
+	TotalPages int
+	ShownFrom  int64
+	ShownTo    int64
+	PrevPage   int
+	NextPage   int
+	HasPrev    bool
+	HasNext    bool
+}
+
 type AccountSharingSuspect struct {
 	Username          string
 	Sessions          int64
@@ -865,4 +880,77 @@ func (c *AnalyticsController) Get() {
 	c.Data["vm"] = vm
 	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics"}
 	c.TplName = "analytics/index.html"
+}
+
+// AccessLog renders a paginated list of all access events.
+func (c *AnalyticsController) AccessLog() {
+	if !c.IsLogin {
+		c.Redirect(c.LoginPath(), 302)
+		return
+	}
+
+	store := metrics.GetGlobalStore()
+	if store == nil {
+		// When metrics are disabled, reuse analytics page state.
+		c.Data["vm"] = AccessLogViewModel{Page: 1, PageSize: 50, TotalPages: 1}
+		c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics"}
+		c.TplName = "analytics/access-log.html"
+		return
+	}
+
+	page, err := c.GetInt("page", 1)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := c.GetInt("page_size", 50)
+	if err != nil || pageSize <= 0 {
+		pageSize = 50
+	}
+
+	ctx := context.Background()
+	total, err := metrics.CountEvents(ctx, store)
+	if err != nil {
+		logs.Warn("metrics: count events: %v", err)
+	}
+
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+	events, err := metrics.GetEventsPage(ctx, store, pageSize, offset)
+	if err != nil {
+		logs.Warn("metrics: list events: %v", err)
+	}
+
+	var shownFrom, shownTo int64
+	if total > 0 {
+		shownFrom = int64(offset) + 1
+		shownTo = int64(page * pageSize)
+		if shownTo > total {
+			shownTo = total
+		}
+	}
+
+	vm := AccessLogViewModel{
+		Events:     events,
+		Page:       page,
+		PageSize:   pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+		ShownFrom:  shownFrom,
+		ShownTo:    shownTo,
+		PrevPage:   page - 1,
+		NextPage:   page + 1,
+		HasPrev:    page > 1,
+		HasNext:    page < totalPages,
+	}
+
+	c.Data["vm"] = vm
+	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Items: []BreadCrumbItem{{Title: "Журнал доступа"}}}
+	c.TplName = "analytics/access-log.html"
 }

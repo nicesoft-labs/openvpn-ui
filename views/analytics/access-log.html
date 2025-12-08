@@ -1,0 +1,165 @@
+{{ template "layout/base.html" . }}
+
+{{ define "head" }}
+<title>NiceSOFT NiceVPN UI — Журнал доступа</title>
+<style>
+  .card-clean {
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,.04);
+  }
+  .card-clean .card-header {
+    border-bottom: 1px solid #eef1f4;
+  }
+  .log-badge {
+    font-size: .75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .log-badge--ok { background: #ecfdf3; color: #166534; }
+  .log-badge--info { background: #eff6ff; color: #1d4ed8; }
+  .log-badge--warn { background: #fef3c7; color: #92400e; }
+  .log-badge--risk { background: #fee2e2; color: #b91c1c; }
+  .log-table tbody tr.log-row--warn { background: #fff7ed; }
+  .log-table tbody tr.log-row--risk { background: #fef2f2; }
+</style>
+{{ end }}
+
+{{ define "body" }}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <h4 class="mb-1">Журнал доступа</h4>
+      <p class="text-muted mb-1">Полный список событий подключения и отключения клиентов.</p>
+      <p class="text-muted mb-0">Всего событий: {{ .Total }}</p>
+    </div>
+    <div class="col-md-4 text-md-right mt-2 mt-md-0">
+      <a class="btn btn-sm btn-outline-secondary" href="/analytics">← Вернуться к аналитике</a>
+    </div>
+  </div>
+
+  <div class="card-clean">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="mb-0">Полный журнал доступа</h5>
+        <small class="text-muted">Постраничный просмотр всех событий</small>
+      </div>
+      <span class="badge badge-light">Страница {{ .Page }} из {{ .TotalPages }}</span>
+    </div>
+    <div class="card-body table-responsive">
+      <table class="table table-sm table-hover log-table">
+        <thead>
+          <tr>
+            <th>Время</th>
+            <th>Событие</th>
+            <th>Пользователь</th>
+            <th>CN</th>
+            <th>Внешний IP</th>
+            <th>VPN IP</th>
+            <th>ОС / клиент</th>
+            <th>Трафик</th>
+            <th>Длительность</th>
+          </tr>
+        </thead>
+        <tbody id="accessLogBody">
+          <tr id="accessLogEmptyRow">
+            <td colspan="9" class="text-muted">Событий пока нет</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <div class="text-muted small">
+          Показаны записи {{ if gt .Total 0 }}{{ .ShownFrom }}–{{ .ShownTo }}{{ else }}0{{ end }} из {{ .Total }}
+        </div>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {{ if not .HasPrev }}disabled{{ end }}">
+              <a class="page-link" href="?page={{ .PrevPage }}&page_size={{ .PageSize }}" aria-label="Предыдущая">&laquo;</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link">{{ .Page }} / {{ .TotalPages }}</span></li>
+            <li class="page-item {{ if not .HasNext }}disabled{{ end }}">
+              <a class="page-link" href="?page={{ .NextPage }}&page_size={{ .PageSize }}" aria-label="Следующая">&raquo;</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const vm = {{ tojson . }};
+
+  function bytesToMB(value) { return value / 1024 / 1024; }
+  function getEventTimestamp(e) {
+    if (!e || !e.EventTime) return 0;
+    const ts = new Date(e.EventTime).getTime();
+    return isNaN(ts) ? 0 : ts;
+  }
+  function formatEventTime(e) {
+    const ts = getEventTimestamp(e);
+    if (!ts) return '—';
+    const dt = new Date(ts);
+    return isNaN(dt) ? '—' : dt.toLocaleString();
+  }
+  function resolveEventTypeLabel(type) {
+    const value = (type || '').toLowerCase();
+    let typeLabel = type || 'event';
+    let typeBadgeClass = 'log-badge log-badge--info';
+
+    if (value.includes('disconnect')) {
+      typeLabel = 'Отключение';
+      typeBadgeClass = 'log-badge log-badge--info';
+    } else if (value.includes('connect')) {
+      typeLabel = 'Подключение';
+      typeBadgeClass = 'log-badge log-badge--ok';
+    } else if (value.includes('tls')) {
+      typeLabel = 'TLS';
+      typeBadgeClass = 'log-badge log-badge--warn';
+    }
+
+    return { typeLabel, typeBadgeClass };
+  }
+
+  function renderAccessLog() {
+    const tbody = document.getElementById('accessLogBody');
+    const emptyRow = document.getElementById('accessLogEmptyRow');
+    if (!tbody) return;
+
+    const events = vm.Events || [];
+    if (!events.length) {
+      if (emptyRow) emptyRow.style.display = '';
+      return;
+    }
+    if (emptyRow) emptyRow.style.display = 'none';
+
+    events.sort((a, b) => getEventTimestamp(b) - getEventTimestamp(a));
+    tbody.innerHTML = '';
+
+    events.forEach(e => {
+      const totalBytes = Number(e.BytesIn || 0) + Number(e.BytesOut || 0);
+      const bytesMB = bytesToMB(totalBytes);
+      const durSec = Number(e.DurationSec || 0);
+      const { typeLabel, typeBadgeClass } = resolveEventTypeLabel(e.EventType);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatEventTime(e)}</td>
+        <td><span class="${typeBadgeClass}">${typeLabel}</span></td>
+        <td>${e.Username || '—'}</td>
+        <td>${e.CommonName || '—'}</td>
+        <td>${e.TrustedIP || '—'}</td>
+        <td>${e.VPNIP || '—'}</td>
+        <td>${e.DeviceOS || 'Unknown'}</td>
+        <td>${bytesMB.toFixed(1)} MB</td>
+        <td>${durSec ? (durSec / 60).toFixed(1) + ' мин' : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', renderAccessLog);
+</script>
+{{ end }}
