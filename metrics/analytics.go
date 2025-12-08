@@ -982,19 +982,19 @@ func AggregateTLSIssuerStats(ctx context.Context, s Store, from, to time.Time) (
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT issuer, COUNT(*) as cnt
-FROM (
-    SELECT
-        CASE
-            WHEN COALESCE(NULLIF(json_extract(env_raw, '$.tls_id_1'), ''), '') != '' THEN json_extract(env_raw, '$.tls_id_1')
-            WHEN COALESCE(NULLIF(json_extract(env_raw, '$.X509_1_CN'), ''), '') != '' THEN json_extract(env_raw, '$.X509_1_CN')
-            ELSE 'Unknown'
-        END AS issuer
-    FROM client_events
-    WHERE event_type = 'tls_verify' AND event_time >= ? AND event_time < ?
-) as sub
-GROUP BY issuer
-ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+    SELECT issuer, COUNT(*) as cnt
+    FROM (
+        SELECT
+            CASE
+                WHEN json_valid(env_raw) AND COALESCE(NULLIF(json_extract(env_raw, '$.tls_id_1'), ''), '') != '' THEN json_extract(env_raw, '$.tls_id_1')
+                WHEN json_valid(env_raw) AND COALESCE(NULLIF(json_extract(env_raw, '$.X509_1_CN'), ''), '') != '' THEN json_extract(env_raw, '$.X509_1_CN')
+                ELSE 'Unknown'
+            END AS issuer
+        FROM client_events
+        WHERE event_type = 'tls_verify' AND event_time >= ? AND event_time < ?
+    ) as sub
+    GROUP BY issuer
+    ORDER BY cnt DESC;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -1019,17 +1019,20 @@ func AggregateTLSCertStats(ctx context.Context, s Store, from, to time.Time, lim
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT
-    COALESCE(NULLIF(json_extract(env_raw, '$.tls_serial_hex_0'), ''), 'unknown') as serial_hex,
-    COUNT(DISTINCT common_name) as common_names,
-    COUNT(*) as sessions,
-    MAX(event_time) as last_seen
-FROM client_events
-WHERE event_type IN ('connect', 'disconnect', 'tls_verify')
-  AND event_time >= ? AND event_time < ?
-GROUP BY serial_hex
-ORDER BY sessions DESC
-LIMIT ?;`, from.Unix(), to.Unix(), limit)
+    SELECT
+        CASE
+            WHEN json_valid(env_raw) THEN COALESCE(NULLIF(json_extract(env_raw, '$.tls_serial_hex_0'), ''), 'unknown')
+            ELSE 'unknown'
+        END as serial_hex,
+        COUNT(DISTINCT common_name) as common_names,
+        COUNT(*) as sessions,
+        MAX(event_time) as last_seen
+    FROM client_events
+    WHERE event_type IN ('connect', 'disconnect', 'tls_verify')
+      AND event_time >= ? AND event_time < ?
+    GROUP BY serial_hex
+    ORDER BY sessions DESC
+    LIMIT ?;`, from.Unix(), to.Unix(), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1102,16 +1105,16 @@ func AggregateMTUStats(ctx context.Context, s Store, from, to time.Time) ([]MTUS
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT mtu, COUNT(*) as cnt
-FROM (
-    SELECT CAST(json_extract(env_raw, '$.tun_mtu') AS INTEGER) as mtu
-    FROM client_events
-    WHERE event_type IN ('connect','disconnect','ip_update','tls_verify')
-      AND event_time >= ? AND event_time < ?
-) as sub
-WHERE mtu IS NOT NULL AND mtu > 0
-GROUP BY mtu
-ORDER BY mtu ASC;`, from.Unix(), to.Unix())
+    SELECT mtu, COUNT(*) as cnt
+    FROM (
+        SELECT CASE WHEN json_valid(env_raw) THEN CAST(json_extract(env_raw, '$.tun_mtu') AS INTEGER) END as mtu
+        FROM client_events
+        WHERE event_type IN ('connect','disconnect','ip_update','tls_verify')
+          AND event_time >= ? AND event_time < ?
+    ) as sub
+    WHERE mtu IS NOT NULL AND mtu > 0
+    GROUP BY mtu
+    ORDER BY mtu ASC;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -1136,15 +1139,18 @@ func AggregateProtoStats(ctx context.Context, s Store, from, to time.Time) ([]Pr
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT proto, COUNT(*) as cnt
-FROM (
-    SELECT COALESCE(NULLIF(json_extract(env_raw, '$.proto_1'), ''), 'unknown') as proto
-    FROM client_events
-    WHERE event_type IN ('connect','disconnect')
-      AND event_time >= ? AND event_time < ?
-) as sub
-GROUP BY proto
-ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+    SELECT proto, COUNT(*) as cnt
+    FROM (
+        SELECT CASE
+            WHEN json_valid(env_raw) THEN COALESCE(NULLIF(json_extract(env_raw, '$.proto_1'), ''), 'unknown')
+            ELSE 'unknown'
+        END as proto
+        FROM client_events
+        WHERE event_type IN ('connect','disconnect')
+          AND event_time >= ? AND event_time < ?
+    ) as sub
+    GROUP BY proto
+    ORDER BY cnt DESC;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -1169,15 +1175,18 @@ func AggregateDevTypeStats(ctx context.Context, s Store, from, to time.Time) ([]
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT dev_type, COUNT(*) as cnt
-FROM (
-    SELECT COALESCE(NULLIF(json_extract(env_raw, '$.dev_type'), ''), 'unknown') as dev_type
-    FROM client_events
-    WHERE event_type IN ('connect','disconnect')
-      AND event_time >= ? AND event_time < ?
-) as sub
-GROUP BY dev_type
-ORDER BY cnt DESC;`, from.Unix(), to.Unix())
+    SELECT dev_type, COUNT(*) as cnt
+    FROM (
+        SELECT CASE
+            WHEN json_valid(env_raw) THEN COALESCE(NULLIF(json_extract(env_raw, '$.dev_type'), ''), 'unknown')
+            ELSE 'unknown'
+        END as dev_type
+        FROM client_events
+        WHERE event_type IN ('connect','disconnect')
+          AND event_time >= ? AND event_time < ?
+    ) as sub
+    GROUP BY dev_type
+    ORDER BY cnt DESC;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -1202,18 +1211,18 @@ func AggregateRedirectGatewayStats(ctx context.Context, s Store, from, to time.T
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT mode, COUNT(*) as cnt
-FROM (
-    SELECT CASE
-        WHEN json_extract(env_raw, '$.redirect_gateway') = '1' THEN 'full'
-        WHEN json_extract(env_raw, '$.redirect_gateway') = '0' THEN 'split'
-        ELSE 'unknown'
-    END as mode
-    FROM client_events
-    WHERE event_type IN ('connect','disconnect')
-      AND event_time >= ? AND event_time < ?
-) as sub
-GROUP BY mode;`, from.Unix(), to.Unix())
+    SELECT mode, COUNT(*) as cnt
+    FROM (
+        SELECT CASE
+            WHEN json_valid(env_raw) AND json_extract(env_raw, '$.redirect_gateway') = '1' THEN 'full'
+            WHEN json_valid(env_raw) AND json_extract(env_raw, '$.redirect_gateway') = '0' THEN 'split'
+            ELSE 'unknown'
+        END as mode
+        FROM client_events
+        WHERE event_type IN ('connect','disconnect')
+          AND event_time >= ? AND event_time < ?
+    ) as sub
+    GROUP BY mode;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
