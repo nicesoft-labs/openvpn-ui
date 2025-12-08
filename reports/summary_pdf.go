@@ -18,8 +18,10 @@ const (
 	primaryColorG = 64
 	primaryColorB = 120
 
-	bottomMargin   = 20.0
+	// Высота строки таблицы
 	tableRowHeight = 8.0
+	// Реальная высота футера (чтобы не заезжать на него таблицами)
+	footerHeight = 18.0
 )
 
 // GenerateSummaryPDF builds enterprise-styled VPN summary report.
@@ -56,7 +58,8 @@ func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.
 
 	pdf.AliasNbPages("")
 	pdf.SetFooterFunc(func() {
-		pdf.SetY(-18)
+		// Линия футера
+		pdf.SetY(-footerHeight)
 		pdf.SetDrawColor(210, 210, 210)
 		pdf.Line(10, pdf.GetY(), 200, pdf.GetY())
 		pdf.SetTextColor(120, 120, 120)
@@ -87,6 +90,7 @@ func GenerateSummaryPDF(ctx context.Context, store metrics.Store, from, to time.
 func newReport() *gofpdf.Fpdf {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 18, 15)
+	// Автоматический перенос, нижнее поле под текст (футер рисуем ниже сами)
 	pdf.SetAutoPageBreak(true, 20)
 	return pdf
 }
@@ -136,52 +140,73 @@ func addTitlePage(pdf *gofpdf.Fpdf, from, to time.Time) {
 	pdf.Ln(14)
 
 	pdf.SetFont(baseFont, "", 11)
-	pdf.MultiCell(0, 7, "Отчёт предназначен для руководителей и отражает базовые показатели использования VPN. Отражены ключевые показатели, динамика по дням, а также топ пользователей и клиентов по трафику за выбранный период.", "", "L", false)
+	pdf.SetTextColor(80, 80, 80)
+	pdf.MultiCell(0, 7,
+		"Отчёт предназначен для руководителей и отражает базовые показатели использования VPN. "+
+			"Отражены ключевые показатели, динамика по дням, а также топ пользователей и клиентов по трафику за выбранный период.",
+		"", "L", false)
 
-	pdf.SetY(254)
-	pdf.SetTextColor(100, 100, 100)
+	pdf.Ln(8)
 	pdf.SetFont(baseFont, "", 10)
-	pdf.Cell(0, 6, "Отчёт сформирован системой NiceVPN")
-	pdf.Ln(6)
-	pdf.Cell(0, 6, "© NiceVPN - продукт компании  ООО \"НАЙС СОФТ ГРУПП\". Работает на НАЙС.ОС - Российское ПО запись в реестре №30128 от 22.10.2025")
+	pdf.SetTextColor(110, 110, 110)
+	pdf.Cell(0, 5, "Отчёт сформирован системой NiceVPN.")
 }
 
 func addTopBand(pdf *gofpdf.Fpdf) {
+	// Верхняя бренд-полоса (на всех страницах, где вызывается)
 	pdf.SetFillColor(primaryColorR, primaryColorG, primaryColorB)
 	pdf.Rect(0, 0, 210, 25, "F")
+
 	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont(baseFont, "B", 14)
 	pdf.SetXY(15, 8)
 	pdf.Cell(0, 8, "NiceSOFT / NiceVPN")
-	pdf.Ln(18)
+
+	// Нижняя белая линия
 	pdf.SetXY(15, 20)
 	pdf.SetDrawColor(255, 255, 255)
 	pdf.SetLineWidth(0.4)
 	pdf.Line(15, 22, 195, 22)
+
+	// Переход в рабочую область страницы
 	pdf.SetY(32)
 	pdf.SetTextColor(30, 30, 30)
 }
 
 func addSectionHeader(pdf *gofpdf.Fpdf, title string, subtitle string) {
+	// гарантия, что стартуем с левого поля
+	left, _, _, _ := pdf.GetMargins()
+	pdf.SetX(left)
+
 	pdf.SetFont(baseFont, "B", 16)
 	pdf.SetTextColor(primaryColorR, primaryColorG, primaryColorB)
 	pdf.Cell(0, 10, title)
 	pdf.Ln(9)
+
 	if subtitle != "" {
 		pdf.SetFont(baseFont, "", 11)
 		pdf.SetTextColor(90, 90, 90)
+		pdf.SetX(left)
 		pdf.Cell(0, 7, subtitle)
 		pdf.Ln(6)
 	}
+
 	pdf.SetTextColor(30, 30, 30)
 	pdf.SetFont(baseFont, "", 11)
 	pdf.Ln(2)
 }
 
+// ensureTableRowSpace следит, чтобы строка таблицы не заехала на футер.
+// Если места не хватает — создаётся новая страница и заново рисуется заголовок.
 func ensureTableRowSpace(pdf *gofpdf.Fpdf, rowHeight float64, header func()) {
 	_, y := pdf.GetXY()
+	_, _, _, bottomMargin := pdf.GetMargins()
 	_, pageH := pdf.GetPageSize()
-	if y+rowHeight+bottomMargin > pageH {
+
+	// Максимальная допустимая Y для текста с учётом нижнего поля и высоты футера.
+	limit := pageH - bottomMargin - footerHeight
+
+	if y+rowHeight > limit {
 		pdf.AddPage()
 		if header != nil {
 			header()
@@ -191,6 +216,7 @@ func ensureTableRowSpace(pdf *gofpdf.Fpdf, rowHeight float64, header func()) {
 
 func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 	pdf.AddPage()
+	addTopBand(pdf)
 	addSectionHeader(pdf, "Ключевые показатели за период", "Основные метрики использования NiceVPN")
 
 	cards := []struct {
@@ -205,26 +231,30 @@ func addKPISummary(pdf *gofpdf.Fpdf, kpi metrics.MetricsKPI) {
 	}
 
 	cols := 2
-	cardW := 90.0
-	cardH := 28.0
-	gapX := 10.0
+	gapX := 8.0
 	gapY := 6.0
-	startX := pdf.GetX()
-	startY := pdf.GetY()
+	cardH := 26.0
+
+	pageW, _ := pdf.GetPageSize()
+	left, _, right, _ := pdf.GetMargins()
+	usableW := pageW - left - right
+	cardW := (usableW - gapX*float64(cols-1)) / float64(cols)
+
+	startX := left
+	startY := pdf.GetY() + 2
 
 	for i, card := range cards {
 		row := i / cols
 		col := i % cols
-		if col == 0 {
-			ensureTableRowSpace(pdf, cardH+gapY, nil)
-		}
+
 		x := startX + float64(col)*(cardW+gapX)
 		y := startY + float64(row)*(cardH+gapY)
+
 		drawKPICard(pdf, x, y, cardW, cardH, card.title, card.value)
 	}
 
 	rows := (len(cards) + cols - 1) / cols
-	pdf.SetY(startY + float64(rows)*(cardH+gapY) + 7)
+	pdf.SetY(startY + float64(rows)*(cardH+gapY) + 8)
 }
 
 func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
@@ -232,11 +262,13 @@ func drawKPICard(pdf *gofpdf.Fpdf, x, y, w, h float64, title, value string) {
 	pdf.SetDrawColor(225, 232, 240)
 	pdf.RoundedRect(x, y, w, h, 2, "FD", "1234")
 
+	// Заголовок KPI
 	pdf.SetXY(x+5, y+5)
 	pdf.SetFont(baseFont, "", 10)
 	pdf.SetTextColor(110, 110, 110)
 	pdf.CellFormat(w-10, 6, title, "", 0, "L", false, 0, "")
 
+	// Значение KPI
 	pdf.SetXY(x+5, y+12)
 	pdf.SetFont(baseFont, "B", 18)
 	pdf.SetTextColor(primaryColorR, primaryColorG, primaryColorB)
@@ -248,6 +280,7 @@ func addSessionsByDay(pdf *gofpdf.Fpdf, stats []metrics.AnalyticsDayStat) {
 	widths := []float64{30, 25, 45, 45, 35}
 
 	sectionHeader := func() {
+		addTopBand(pdf)
 		addSectionHeader(pdf, "Сводка по дням", "Динамика сессий и трафика")
 		renderTableHeader(pdf, headers, widths)
 	}
@@ -273,6 +306,7 @@ func addTopUsers(pdf *gofpdf.Fpdf, users []metrics.AnalyticsUserTraffic, duratio
 	widths := []float64{10, 40, 35, 25, 35, 35}
 
 	sectionHeader := func() {
+		addTopBand(pdf)
 		addSectionHeader(pdf, "Топ пользователей по трафику", "Лидеры по объёму переданных данных")
 		renderTableHeader(pdf, headers, widths)
 	}
@@ -305,6 +339,7 @@ func addTopClients(pdf *gofpdf.Fpdf, clients []metrics.TopClientPoint) {
 	widths := []float64{10, 70, 40, 60}
 
 	sectionHeader := func() {
+		addTopBand(pdf)
 		addSectionHeader(pdf, "Топ клиентов по трафику", "Клиенты, передавшие максимальный объём данных")
 		renderTableHeader(pdf, headers, widths)
 	}
@@ -335,10 +370,12 @@ func renderTableHeader(pdf *gofpdf.Fpdf, headers []string, widths []float64) {
 	pdf.SetTextColor(60, 60, 60)
 	pdf.SetDrawColor(220, 220, 220)
 	pdf.SetFont(baseFont, "B", 11)
+
 	for i, h := range headers {
 		pdf.CellFormat(widths[i], tableRowHeight, h, "1", 0, "C", true, 0, "")
 	}
 	pdf.Ln(0)
+
 	pdf.SetFont(baseFont, "", 10)
 	pdf.SetTextColor(30, 30, 30)
 }
@@ -361,6 +398,7 @@ func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool,
 
 	pdf.SetFont(baseFont, fontStyle, fontSize)
 	defaultTextColor := [3]int{30, 30, 30}
+
 	isNumericCell := func(s string) bool {
 		hasDigit := false
 		for _, r := range s {
@@ -368,6 +406,7 @@ func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool,
 			case unicode.IsDigit(r):
 				hasDigit = true
 			case r == '.' || r == ',' || r == ' ' || r == '%' || r == '-' || unicode.IsLetter(r):
+				// допустимые символы в числовых полях с единицами измерения
 				continue
 			default:
 				return false
@@ -390,10 +429,12 @@ func drawTableRow(pdf *gofpdf.Fpdf, widths []float64, cells []string, fill bool,
 
 		useFill := fill || emphasize
 		pdf.CellFormat(widths[i], tableRowHeight, cell, "1", 0, align, useFill, 0, "")
+
 		if statusColor != nil && i == len(cells)-1 {
 			pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
 		}
 	}
+
 	pdf.Ln(0)
 	pdf.SetFont(baseFont, "", 10)
 	pdf.SetTextColor(defaultTextColor[0], defaultTextColor[1], defaultTextColor[2])
