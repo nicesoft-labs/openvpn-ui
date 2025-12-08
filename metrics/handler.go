@@ -1,9 +1,7 @@
 package metrics
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -30,9 +28,11 @@ func NewHandler(cfg MetricsConfig, store Store, log *logs.BeeLogger) *Handler {
 func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 	if h.debug {
 		h.log.Debug(
-			"metrics: client-event request method=%s remote=%s content_length=%d", r.Method, r.RemoteAddr, r.ContentLength,
+			"metrics: client-event request method=%s remote=%s content_length=%d",
+			r.Method, r.RemoteAddr, r.ContentLength,
 		)
 	}
+
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		if h.debug {
@@ -40,6 +40,7 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil || (host != "127.0.0.1" && host != "::1") {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -48,16 +49,8 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if h.debug {
-		rawBody, err := io.ReadAll(r.Body)
-		if err != nil {
-			h.log.Warn("metrics: failed to read client-event body: %v", err)
-		} else {
-			h.log.Debug("metrics: client-event raw body=%s", string(rawBody))
-		}
-		r.Body = io.NopCloser(bytes.NewBuffer(rawBody))
-	}
 
+	// Парсим форму (если уже распарсена где-то раньше, проблем не будет).
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		if h.debug {
@@ -66,13 +59,23 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Для debug-режима логируем "сырой" payload в виде x-www-form-urlencoded.
+	// Это фактически то же самое тело запроса, только нормализованное.
+	if h.debug {
+		h.log.Debug("metrics: client-event form=%s", r.Form.Encode())
+	}
+
 	evt := h.parseEventFromRequest(r)
 	if h.debug {
 		h.log.Debug(
 			"metrics: parsed client-event type=%s user=%s cn=%s vpn_ip=%s trusted_ip=%s bytes_in=%d bytes_out=%d duration=%ds",
 			evt.EventType, evt.Username, evt.CommonName, evt.VPNIP, evt.TrustedIP, evt.BytesReceived, evt.BytesSent, evt.DurationSec,
 		)
+		if evt.EnvRaw != "" {
+			h.log.Debug("metrics: client-event env_raw=%s", evt.EnvRaw)
+		}
 	}
+
 	ctx := r.Context()
 	if sqlite, ok := h.store.(*SQLiteStore); ok {
 		tx, err := sqlite.db.BeginTx(ctx, nil)
@@ -185,52 +188,54 @@ func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
 	}
 
 	evt := &ClientEvent{
-		EventType:        r.FormValue("event_type"),
-		EventTime:        evtTime,
-		VPNInstanceID:    r.FormValue("vpn_instance_id"),
-		CommonName:       r.FormValue("common_name"),
-		Username:         r.FormValue("username"),
-		AuthMethod:       r.FormValue("auth_method"),
-		MFAUsed:          parseBool("mfa_used"),
-		MFAOK:            parseBool("mfa_ok"),
-		TrustedIP:        r.FormValue("trusted_ip"),
-		TrustedPort:      parseInt("trusted_port"),
-		UntrustedIP:      r.FormValue("untrusted_ip"),
-		UntrustedPort:    parseInt("untrusted_port"),
-		VPNIP:            r.FormValue("vpn_ip"),
-		VPNIPv6:          r.FormValue("vpn_ipv6"),
-		Proto:            r.FormValue("proto"),
-		Dev:              r.FormValue("dev"),
-		Cipher:           r.FormValue("cipher"),
-		TLSVersion:       r.FormValue("tls_version"),
-		TLSCipher:        r.FormValue("tls_cipher"),
-		KeySizeBits:      parseInt("key_size_bits"),
-		HMACDigest:       r.FormValue("hmac_digest"),
-		Compression:      r.FormValue("compression"),
-		DCOEnabled:       parseBool("dco_enabled"),
-		DeviceOS:         r.FormValue("device_os"),
-		DeviceOSVer:      r.FormValue("device_os_ver"),
-		DeviceType:       r.FormValue("device_type"),
-		DeviceVendor:     r.FormValue("device_vendor"),
-		DeviceModel:      r.FormValue("device_model"),
-		DeviceID:         r.FormValue("device_id"),
-		ClientApp:        r.FormValue("client_app"),
-		ClientAppVer:     r.FormValue("client_app_ver"),
-		GeoCountryCode:   r.FormValue("geo_country_code"),
-		GeoCountryName:   r.FormValue("geo_country_name"),
-		GeoRegion:        r.FormValue("geo_region"),
-		GeoCity:          r.FormValue("geo_city"),
-		GeoASN:           r.FormValue("geo_asn"),
-		GeoOrg:           r.FormValue("geo_org"),
-		GeoLat:           parseFloat(r.FormValue("geo_lat")),
-		GeoLon:           parseFloat(r.FormValue("geo_lon")),
-		GeoTimezone:      r.FormValue("geo_timezone"),
-		BytesReceived:    parseUint("bytes_received"),
-		BytesSent:        parseUint("bytes_sent"),
-		PacketsReceived:  parseUint("packets_received"),
-		PacketsSent:      parseUint("packets_sent"),
-		DurationSec:      int64(parseInt("duration_sec")),
-		Reconnects:       int64(parseInt("reconnects")),
+		EventType:      r.FormValue("event_type"),
+		EventTime:      evtTime,
+		VPNInstanceID:  r.FormValue("vpn_instance_id"),
+		CommonName:     r.FormValue("common_name"),
+		Username:       r.FormValue("username"),
+		AuthMethod:     r.FormValue("auth_method"),
+		MFAUsed:        parseBool("mfa_used"),
+		MFAOK:          parseBool("mfa_ok"),
+		TrustedIP:      r.FormValue("trusted_ip"),
+		TrustedPort:    parseInt("trusted_port"),
+		UntrustedIP:    r.FormValue("untrusted_ip"),
+		UntrustedPort:  parseInt("untrusted_port"),
+		VPNIP:          r.FormValue("vpn_ip"),
+		VPNIPv6:        r.FormValue("vpn_ipv6"),
+		Proto:          r.FormValue("proto"),
+		Dev:            r.FormValue("dev"),
+		Cipher:         r.FormValue("cipher"),
+		TLSVersion:     r.FormValue("tls_version"),
+		TLSCipher:      r.FormValue("tls_cipher"),
+		KeySizeBits:    parseInt("key_size_bits"),
+		HMACDigest:     r.FormValue("hmac_digest"),
+		Compression:    r.FormValue("compression"),
+		DCOEnabled:     parseBool("dco_enabled"),
+		DeviceOS:       r.FormValue("device_os"),
+		DeviceOSVer:    r.FormValue("device_os_ver"),
+		DeviceType:     r.FormValue("device_type"),
+		DeviceVendor:   r.FormValue("device_vendor"),
+		DeviceModel:    r.FormValue("device_model"),
+		DeviceID:       r.FormValue("device_id"),
+		ClientApp:      r.FormValue("client_app"),
+		ClientAppVer:   r.FormValue("client_app_ver"),
+		GeoCountryCode: r.FormValue("geo_country_code"),
+		GeoCountryName: r.FormValue("geo_country_name"),
+		GeoRegion:      r.FormValue("geo_region"),
+		GeoCity:        r.FormValue("geo_city"),
+		GeoASN:         r.FormValue("geo_asn"),
+		GeoOrg:         r.FormValue("geo_org"),
+		GeoLat:         parseFloat(r.FormValue("geo_lat")),
+		GeoLon:         parseFloat(r.FormValue("geo_lon")),
+		GeoTimezone:    r.FormValue("geo_timezone"),
+
+		BytesReceived:   parseUint("bytes_received"),
+		BytesSent:       parseUint("bytes_sent"),
+		PacketsReceived: parseUint("packets_received"),
+		PacketsSent:     parseUint("packets_sent"),
+		DurationSec:     int64(parseInt("duration_sec")),
+		Reconnects:      int64(parseInt("reconnects")),
+
 		DisconnectReason: r.FormValue("disconnect_reason"),
 		EnvRaw:           r.FormValue("env_raw"),
 		CreatedAt:        now,
