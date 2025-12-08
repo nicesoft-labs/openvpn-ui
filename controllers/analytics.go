@@ -43,8 +43,16 @@ type AnalyticsViewModel struct {
 	ClientApps             []metrics.ClientAppStat
 	ProblemClients         []metrics.ProblemClientRow
 	UsageHeatmap           []metrics.UsageHeatmapCell
+	HeatmapCalendar        AnalyticsHeatmapView
 	RecentSessions         []metrics.AnalyticsSessionRow
 	RecentEvents           []metrics.AnalyticsEventRow
+}
+
+// AnalyticsHeatmapView holds data for calendar heatmap rendering.
+type AnalyticsHeatmapView struct {
+	RuWeekdaysShort []string
+	Cells           [7][24]int64
+	MaxValue        int64
 }
 
 // Get handles GET /analytics.
@@ -183,6 +191,20 @@ func (c *AnalyticsController) Get() {
 		logs.Warn("metrics: usage heatmap: %v", err)
 		vm.DataUnavailable = true
 	}
+
+	heatmapView := AnalyticsHeatmapView{
+		RuWeekdaysShort: []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"},
+	}
+	for _, cell := range vm.UsageHeatmap {
+		if cell.Weekday < 0 || cell.Weekday >= len(heatmapView.Cells) || cell.Hour < 0 || cell.Hour >= len(heatmapView.Cells[0]) {
+			continue
+		}
+		heatmapView.Cells[cell.Weekday][cell.Hour] += cell.Sessions
+		if heatmapView.Cells[cell.Weekday][cell.Hour] > heatmapView.MaxValue {
+			heatmapView.MaxValue = heatmapView.Cells[cell.Weekday][cell.Hour]
+		}
+	}
+	vm.HeatmapCalendar = heatmapView
 
 	c.Data["vm"] = vm
 	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics"}

@@ -167,6 +167,36 @@ func AddFuncMaps() {
 		}
 		return time.Unix(val, 0).UTC().Format(time.RFC3339)
 	})
+	_ = web.AddFuncMap("seq", func(start int, end int) []int {
+		if end < start {
+			return []int{}
+		}
+		res := make([]int, end-start+1)
+		for i := range res {
+			res[i] = start + i
+		}
+		return res
+	})
+	_ = web.AddFuncMap("heatLevel", func(val interface{}, max interface{}) int {
+		v := toInt64(val)
+		m := toInt64(max)
+		if m <= 0 || v <= 0 {
+			return 0
+		}
+		ratio := float64(v) / float64(m)
+		switch {
+		case ratio <= 0.2:
+			return 1
+		case ratio <= 0.4:
+			return 2
+		case ratio <= 0.6:
+			return 3
+		case ratio <= 0.8:
+			return 4
+		default:
+			return 5
+		}
+	})
 }
 
 func num2str(n int64, sep rune) string {
@@ -191,4 +221,21 @@ func num2str(n int64, sep rune) string {
 		buff.WriteByte(s[i])
 	}
 	return buff.String()
+}
+
+func toInt64(v interface{}) int64 {
+	switch val := v.(type) {
+	case int:
+		return int64(val)
+	case int32:
+		return int64(val)
+	case int64:
+		return val
+	case uint32:
+		return int64(val)
+	case uint64:
+		return int64(val)
+	default:
+		return 0
+	}
 }

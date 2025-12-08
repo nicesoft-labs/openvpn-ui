@@ -32,6 +32,43 @@
     text-align: center;
     padding: 1.5rem 0;
   }
+
+  .heat-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+
+  .heat-table th,
+  .heat-table td {
+    border: 1px solid #e5e7eb;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .heat-table thead th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+
+  .heat-row-label {
+    text-align: left;
+    padding-left: 8px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .heat-cell {
+    min-width: 26px;
+  }
+
+  .heat-0 { background: #f9fafb; color: #6b7280; }
+  .heat-1 { background: #e5f3ff; }
+  .heat-2 { background: #d0e5ff; }
+  .heat-3 { background: #b0d4ff; }
+  .heat-4 { background: #7fb6ff; color:#fff; }
+  .heat-5 { background: #3b82f6; color:#fff; }
   .kpi-row .kpi-box {
     border-radius: 14px;
     box-shadow: 0 3px 10px rgba(0,0,0,.05);
@@ -297,10 +334,37 @@
 
     <div class="row">
       <div class="col-12 mb-4">
-        <div class="metric-card">
-          <div class="metric-card__header">Активность по дням недели и времени суток</div>
-          <div id="heatmapGrid" class="table-responsive"></div>
-          <div class="empty-state" data-empty-for="heatmapGrid">Нет данных по активности</div>
+        <div class="card card-clean">
+          <div class="card-header">
+            <h3 class="card-title">Активность по дням недели и времени суток</h3>
+          </div>
+          <div class="card-body table-responsive">
+            {{ $heat := .vm.HeatmapCalendar }}
+            <table class="table heat-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  {{ range $h := seq 0 23 }}
+                    <th class="text-center">{{$h}}</th>
+                  {{ end }}
+                </tr>
+              </thead>
+              <tbody>
+                {{ $max := $heat.MaxValue }}
+                {{ range $w, $row := $heat.Cells }}
+                  <tr>
+                    <th scope="row" class="heat-row-label">
+                      {{ index $heat.RuWeekdaysShort $w }}
+                    </th>
+                    {{ range $h, $val := $row }}
+                      {{ $lvl := heatLevel $val $max }}
+                      <td class="heat-cell heat-{{$lvl}}">{{$val}}</td>
+                    {{ end }}
+                  </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -794,44 +858,6 @@
     });
   }
 
-  function initHeatmap() {
-    const data = vm.UsageHeatmap || [];
-    const container = document.getElementById('heatmapGrid');
-    toggleEmpty('heatmapGrid', data.length > 0);
-    if (!container || !data.length) return;
-    const table = document.createElement('table');
-    table.className = 'table table-sm table-bordered mb-0';
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    headRow.appendChild(document.createElement('th'));
-    for (let h = 0; h < 24; h++) {
-      const th = document.createElement('th');
-      th.textContent = h;
-      headRow.appendChild(th);
-    }
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const tbody = document.createElement('tbody');
-    for (let w = 0; w < 7; w++) {
-      const row = document.createElement('tr');
-      const th = document.createElement('th');
-      th.textContent = weekdays[w];
-      row.appendChild(th);
-      for (let h = 0; h < 24; h++) {
-        const cell = document.createElement('td');
-        const found = data.find(i => Number(i.Weekday) === w && Number(i.Hour) === h);
-        cell.textContent = found ? found.Sessions : 0;
-        row.appendChild(cell);
-      }
-      tbody.appendChild(row);
-    }
-    table.appendChild(tbody);
-    container.innerHTML = '';
-    container.appendChild(table);
-  }
-
   function initDoughnut(id, data) {
     toggleEmpty(id, data.length > 0);
     if (!data.length) return;
@@ -869,7 +895,6 @@
     initClientApps();
     initMFAChart();
     initAuthMethods();
-    initHeatmap();
   });
 </script>
 
