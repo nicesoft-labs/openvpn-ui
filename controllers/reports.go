@@ -8,7 +8,7 @@ import (
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/d3vilh/openvpn-ui/metrics"
-	"github.com/d3vilh/openvpn-ui/reports/pdfreport"
+	"github.com/d3vilh/openvpn-ui/reports"
 )
 
 // ReportsController handles VPN reports rendering and export.
@@ -86,64 +86,8 @@ func (c *ReportsController) Download() {
 	c.fillReportViewModel(&vm)
 
 	ctx := context.Background()
-
-	kpi, err := metrics.AggregateSessionsKPI(ctx, store, vm.From, vm.To)
-	if err != nil {
-		logs.Warn("metrics: reports kpi aggregation: %v", err)
-		c.Ctx.Output.SetStatus(503)
-		c.Ctx.Output.Body([]byte("data unavailable for selected dates"))
-		return
-	}
-	vm.KPI = kpi
-
-	sessionsByDay, err := metrics.AggregateSessionsByDay(ctx, store, vm.From, vm.To)
-	if err != nil {
-		logs.Warn("metrics: reports sessions by day: %v", err)
-		c.Ctx.Output.SetStatus(503)
-		c.Ctx.Output.Body([]byte("data unavailable for selected dates"))
-		return
-	}
-
-	topUsersByTraffic, err := metrics.AggregateTopUsersByTraffic(ctx, store, vm.From, vm.To, 10)
-	if err != nil {
-		logs.Warn("metrics: reports top users by traffic: %v", err)
-		c.Ctx.Output.SetStatus(503)
-		c.Ctx.Output.Body([]byte("data unavailable for selected dates"))
-		return
-	}
-
-	topUsersByDuration, err := metrics.AggregateTopUsersByDuration(ctx, store, vm.From, vm.To, 10)
-	if err != nil {
-		logs.Warn("metrics: reports top users by duration: %v", err)
-		c.Ctx.Output.SetStatus(503)
-		c.Ctx.Output.Body([]byte("data unavailable for selected dates"))
-		return
-	}
-
-	hours := vm.To.Sub(vm.From).Hours()
-	if hours < 1 {
-		hours = 1
-	}
-	topClientsByTraffic, err := metrics.GetTopClientsByTraffic(ctx, store, int(hours), 10)
-	if err != nil {
-		logs.Warn("metrics: reports top clients by traffic: %v", err)
-		c.Ctx.Output.SetStatus(503)
-		c.Ctx.Output.Body([]byte("data unavailable for selected dates"))
-		return
-	}
-
-	input := pdfreport.ExecutiveReportInput{
-		From:                vm.From,
-		To:                  vm.To,
-		KPI:                 vm.KPI,
-		SessionsByDay:       sessionsByDay,
-		TopUsersByTraffic:   topUsersByTraffic,
-		TopUsersByDuration:  topUsersByDuration,
-		TopClientsByTraffic: topClientsByTraffic,
-	}
-
 	buf := &bytes.Buffer{}
-	if err := pdfreport.GenerateExecutiveReportPDF(ctx, store, input, buf); err != nil {
+	if err := reports.GenerateSummaryPDF(ctx, store, vm.From, vm.To, buf); err != nil {
 		logs.Error("reports: generate pdf: %v", err)
 		c.Ctx.Output.SetStatus(500)
 		c.Ctx.Output.Body([]byte("failed to generate report"))

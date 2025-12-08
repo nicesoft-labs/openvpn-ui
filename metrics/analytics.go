@@ -115,6 +115,8 @@ type DailyTrafficPoint struct {
 type TopClientPoint struct {
 	CommonName string
 	TotalBytes uint64
+	Sessions   int64
+	ActiveNow  bool
 }
 
 // AnalyticsBucket groups sessions by duration bucket.
@@ -653,6 +655,7 @@ func GetTopClientsByTraffic(ctx context.Context, s Store, rangeHours, limit int)
 	rows, err := db.QueryContext(ctx, `
 SELECT
   json_extract(j.value, '$.CommonName') AS common_name,
+  COUNT(*) as sessions,
   SUM(
     COALESCE(json_extract(j.value, '$.BytesReceived'), 0) +
     COALESCE(json_extract(j.value, '$.BytesSent'), 0)
@@ -672,9 +675,55 @@ LIMIT ?;
 	var points []TopClientPoint
 	for rows.Next() {
 		var p TopClientPoint
-		if err := rows.Scan(&p.CommonName, &p.TotalBytes); err != nil {
+		if err := rows.Scan(&p.CommonName, &p.Sessions, &p.TotalBytes); err != nil {
 			return nil, err
 		}
+		points = append(points, p)
+	}
+	return points, rows.Err()
+}
+
+// AggregateTopClientsByTraffic aggregates traffic per client for the specified period.
+func AggregateTopClientsByTraffic(ctx context.Context, s Store, from, to time.Time, limit int) ([]TopClientPoint, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT
+  common_name,
+  COUNT(*) as sessions,
+  SUM(COALESCE(bytes_in,0) + COALESCE(bytes_out,0)) as total_bytes,
+  MAX(CASE
+        WHEN status='active' OR disconnect_time IS NULL OR disconnect_time=0 OR disconnect_time>=? THEN 1
+        ELSE 0
+      END) as active_now
+FROM client_sessions
+WHERE connect_time >= ? AND connect_time < ?
+GROUP BY common_name
+ORDER BY total_bytes DESC, sessions DESC
+LIMIT ?;
+`, to.Unix(), from.Unix(), to.Unix(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []TopClientPoint
+	for rows.Next() {
+		var (
+			p          TopClientPoint
+			totalBytes sql.NullInt64
+			activeFlag int
+		)
+		if err := rows.Scan(&p.CommonName, &p.Sessions, &totalBytes, &activeFlag); err != nil {
+			return nil, err
+		}
+		if totalBytes.Valid && totalBytes.Int64 > 0 {
+			p.TotalBytes = uint64(totalBytes.Int64)
+		}
+		p.ActiveNow = activeFlag > 0
 		points = append(points, p)
 	}
 	return points, rows.Err()
