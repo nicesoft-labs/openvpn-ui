@@ -69,6 +69,16 @@
   .heat-3 { background: #b0d4ff; }
   .heat-4 { background: #7fb6ff; color:#fff; }
   .heat-5 { background: #3b82f6; color:#fff; }
+
+  .heat-row-weekend .heat-row-label {
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  /* Лёгкая подсветка только пустых ячеек выходных */
+  .heat-row-weekend .heat-cell.heat-0 {
+    background: #fef2f2;
+  }
   .kpi-row .kpi-box {
     border-radius: 14px;
     box-shadow: 0 3px 10px rgba(0,0,0,.05);
@@ -345,14 +355,14 @@
                 <tr>
                   <th></th>
                   {{ range $h := seq 0 23 }}
-                    <th class="text-center">{{$h}}</th>
+                    <th class="text-center">{{ printf "%02d" $h }}</th>
                   {{ end }}
                 </tr>
               </thead>
               <tbody>
                 {{ $max := $heat.MaxValue }}
                 {{ range $w, $row := $heat.Cells }}
-                  <tr>
+                  <tr class="{{ if or (eq $w 5) (eq $w 6) }}heat-row-weekend{{ end }}">
                     <th scope="row" class="heat-row-label">
                       {{ index $heat.RuWeekdaysShort $w }}
                     </th>
