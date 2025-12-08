@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/beego/beego/v2/server/web"
 )
 
 // Handler handles HTTP events from OpenVPN hooks.
@@ -15,34 +16,58 @@ type Handler struct {
 	cfg   MetricsConfig
 	store Store
 	log   *logs.BeeLogger
+	debug bool
 }
 
 // NewHandler creates new metrics HTTP handler.
 func NewHandler(cfg MetricsConfig, store Store, log *logs.BeeLogger) *Handler {
-	return &Handler{cfg: cfg, store: store, log: log}
+	return &Handler{cfg: cfg, store: store, log: log, debug: web.BConfig.RunMode == web.DEV}
 }
 
 // HandleClientEvent consumes client-connect/disconnect events.
 func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
+	if h.debug {
+		h.log.Debug(
+			"metrics: client-event request method=%s remote=%s content_length=%d", r.Method, r.RemoteAddr, r.ContentLength,
+		)
+	}
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		if h.debug {
+			h.log.Debug("metrics: rejected client-event with invalid method=%s", r.Method)
+		}
 		return
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil || (host != "127.0.0.1" && host != "::1") {
 		http.Error(w, "forbidden", http.StatusForbidden)
+		if h.debug {
+			h.log.Debug("metrics: forbidden client-event remote=%s host_parse_err=%v", r.RemoteAddr, err)
+		}
 		return
 	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		if h.debug {
+			h.log.Debug("metrics: client-event parse form error: %v", err)
+		}
 		return
 	}
 
 	evt := h.parseEventFromRequest(r)
+	if h.debug {
+		h.log.Debug(
+			"metrics: parsed client-event type=%s user=%s cn=%s vpn_ip=%s trusted_ip=%s bytes_in=%d bytes_out=%d duration=%ds",
+			evt.EventType, evt.Username, evt.CommonName, evt.VPNIP, evt.TrustedIP, evt.BytesReceived, evt.BytesSent, evt.DurationSec,
+		)
+	}
 	ctx := r.Context()
 	if err := h.store.InsertClientEvent(ctx, evt); err != nil {
 		h.log.Warn("metrics: InsertClientEvent: %v", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
+		if h.debug {
+			h.log.Debug("metrics: failed to persist client-event to store: %v", err)
+		}
 		return
 	}
 
@@ -50,13 +75,22 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 	case "connect":
 		if err := h.store.UpsertSessionOnConnect(ctx, evt); err != nil {
 			h.log.Warn("metrics: UpsertSessionOnConnect: %v", err)
+			if h.debug {
+				h.log.Debug("metrics: connect session upsert error: %v", err)
+			}
 		}
 	case "disconnect":
 		if err := h.store.UpdateSessionOnDisconnect(ctx, evt); err != nil {
 			h.log.Warn("metrics: UpdateSessionOnDisconnect: %v", err)
+			if h.debug {
+				h.log.Debug("metrics: disconnect session update error: %v", err)
+			}
 		}
 	}
 
+	if h.debug {
+		h.log.Debug("metrics: client-event processed successfully type=%s", evt.EventType)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
