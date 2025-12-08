@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
