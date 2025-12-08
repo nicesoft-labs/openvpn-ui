@@ -407,8 +407,11 @@
     <div class="col-12 mb-4">
       <div class="card-clean">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h3 class="card-title mb-0">Журнал доступа (последние события)</h3>
-          <small class="text-muted">объединённый взгляд на подключение/отключение с эвристикой риска</small>
+          <div>
+            <h3 class="card-title mb-0">Журнал доступа (последние события)</h3>
+            <small class="text-muted">объединённый взгляд на подключение/отключение с эвристикой риска</small>
+          </div>
+          <a class="btn btn-sm btn-outline-primary" href="/analytics/access-log">Полный журнал</a>
         </div>
         <div class="card-body table-responsive">
           <table class="table table-sm table-hover log-table">
@@ -1041,6 +1044,38 @@
     initDoughnut('chartRedirectStats', (vm.RedirectStats || []).map(i => ({ Label: i.Mode, Count: i.Count })));
   }
 
+  function getEventTimestamp(e) {
+    if (!e || !e.EventTime) return 0;
+    const ts = new Date(e.EventTime).getTime();
+    return isNaN(ts) ? 0 : ts;
+  }
+
+  function formatEventTime(e) {
+    const ts = getEventTimestamp(e);
+    if (!ts) return '—';
+    const dt = new Date(ts);
+    return isNaN(dt) ? '—' : dt.toLocaleString();
+  }
+
+  function resolveEventTypeLabel(type) {
+    const value = (type || '').toLowerCase();
+    let typeLabel = type || 'event';
+    let typeBadgeClass = 'log-badge log-badge--info';
+
+    if (value.includes('disconnect')) {
+      typeLabel = 'Отключение';
+      typeBadgeClass = 'log-badge log-badge--info';
+    } else if (value.includes('connect')) {
+      typeLabel = 'Подключение';
+      typeBadgeClass = 'log-badge log-badge--ok';
+    } else if (value.includes('tls')) {
+      typeLabel = 'TLS';
+      typeBadgeClass = 'log-badge log-badge--warn';
+    }
+
+    return { typeLabel, typeBadgeClass };
+  }
+
   function initAccessLog() {
     const tbody = document.getElementById('accessLogBody');
     const emptyRow = document.getElementById('accessLogEmptyRow');
@@ -1061,11 +1096,7 @@
     if (emptyRow) emptyRow.style.display = 'none';
 
     // Сортируем по времени на всякий случай
-    events.sort((a, b) => {
-      const ta = (a.EventTime && a.EventTime.Valid) ? a.EventTime.Int64 : 0;
-      const tb = (b.EventTime && b.EventTime.Valid) ? b.EventTime.Int64 : 0;
-      return (tb || 0) - (ta || 0);
-    });
+    events.sort((a, b) => getEventTimestamp(b) - getEventTimestamp(a));
 
     tbody.innerHTML = '';
     events.forEach(e => {
@@ -1093,24 +1124,13 @@
         riskBadgeClass = 'log-badge log-badge--warn';
       }
 
-      let typeLabel = e.EventType || 'event';
-      let typeBadgeClass = 'log-badge log-badge--info';
-      if (/connect/i.test(typeLabel)) {
-        typeLabel = 'Подключение';
-        typeBadgeClass = 'log-badge log-badge--ok';
-      } else if (/disconnect/i.test(typeLabel)) {
-        typeLabel = 'Отключение';
-        typeBadgeClass = 'log-badge log-badge--info';
-      } else if (/tls/i.test(typeLabel)) {
-        typeLabel = 'TLS';
-        typeBadgeClass = 'log-badge log-badge--warn';
-      }
+      const { typeLabel, typeBadgeClass } = resolveEventTypeLabel(e.EventType);
 
       const tr = document.createElement('tr');
       if (riskClass) tr.classList.add(riskClass);
 
       tr.innerHTML = `
-        <td>${new Date((e.EventTime || 0) * 1000).toLocaleString()}</td>
+        <td>${formatEventTime(e)}</td>
         <td><span class="${typeBadgeClass}">${typeLabel}</span></td>
         <td>${e.Username || '—'}</td>
         <td>${e.CommonName || '—'}</td>

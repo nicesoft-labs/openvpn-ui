@@ -586,6 +586,55 @@ LIMIT ?;
 	return items, rows.Err()
 }
 
+// CountEvents returns total number of client events.
+func CountEvents(ctx context.Context, s Store) (int64, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return 0, err
+	}
+
+	var total int64
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM client_events;`).Scan(&total); err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
+// GetEventsPage fetches events page ordered by time descending.
+func GetEventsPage(ctx context.Context, s Store, limit, offset int) ([]AnalyticsEventRow, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
+       COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
+       bytes_received, bytes_sent, duration_sec
+FROM client_events
+ORDER BY event_time DESC
+LIMIT ? OFFSET ?;
+`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []AnalyticsEventRow
+	for rows.Next() {
+		var (
+			eventTime int64
+			row       AnalyticsEventRow
+		)
+		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
+			return nil, err
+		}
+		row.EventTime = time.Unix(eventTime, 0).UTC()
+		items = append(items, row)
+	}
+	return items, rows.Err()
+}
+
 // GetClientsTimeline fetches number of clients for the given range of hours.
 func GetClientsTimeline(ctx context.Context, s Store, rangeHours int) ([]TimePoint, error) {
 	db, err := getSQLDB(s)
