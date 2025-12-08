@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -57,6 +59,37 @@ type AnalyticsViewModel struct {
 	RecentSessions         []metrics.AnalyticsSessionRow
 	RecentEvents           []metrics.AnalyticsEventRow
 
+	PrevTotalSessions      int64
+	PrevTotalTrafficBytes  uint64
+	PrevUniqueUsers        int64
+	PrevMFACoveragePercent float64
+
+	SessionsChangePercent float64
+	TrafficChangePercent  float64
+	UsersChangePercent    float64
+	MFACoverageChange     float64
+
+	StrongCipherPercent float64
+	LegacyCipherPercent float64
+
+	MaxClientsConfigured   int64
+	ClientsCapacityPercent float64
+
+	PeakHourLabel    string
+	PeakHourSessions int64
+	PeakDayLabel     string
+
+	TopCountries        []metrics.AnalyticsKV
+	OtherCountriesCount int64
+	TotalCountries      int
+
+	HealthFlags []HealthFlag
+
+	SessionInsights []SessionInsightRow
+
+	AccountSharingSuspects      []AccountSharingSuspect
+	AccountSharingSuspectsCount int
+
 	TotalTrafficBytes    uint64
 	TotalTrafficGiB      float64
 	AvgTrafficPerUserMB  float64
@@ -75,6 +108,53 @@ type AnalyticsViewModel struct {
 	ProblemClientsCount  int
 	OverallHealthLevel   string
 	OverallHealthMessage string
+}
+
+type HealthFlag struct {
+	Level   string `json:"level"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type SessionInsightRow struct {
+	Username   string
+	CommonName string
+	DeviceOS   string
+	Country    string
+	Status     string
+
+	ConnectTime time.Time
+	DurationSec int64
+	BytesTotal  uint64
+
+	LastEventTime time.Time
+	LastEventType string
+	LastIP        string
+
+	IsProblemClient bool
+	Reconnects      int64
+	AvgDurationSec  int64
+
+	IsNight     bool
+	IsWeekend   bool
+	IsVeryShort bool
+
+	IsAccountSharingSuspect bool
+
+	RiskScore   int
+	RiskLevel   string
+	RiskReasons []string
+}
+
+type AccountSharingSuspect struct {
+	Username          string
+	Sessions          int64
+	DistinctCommon    int
+	DistinctCountries int
+	DistinctIPNets    int
+	DistinctOS        int
+	Score             int
+	Reasons           []string
 }
 
 // AnalyticsHeatmapView holds data for calendar heatmap rendering.
@@ -189,6 +269,42 @@ func (c *AnalyticsController) Get() {
 		logs.Warn("metrics: country distribution: %v", err)
 		vm.DataUnavailable = true
 	}
+
+	var totalCiphers, strong, legacy int64
+	for _, c := range vm.CipherDistribution {
+		totalCiphers += c.Value
+		name := strings.ToLower(c.Key)
+
+		if strings.Contains(name, "bf-") || strings.Contains(name, "des") || strings.Contains(name, "3des") || strings.Contains(name, "rc2") || strings.Contains(name, "rc4") {
+			legacy += c.Value
+		} else {
+			strong += c.Value
+		}
+	}
+
+	if totalCiphers > 0 {
+		vm.StrongCipherPercent = 100 * float64(strong) / float64(totalCiphers)
+		vm.LegacyCipherPercent = 100 * float64(legacy) / float64(totalCiphers)
+	}
+
+	if len(vm.CountryDistribution) > 0 {
+		vm.TotalCountries = len(vm.CountryDistribution)
+
+		limit := 5
+		if len(vm.CountryDistribution) < limit {
+			limit = len(vm.CountryDistribution)
+		}
+		vm.TopCountries = vm.CountryDistribution[:limit]
+
+		var sumTop, sumAll int64
+		for i, c := range vm.CountryDistribution {
+			sumAll += c.Value
+			if i < limit {
+				sumTop += c.Value
+			}
+		}
+		vm.OtherCountriesCount = sumAll - sumTop
+	}
 	if vm.RecentSessions, err = metrics.GetRecentSessions(ctx, store, 20); err != nil {
 		logs.Warn("metrics: recent sessions: %v", err)
 		vm.DataUnavailable = true
@@ -279,7 +395,26 @@ func (c *AnalyticsController) Get() {
 			heatmapView.MaxValue = heatmapView.Cells[cell.Weekday][cell.Hour]
 		}
 	}
+
+	var peakW, peakH int
+	var peakVal int64
+	for w := 0; w < 7; w++ {
+		for h := 0; h < 24; h++ {
+			v := heatmapView.Cells[w][h]
+			if v > peakVal {
+				peakVal = v
+				peakW = w
+				peakH = h
+			}
+		}
+	}
 	vm.HeatmapCalendar = heatmapView
+	vm.PeakHourSessions = peakVal
+	if peakVal > 0 {
+		wd := heatmapView.RuWeekdaysShort[peakW]
+		vm.PeakHourLabel = wd + " " + fmt.Sprintf("%02d:00–%02d:00", peakH, (peakH+1)%24)
+		vm.PeakDayLabel = wd
+	}
 
 	totalBytes := vm.TotalBytesIn + vm.TotalBytesOut
 	vm.TotalTrafficBytes = totalBytes
@@ -296,6 +431,40 @@ func (c *AnalyticsController) Get() {
 	}
 	if stats.MFASessions > 0 {
 		vm.MFAFailurePercent = 100 * float64(stats.MFAFailed) / float64(stats.MFASessions)
+	}
+
+	periodDur := vm.To.Sub(vm.From)
+	prevTo := vm.From
+	prevFrom := vm.From.Add(-periodDur)
+
+	prevKPI, err := metrics.AggregateSessionsKPI(ctx, store, prevFrom, prevTo)
+	if err == nil {
+		vm.PrevTotalSessions = prevKPI.TotalSessions
+		vm.PrevTotalTrafficBytes = prevKPI.TotalBytesIn + prevKPI.TotalBytesOut
+		vm.PrevUniqueUsers = prevKPI.UniqueUsers
+
+		if prevKPI.TotalSessions > 0 {
+			vm.SessionsChangePercent = 100 * (float64(vm.TotalSessions-prevKPI.TotalSessions) / float64(prevKPI.TotalSessions))
+		}
+		curBytes := vm.TotalBytesIn + vm.TotalBytesOut
+		prevBytes := prevKPI.TotalBytesIn + prevKPI.TotalBytesOut
+		if prevBytes > 0 {
+			vm.TrafficChangePercent = 100 * (float64(curBytes-prevBytes) / float64(prevBytes))
+		}
+		if prevKPI.UniqueUsers > 0 {
+			vm.UsersChangePercent = 100 * (float64(vm.UniqueUsers-prevKPI.UniqueUsers) / float64(prevKPI.UniqueUsers))
+		}
+
+		prevMFA, err2 := metrics.AggregateMFAStats(ctx, store, prevFrom, prevTo)
+		if err2 == nil && prevMFA.TotalSessions > 0 {
+			prevCover := 100 * float64(prevMFA.MFASessions) / float64(prevMFA.TotalSessions)
+			vm.PrevMFACoveragePercent = prevCover
+			if vm.MFACoveragePercent > 0 {
+				vm.MFACoverageChange = vm.MFACoveragePercent - prevCover
+			}
+		}
+	} else {
+		logs.Warn("metrics: prev-period kpi aggregation: %v", err)
 	}
 
 	var totalDev, mobile, desktop, other int64
@@ -356,31 +525,281 @@ func (c *AnalyticsController) Get() {
 		vm.ShortSessionPercent = 100 * float64(shortBuckets) / float64(totalBuckets)
 	}
 
+	probByKey := make(map[string]metrics.ProblemClientRow)
+	for _, p := range vm.ProblemClients {
+		key := p.CommonName + "|" + p.Username
+		probByKey[key] = p
+	}
+
+	eventByKey := make(map[string]metrics.AnalyticsEventRow)
+	for _, e := range vm.RecentEvents {
+		key := e.CommonName + "|" + e.Username
+		if old, ok := eventByKey[key]; !ok || e.EventTime.After(old.EventTime) {
+			eventByKey[key] = e
+		}
+	}
+
+	var insights []SessionInsightRow
+
+	for _, s := range vm.RecentSessions {
+		row := SessionInsightRow{
+			CommonName:  s.CommonName,
+			Username:    s.Username,
+			DeviceOS:    s.DeviceOS,
+			Country:     s.Country,
+			Status:      s.Status,
+			ConnectTime: s.ConnectTime,
+			DurationSec: s.DurationSec,
+			BytesTotal:  s.BytesIn + s.BytesOut,
+		}
+
+		key := s.CommonName + "|" + s.Username
+		if ev, ok := eventByKey[key]; ok {
+			row.LastEventTime = ev.EventTime
+			row.LastEventType = ev.EventType
+			row.LastIP = ev.TrustedIP
+		}
+
+		if p, ok := probByKey[key]; ok {
+			row.IsProblemClient = true
+			row.Reconnects = p.Reconnects
+			row.AvgDurationSec = p.AvgDurationSec
+		}
+
+		loc := time.Local
+		t := s.ConnectTime.In(loc)
+		wd := t.Weekday()
+		row.IsWeekend = wd == time.Saturday || wd == time.Sunday
+		h := t.Hour()
+		row.IsNight = h >= 0 && h < 6
+
+		row.IsVeryShort = s.DurationSec > 0 && s.DurationSec < 5*60
+
+		var score int
+		var reasons []string
+
+		if row.IsProblemClient {
+			score += 2
+			reasons = append(reasons, "частые переподключения/ошибки")
+		}
+		if row.IsVeryShort {
+			score++
+			reasons = append(reasons, "очень короткая сессия (<5 минут)")
+		}
+		if row.IsNight {
+			score++
+			reasons = append(reasons, "подключение ночью")
+		}
+		if row.IsWeekend {
+			score++
+			reasons = append(reasons, "подключение в выходной")
+		}
+		if row.Reconnects > 10 {
+			score++
+			reasons = append(reasons, "много reconnects")
+		}
+
+		row.RiskScore = score
+		row.RiskReasons = reasons
+		switch {
+		case score >= 4:
+			row.RiskLevel = "high"
+		case score >= 2:
+			row.RiskLevel = "medium"
+		default:
+			row.RiskLevel = "low"
+		}
+
+		insights = append(insights, row)
+	}
+
+	type accountSharingAgg struct {
+		Sessions  int64
+		Commons   map[string]struct{}
+		Countries map[string]struct{}
+		IPNets    map[string]struct{}
+		OSes      map[string]struct{}
+		HasNight  bool
+		HasDay    bool
+		FirstTime time.Time
+		LastTime  time.Time
+	}
+
+	aggByUser := make(map[string]*accountSharingAgg)
+
+	for _, s := range vm.RecentSessions {
+		if s.Username == "" {
+			continue
+		}
+		a, ok := aggByUser[s.Username]
+		if !ok {
+			a = &accountSharingAgg{
+				Commons:   make(map[string]struct{}),
+				Countries: make(map[string]struct{}),
+				IPNets:    make(map[string]struct{}),
+				OSes:      make(map[string]struct{}),
+			}
+			aggByUser[s.Username] = a
+		}
+
+		a.Sessions++
+		if s.CommonName != "" {
+			a.Commons[s.CommonName] = struct{}{}
+		}
+		if s.Country != "" {
+			a.Countries[s.Country] = struct{}{}
+		}
+		if s.DeviceOS != "" {
+			a.OSes[s.DeviceOS] = struct{}{}
+		}
+
+		ipStr := ""
+		key := s.CommonName + "|" + s.Username
+		if ev, ok := eventByKey[key]; ok {
+			ipStr = ev.TrustedIP
+		}
+		if ipStr != "" {
+			ip := net.ParseIP(ipStr)
+			if ip != nil && ip.To4() != nil {
+				b := ip.To4()
+				prefix := fmt.Sprintf("%d.%d.%d", b[0], b[1], b[2])
+				a.IPNets[prefix] = struct{}{}
+			} else {
+				a.IPNets[ipStr] = struct{}{}
+			}
+		}
+
+		t := s.ConnectTime
+		if a.FirstTime.IsZero() || t.Before(a.FirstTime) {
+			a.FirstTime = t
+		}
+		if a.LastTime.IsZero() || t.After(a.LastTime) {
+			a.LastTime = t
+		}
+
+		hour := t.In(time.Local).Hour()
+		if hour >= 0 && hour < 6 {
+			a.HasNight = true
+		} else if hour >= 8 && hour <= 20 {
+			a.HasDay = true
+		}
+	}
+
+	var suspects []AccountSharingSuspect
+
+	for username, a := range aggByUser {
+		distinctCommon := len(a.Commons)
+		distinctCountries := len(a.Countries)
+		distinctIPNets := len(a.IPNets)
+		distinctOS := len(a.OSes)
+
+		var score int
+		var reasons []string
+
+		if distinctCountries >= 2 {
+			score += 2
+			reasons = append(reasons, "подключения из нескольких стран")
+			if distinctCountries >= 3 {
+				score++
+				reasons = append(reasons, "подключения из 3+ стран")
+			}
+		}
+		if distinctIPNets >= 3 {
+			score += 2
+			reasons = append(reasons, "подключения с разных сетей/провайдеров")
+		}
+		if distinctOS >= 2 {
+			score++
+			reasons = append(reasons, "разные ОС у одного пользователя")
+		}
+		if a.Sessions >= 5 {
+			score++
+			reasons = append(reasons, "много сессий за наблюдаемый период")
+		}
+
+		if !a.FirstTime.IsZero() && !a.LastTime.IsZero() {
+			if a.LastTime.Sub(a.FirstTime) < 24*time.Hour && distinctCountries >= 2 {
+				score += 2
+				reasons = append(reasons, "подозрительные геопереезды в течение <24 часов")
+			}
+		}
+
+		if a.HasNight && a.HasDay {
+			score++
+			reasons = append(reasons, "активность и ночами, и днём с разных окружений")
+		}
+
+		if score >= 4 {
+			suspects = append(suspects, AccountSharingSuspect{
+				Username:          username,
+				Sessions:          a.Sessions,
+				DistinctCommon:    distinctCommon,
+				DistinctCountries: distinctCountries,
+				DistinctIPNets:    distinctIPNets,
+				DistinctOS:        distinctOS,
+				Score:             score,
+				Reasons:           reasons,
+			})
+		}
+	}
+
+	vm.AccountSharingSuspects = suspects
+	vm.AccountSharingSuspectsCount = len(suspects)
+
+	suspectUsernames := make(map[string]struct{})
+	for _, s := range vm.AccountSharingSuspects {
+		suspectUsernames[s.Username] = struct{}{}
+	}
+
+	for i := range insights {
+		if _, ok := suspectUsernames[insights[i].Username]; ok {
+			insights[i].IsAccountSharingSuspect = true
+			insights[i].RiskScore += 2
+			insights[i].RiskReasons = append(insights[i].RiskReasons, "подозрение на шаринг учётки")
+			if insights[i].RiskScore >= 4 {
+				insights[i].RiskLevel = "high"
+			} else if insights[i].RiskScore >= 2 && insights[i].RiskLevel == "" {
+				insights[i].RiskLevel = "medium"
+			}
+		}
+	}
+
+	vm.SessionInsights = insights
+
 	vm.TLSAnomaliesCount = len(vm.TLSAnomalies)
 	vm.ProblemClientsCount = len(vm.ProblemClients)
 
 	severity := 0
 	var msgs []string
+	var flags []HealthFlag
 
 	if vm.MFACoveragePercent < 30 {
 		severity = 2
-		msgs = append(msgs, "низкое покрытие MFA")
+		msg := "низкое покрытие MFA (<30% сессий используют MFA)"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "critical", Code: "low_mfa", Message: msg})
 	} else if vm.MFACoveragePercent < 70 {
 		if severity < 1 {
 			severity = 1
 		}
-		msgs = append(msgs, "MFA включён не у всех")
+		msg := "MFA включён не у всех (30–70% сессий)"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "warning", Code: "medium_mfa", Message: msg})
 	}
 
 	if vm.TLSAnomaliesCount > 0 {
 		if vm.TLSAnomaliesCount > 20 {
 			severity = 2
-			msgs = append(msgs, "много TLS ошибок")
+			msg := "много TLS ошибок за период"
+			msgs = append(msgs, msg)
+			flags = append(flags, HealthFlag{Level: "critical", Code: "many_tls_errors", Message: msg})
 		} else {
 			if severity < 1 {
 				severity = 1
 			}
-			msgs = append(msgs, "есть TLS предупреждения")
+			msg := "есть TLS предупреждения"
+			msgs = append(msgs, msg)
+			flags = append(flags, HealthFlag{Level: "warning", Code: "some_tls_warnings", Message: msg})
 		}
 	}
 
@@ -388,13 +807,44 @@ func (c *AnalyticsController) Get() {
 		if severity < 1 {
 			severity = 1
 		}
-		msgs = append(msgs, "много коротких сессий (<5 мин)")
+		msg := "большая доля коротких сессий (<5 мин)"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "warning", Code: "short_sessions", Message: msg})
 	}
 
-	if vm.ProblemClientsCount > 0 && severity < 1 {
-		severity = 1
-		msgs = append(msgs, "есть проблемные клиенты")
+	if vm.ProblemClientsCount > 0 {
+		if severity < 1 {
+			severity = 1
+		}
+		msg := "есть проблемные клиенты (частые переподключения / ошибки)"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "warning", Code: "problem_clients", Message: msg})
 	}
+
+	if vm.LegacyCipherPercent > 20 {
+		if severity < 1 {
+			severity = 1
+		}
+		msg := "значительная доля сессий на устаревших шифрах"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "warning", Code: "legacy_ciphers", Message: msg})
+	}
+
+	if vm.ClientsCapacityPercent > 90 && vm.MaxClientsConfigured > 0 {
+		severity = 2
+		msg := "пиковое число клиентов близко к лимиту max-clients"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "critical", Code: "capacity_limit", Message: msg})
+	} else if vm.ClientsCapacityPercent > 80 && vm.MaxClientsConfigured > 0 {
+		if severity < 1 {
+			severity = 1
+		}
+		msg := "пиковое число клиентов высоко относительно max-clients"
+		msgs = append(msgs, msg)
+		flags = append(flags, HealthFlag{Level: "warning", Code: "capacity_warning", Message: msg})
+	}
+
+	vm.HealthFlags = flags
 
 	switch severity {
 	case 0:
