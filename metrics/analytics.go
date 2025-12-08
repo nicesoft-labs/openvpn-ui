@@ -178,11 +178,30 @@ type TLSIssuerStat struct {
 
 // TLSCertStat aggregates client certificate usage.
 type TLSCertStat struct {
-	SerialHex   string `json:"SerialHex"`
-	CommonNames int64  `json:"CommonNames"`
-	Sessions    int64  `json:"Sessions"`
-	LastSeen    int64  `json:"LastSeen"`
+	SerialHex     string   `json:"SerialHex"`
+	SerialDec     string   `json:"SerialDec"`
+	CommonNames   []string `json:"CommonNames"`
+	Sessions      int64    `json:"Sessions"`
+	FirstSeenUnix int64    `json:"FirstSeenUnix"`
+	LastSeenUnix  int64    `json:"LastSeenUnix"`
+
+	UniqueTrustedIPs   int64   `json:"UniqueTrustedIPs"`
+	UniqueVPNIPs       int64   `json:"UniqueVPNIPs"`
+	UniquePlatforms    int64   `json:"UniquePlatforms"`
+	UniqueClientApps   int64   `json:"UniqueClientApps"`
+	TotalBytes         uint64  `json:"TotalBytes"`
+	AvgDurationSec     float64 `json:"AvgDurationSec"`
+	AvgBytesPerSession float64 `json:"AvgBytesPerSession"`
+
+	SharingScore   float64  `json:"SharingScore"`
+	SharingLevel   string   `json:"SharingLevel"`
+	SharingReasons []string `json:"SharingReasons"`
+
+	LastSeen time.Time `json:"-"`
 }
+
+// TLSCertDetailRow represents a detailed row for TLS certificate analytics.
+type TLSCertDetailRow = TLSCertStat
 
 // TLSAnomalyRow describes problematic TLS verification events.
 type TLSAnomalyRow struct {
@@ -1062,26 +1081,79 @@ func AggregateTLSIssuerStats(ctx context.Context, s Store, from, to time.Time) (
 
 // AggregateTLSCertStats aggregates usage statistics for client certificates.
 func AggregateTLSCertStats(ctx context.Context, s Store, from, to time.Time, limit int) ([]TLSCertStat, error) {
+	stats, err := aggregateTLSCertStats(ctx, s, from, to)
+	if err != nil {
+		return nil, err
+	}
+	sortTLSCertStats(stats)
+	if limit > 0 && len(stats) > limit {
+		stats = stats[:limit]
+	}
+	return stats, nil
+}
+
+// CountTLSCerts returns the number of unique TLS certificates for the period.
+func CountTLSCerts(ctx context.Context, s Store, from, to time.Time) (int64, error) {
+	db, err := getSQLDB(s)
+	if err != nil {
+		return 0, err
+	}
+
+	row := db.QueryRowContext(ctx, `
+SELECT COUNT(DISTINCT json_extract(env_raw, '$.tls_serial_hex_0'))
+FROM client_events
+WHERE event_type = 'disconnect'
+  AND event_time BETWEEN ? AND ?;`, from.Unix(), to.Unix())
+
+	var total sql.NullInt64
+	if err := row.Scan(&total); err != nil {
+		return 0, err
+	}
+	return total.Int64, nil
+}
+
+// GetTLSCertsPage returns a paginated list of TLS certificates with analytics.
+func GetTLSCertsPage(ctx context.Context, s Store, from, to time.Time, limit, offset int) ([]TLSCertDetailRow, error) {
+	stats, err := aggregateTLSCertStats(ctx, s, from, to)
+	if err != nil {
+		return nil, err
+	}
+	sortTLSCertStats(stats)
+	if offset >= len(stats) {
+		return []TLSCertDetailRow{}, nil
+	}
+	end := offset + limit
+	if end > len(stats) {
+		end = len(stats)
+	}
+	return stats[offset:end], nil
+}
+
+func aggregateTLSCertStats(ctx context.Context, s Store, from, to time.Time) ([]TLSCertStat, error) {
 	db, err := getSQLDB(s)
 	if err != nil {
 		return nil, err
 	}
 
 	rows, err := db.QueryContext(ctx, `
-    SELECT
-        CASE
-            WHEN json_valid(env_raw) THEN COALESCE(NULLIF(json_extract(env_raw, '$.tls_serial_hex_0'), ''), 'unknown')
-            ELSE 'unknown'
-        END as serial_hex,
-        COUNT(DISTINCT common_name) as common_names,
-        COUNT(*) as sessions,
-        MAX(event_time) as last_seen
-    FROM client_events
-    WHERE event_type IN ('connect', 'disconnect', 'tls_verify')
-      AND event_time >= ? AND event_time < ?
-    GROUP BY serial_hex
-    ORDER BY sessions DESC
-    LIMIT ?;`, from.Unix(), to.Unix(), limit)
+SELECT
+  json_extract(env_raw, '$.tls_serial_hex_0') AS serial_hex,
+  json_extract(env_raw, '$.tls_serial_0')     AS serial_dec,
+  group_concat(DISTINCT common_name)          AS cn_list,
+  COUNT(*)                                    AS sessions,
+  MIN(event_time)                             AS first_seen,
+  MAX(event_time)                             AS last_seen,
+  COUNT(DISTINCT trusted_ip)                  AS ip_count,
+  COUNT(DISTINCT vpn_ip)                      AS vpn_ip_count,
+  COUNT(DISTINCT json_extract(env_raw, '$.IV_PLAT'))    AS platform_count,
+  COUNT(DISTINCT json_extract(env_raw, '$.IV_GUI_VER')) AS gui_count,
+  SUM(CAST(bytes_received AS INTEGER) + CAST(bytes_sent AS INTEGER)) AS total_bytes,
+  AVG(CAST(duration_sec AS REAL)) AS avg_duration,
+  AVG(CAST(bytes_received AS REAL) + CAST(bytes_sent AS REAL)) AS avg_bytes
+FROM client_events
+WHERE event_type = 'disconnect'
+  AND event_time BETWEEN ? AND ?
+GROUP BY serial_hex;`, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -1089,13 +1161,104 @@ func AggregateTLSCertStats(ctx context.Context, s Store, from, to time.Time, lim
 
 	var res []TLSCertStat
 	for rows.Next() {
-		var r TLSCertStat
-		if err := rows.Scan(&r.SerialHex, &r.CommonNames, &r.Sessions, &r.LastSeen); err != nil {
+		var (
+			serialHex, serialDec sql.NullString
+			cnList               sql.NullString
+			sessions             sql.NullInt64
+			firstSeen, lastSeen  sql.NullInt64
+			ipCount, vpnIPCount  sql.NullInt64
+			platformCount        sql.NullInt64
+			guiCount             sql.NullInt64
+			totalBytes           sql.NullInt64
+			avgDuration          sql.NullFloat64
+			avgBytes             sql.NullFloat64
+		)
+
+		if err := rows.Scan(&serialHex, &serialDec, &cnList, &sessions, &firstSeen, &lastSeen, &ipCount, &vpnIPCount, &platformCount, &guiCount, &totalBytes, &avgDuration, &avgBytes); err != nil {
 			return nil, err
 		}
-		res = append(res, r)
+
+		stat := TLSCertStat{
+			SerialHex:          strings.TrimSpace(serialHex.String),
+			SerialDec:          strings.TrimSpace(serialDec.String),
+			Sessions:           sessions.Int64,
+			FirstSeenUnix:      firstSeen.Int64,
+			LastSeenUnix:       lastSeen.Int64,
+			UniqueTrustedIPs:   ipCount.Int64,
+			UniqueVPNIPs:       vpnIPCount.Int64,
+			UniquePlatforms:    platformCount.Int64,
+			UniqueClientApps:   guiCount.Int64,
+			TotalBytes:         uint64(totalBytes.Int64),
+			AvgDurationSec:     avgDuration.Float64,
+			AvgBytesPerSession: avgBytes.Float64,
+		}
+
+		if stat.SerialHex == "" {
+			stat.SerialHex = "unknown"
+		}
+		if cnList.Valid && cnList.String != "" {
+			parts := strings.Split(cnList.String, ",")
+			for _, p := range parts {
+				trimmed := strings.TrimSpace(p)
+				if trimmed != "" {
+					stat.CommonNames = append(stat.CommonNames, trimmed)
+				}
+			}
+		}
+		stat.LastSeen = time.Unix(stat.LastSeenUnix, 0).UTC()
+		applySharingHeuristics(&stat)
+		res = append(res, stat)
 	}
 	return res, rows.Err()
+}
+
+func applySharingHeuristics(stat *TLSCertStat) {
+	score := 0.0
+	reasons := []string{}
+
+	if len(stat.CommonNames) > 1 {
+		score += 2
+		reasons = append(reasons, "один серийный номер используется несколькими CN")
+	}
+	if stat.UniqueTrustedIPs >= 3 {
+		score += 2
+		reasons = append(reasons, "подключения с нескольких различных IP/сетей")
+	}
+	if stat.UniquePlatforms > 1 {
+		score += 1
+		reasons = append(reasons, "один и тот же сертификат используется на разных платформах (IV_PLAT)")
+	}
+	if stat.UniqueClientApps > 1 {
+		score += 1
+		reasons = append(reasons, "сертификат используется разными VPN-клиентами (IV_GUI_VER)")
+	}
+	if stat.Sessions >= 10 {
+		score += 1
+		reasons = append(reasons, "много сессий по одному сертификату")
+	}
+
+	stat.SharingScore = score
+	stat.SharingReasons = reasons
+	switch {
+	case score >= 5:
+		stat.SharingLevel = "high"
+	case score >= 3:
+		stat.SharingLevel = "medium"
+	default:
+		stat.SharingLevel = "low"
+	}
+}
+
+func sortTLSCertStats(stats []TLSCertStat) {
+	sort.Slice(stats, func(i, j int) bool {
+		if stats[i].SharingScore == stats[j].SharingScore {
+			if stats[i].Sessions == stats[j].Sessions {
+				return stats[i].TotalBytes > stats[j].TotalBytes
+			}
+			return stats[i].Sessions > stats[j].Sessions
+		}
+		return stats[i].SharingScore > stats[j].SharingScore
+	})
 }
 
 // AggregateTLSAnomalies extracts failed TLS verification events.
