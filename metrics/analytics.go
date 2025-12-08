@@ -301,7 +301,8 @@ func GetRecentSessions(ctx context.Context, s Store, limit int) ([]AnalyticsSess
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT session_uid, common_name, username, device_os,
+SELECT session_uid, common_name, username,
+       COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
        COALESCE(NULLIF(geo_country_name, ''), COALESCE(NULLIF(geo_country_code, ''), '')) as country,
        cipher, bytes_in, bytes_out, duration_sec, connect_time, disconnect_time, status
 FROM client_sessions
@@ -348,7 +349,9 @@ func GetRecentEvents(ctx context.Context, s Store, limit int) ([]AnalyticsEventR
 	}
 
 	rows, err := db.QueryContext(ctx, `
-SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip, device_os, bytes_received, bytes_sent, duration_sec
+SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
+       COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
+       bytes_received, bytes_sent, duration_sec
 FROM client_events
 ORDER BY event_time DESC
 LIMIT ?;
