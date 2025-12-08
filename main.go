@@ -72,10 +72,6 @@ func main() {
 				miClient := mi.NewClient(metricsCfg.MINetwork, metricsCfg.MIAddress)
 				collector := metrics.NewCollector(metricsCfg, sqliteStore, miClient, logger)
 				go collector.Run(context.Background())
-				if metricsCfg.LogEnrichmentEnabled {
-					enricher := metrics.NewLogEnricher(metricsCfg, sqliteStore, logger, debugMode)
-					go enricher.Run(context.Background())
-				}
 			}
 		}
 	}
@@ -108,8 +104,6 @@ metrics.db_path = /var/lib/nicevpn/metrics.db
 metrics.poll_interval = 30s
 metrics.mi_network = tcp
 metrics.mi_address = 127.0.0.1:2080
-metrics.log_enrichment_enabled = true
-metrics.openvpn_log_path = /var/log/openvpn/openvpn.log
 
 # google config
 googleClientID = your-google-clientid

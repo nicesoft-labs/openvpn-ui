@@ -1,7 +1,9 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -46,6 +48,16 @@ func (h *Handler) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if h.debug {
+		rawBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			h.log.Warn("metrics: failed to read client-event body: %v", err)
+		} else {
+			h.log.Debug("metrics: client-event raw body=%s", string(rawBody))
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(rawBody))
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		if h.debug {
