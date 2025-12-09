@@ -122,15 +122,13 @@ func (s *SQLiteStore) InitSchema(ctx context.Context) error {
             disconnect_reason TEXT,
             env_raw TEXT,
             created_at INTEGER NOT NULL
-        );`,
+);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_events_time ON client_events(event_time);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_events_cn_time ON client_events(common_name, event_time);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_events_vpnip_time ON client_events(vpn_ip, event_time);`,
-		`ALTER TABLE client_events ADD COLUMN IF NOT EXISTS geo_network TEXT;`,
-		`ALTER TABLE client_events ADD COLUMN IF NOT EXISTS geo_flag TEXT;`,
 		`CREATE TABLE IF NOT EXISTS client_sessions (
-            session_uid TEXT PRIMARY KEY,
-            vpn_instance_id TEXT,
+    session_uid TEXT PRIMARY KEY,
+    vpn_instance_id TEXT,
             common_name TEXT NOT NULL,
             username TEXT,
             department TEXT,
@@ -191,16 +189,14 @@ func (s *SQLiteStore) InitSchema(ctx context.Context) error {
             disconnect_reason TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
-        );`,
+);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_client_sessions_uid ON client_sessions(session_uid);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_sessions_cn_time ON client_sessions(common_name, connect_time);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_sessions_username_time ON client_sessions(username, connect_time);`,
 		`CREATE INDEX IF NOT EXISTS idx_client_sessions_status ON client_sessions(status);`,
-		`ALTER TABLE client_sessions ADD COLUMN IF NOT EXISTS geo_network TEXT;`,
-		`ALTER TABLE client_sessions ADD COLUMN IF NOT EXISTS geo_flag TEXT;`,
 		`CREATE TABLE IF NOT EXISTS mgmt_snapshots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            snapshot_time INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_time INTEGER NOT NULL,
             n_clients INTEGER,
             bytes_in_total INTEGER,
             bytes_out_total INTEGER,
@@ -214,7 +210,58 @@ func (s *SQLiteStore) InitSchema(ctx context.Context) error {
 			return err
 		}
 	}
+
+	columnAdditions := []struct {
+		table string
+		name  string
+		def   string
+	}{
+		{"client_events", "geo_network", "geo_network TEXT"},
+		{"client_events", "geo_flag", "geo_flag TEXT"},
+		{"client_sessions", "geo_network", "geo_network TEXT"},
+		{"client_sessions", "geo_flag", "geo_flag TEXT"},
+	}
+
+	for _, col := range columnAdditions {
+		if err := s.addColumnIfMissing(ctx, col.table, col.name, col.def); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (s *SQLiteStore) addColumnIfMissing(ctx context.Context, table, column, columnDef string) error {
+	exists, err := s.columnExists(ctx, table, column)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = s.db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, columnDef))
+	return err
+}
+
+func (s *SQLiteStore) columnExists(ctx context.Context, table, column string) (bool, error) {
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s);", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // InsertClientEvent stores raw client event.
