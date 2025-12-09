@@ -1069,6 +1069,25 @@
     return isNaN(ts) ? 0 : ts;
   }
 
+  function buildGeoTooltip(e) {
+    if (!e) return '';
+    const lines = [];
+    const cityCountry = [e.GeoCity, e.GeoCountry].filter(Boolean).join(', ');
+    if (cityCountry) lines.push(cityCountry);
+    if (e.GeoOrg) lines.push(e.GeoOrg);
+    if (e.GeoASN) lines.push(`ASN ${e.GeoASN}`);
+    if (e.GeoNetwork) lines.push(`Сеть ${e.GeoNetwork}`);
+    return lines.join('\n');
+  }
+
+  function renderTrustedIP(e) {
+    const ip = e.TrustedIP || '—';
+    const flag = e.GeoFlag || '';
+    const tooltip = buildGeoTooltip(e);
+    const title = tooltip ? ` title="${tooltip.replace(/"/g, '&quot;')}"` : '';
+    return `<span class="geo-ip"${title}>${flag ? flag + ' ' : ''}${ip}</span>`;
+  }
+
   function formatEventTime(e) {
     const ts = getEventTimestamp(e);
     if (!ts) return '—';
@@ -1153,7 +1172,7 @@
         <td><span class="${typeBadgeClass}">${typeLabel}</span></td>
         <td>${e.Username || '—'}</td>
         <td>${e.CommonName || '—'}</td>
-        <td>${e.TrustedIP || '—'}</td>
+        <td>${renderTrustedIP(e)}</td>
         <td>${e.VPNIP || '—'}</td>
         <td>${e.DeviceOS || 'Unknown'}</td>
         <td>${bytesMB.toFixed(1)} MB</td>

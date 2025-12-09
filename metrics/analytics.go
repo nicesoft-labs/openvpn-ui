@@ -86,6 +86,12 @@ type AnalyticsEventRow struct {
 	TrustedIP   string
 	VPNIP       string
 	DeviceOS    string
+	GeoCountry  string
+	GeoCity     string
+	GeoASN      string
+	GeoOrg      string
+	GeoNetwork  string
+	GeoFlag     string
 	BytesIn     uint64
 	BytesOut    uint64
 	DurationSec int64
@@ -580,6 +586,12 @@ func GetRecentEvents(ctx context.Context, s Store, limit int) ([]AnalyticsEventR
 	rows, err := db.QueryContext(ctx, `
 SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
        COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
+       COALESCE(NULLIF(geo_country_name, ''), COALESCE(NULLIF(geo_country_code, ''), '')) as country,
+       COALESCE(NULLIF(geo_city, ''), '') as city,
+       COALESCE(NULLIF(geo_asn, ''), '') as asn,
+       COALESCE(NULLIF(geo_org, ''), '') as org,
+       COALESCE(NULLIF(geo_network, ''), '') as network,
+       COALESCE(NULLIF(geo_flag, ''), '') as flag,
        bytes_received, bytes_sent, duration_sec
 FROM client_events
 ORDER BY event_time DESC
@@ -596,7 +608,7 @@ LIMIT ?;
 			eventTime int64
 			row       AnalyticsEventRow
 		)
-		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
+		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.GeoCountry, &row.GeoCity, &row.GeoASN, &row.GeoOrg, &row.GeoNetwork, &row.GeoFlag, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
 			return nil, err
 		}
 		row.EventTime = time.Unix(eventTime, 0).UTC()
@@ -629,6 +641,12 @@ func GetEventsPage(ctx context.Context, s Store, limit, offset int) ([]Analytics
 	rows, err := db.QueryContext(ctx, `
 SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
        COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
+       COALESCE(NULLIF(geo_country_name, ''), COALESCE(NULLIF(geo_country_code, ''), '')) as country,
+       COALESCE(NULLIF(geo_city, ''), '') as city,
+       COALESCE(NULLIF(geo_asn, ''), '') as asn,
+       COALESCE(NULLIF(geo_org, ''), '') as org,
+       COALESCE(NULLIF(geo_network, ''), '') as network,
+       COALESCE(NULLIF(geo_flag, ''), '') as flag,
        bytes_received, bytes_sent, duration_sec
 FROM client_events
 ORDER BY event_time DESC
@@ -645,7 +663,7 @@ LIMIT ? OFFSET ?;
 			eventTime int64
 			row       AnalyticsEventRow
 		)
-		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
+		if err := rows.Scan(&row.EventType, &eventTime, &row.CommonName, &row.Username, &row.TrustedIP, &row.VPNIP, &row.DeviceOS, &row.GeoCountry, &row.GeoCity, &row.GeoASN, &row.GeoOrg, &row.GeoNetwork, &row.GeoFlag, &row.BytesIn, &row.BytesOut, &row.DurationSec); err != nil {
 			return nil, err
 		}
 		row.EventTime = time.Unix(eventTime, 0).UTC()
@@ -1011,7 +1029,6 @@ WHERE connect_time >= ? AND connect_time < ?;
 	}
 	return stats, nil
 }
-
 
 // AggregateAuthMethodStats groups sessions by authentication method.
 func AggregateAuthMethodStats(ctx context.Context, s Store, from, to time.Time) ([]AuthMethodStat, error) {

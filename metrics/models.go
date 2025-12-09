@@ -51,6 +51,8 @@ type ClientEvent struct {
 	GeoLat         float64
 	GeoLon         float64
 	GeoTimezone    string
+	GeoNetwork     string
+	GeoFlag        string
 
 	BytesReceived   uint64
 	BytesSent       uint64
@@ -113,6 +115,8 @@ type Session struct {
 	GeoLat         float64
 	GeoLon         float64
 	GeoTimezone    string
+	GeoNetwork     string
+	GeoFlag        string
 
 	AuthMethod     string
 	MFAUsed        bool
