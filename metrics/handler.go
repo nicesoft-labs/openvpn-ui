@@ -228,6 +228,8 @@ func (h *Handler) parseEventFromRequest(r *http.Request) *ClientEvent {
 		GeoLat:         parseFloat(r.FormValue("geo_lat")),
 		GeoLon:         parseFloat(r.FormValue("geo_lon")),
 		GeoTimezone:    r.FormValue("geo_timezone"),
+		GeoNetwork:     r.FormValue("geo_network"),
+		GeoFlag:        r.FormValue("geo_flag"),
 
 		BytesReceived:   parseUint("bytes_received"),
 		BytesSent:       parseUint("bytes_sent"),

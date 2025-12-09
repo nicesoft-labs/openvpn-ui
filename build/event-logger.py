@@ -47,7 +47,7 @@ import urllib.request
 import urllib.parse
 
 
-LOGGER_VERSION = "1.0.1"
+LOGGER_VERSION = "1.1.0"
 # URL по умолчанию совместим с прежним client-event.sh
 DEFAULT_API_URL = "http://127.0.0.1:8080/internal/metrics/client-event"
 DEFAULT_API_TIMEOUT = 2  # минимальный мягкий таймаут на запрос к API
@@ -291,6 +291,28 @@ def build_event():
     return event, timestamp
 
 
+def fetch_geo_info(ip):
+    """
+    Получает информацию о внешнем IP из geo-сервиса.
+    Возвращает dict или None при ошибке.
+    """
+    if not ip:
+        return None
+
+    lookup_url = f"http://95.165.14.90:9000/api/lookup?ip={urllib.parse.quote(ip)}"
+    try:
+        with urllib.request.urlopen(lookup_url, timeout=DEFAULT_API_TIMEOUT) as resp:
+            if resp.status != 200:
+                return None
+            data = resp.read()
+            return json.loads(data.decode("utf-8"))
+    except Exception:
+        debug = os.environ.get("NICEVPN_LOGGER_DEBUG") == "1"
+        if debug:
+            print(f"event-logger: geo lookup failed for {ip}", file=sys.stderr)
+        return None
+
+
 def write_event(event, event_ts):
     """
     Записывает событие в файл JSONL.
@@ -367,6 +389,7 @@ def build_api_payload(event):
     client = event.get("client", {}) or {}
     traffic = event.get("traffic", {}) or {}
     auth = event.get("auth", {}) or {}
+    geo = event.get("geo", {}) or {}
 
     payload = {
         "event_type": api_event_type,
@@ -396,6 +419,16 @@ def build_api_payload(event):
         "client_app": client.get("app") or "",
         "client_app_ver": client.get("app_ver") or "",
         "dco_enabled": env.get("IV_DCO_ENABLED", "0"),
+        "geo_country_code": geo.get("country_iso") or "",
+        "geo_country_name": geo.get("country_name") or "",
+        "geo_region": geo.get("region") or "",
+        "geo_city": geo.get("city") or "",
+        "geo_asn": geo.get("asn") or "",
+        "geo_org": geo.get("as_org") or "",
+        "geo_network": geo.get("network") or "",
+        "geo_flag": geo.get("country_flag") or "",
+        "geo_lat": geo.get("latitude") or "",
+        "geo_lon": geo.get("longitude") or "",
         "bytes_received": str(traffic.get("bytes_received") or ""),
         "bytes_sent": str(traffic.get("bytes_sent") or ""),
         "packets_received": str(traffic.get("packets_received") or ""),
@@ -463,6 +496,13 @@ def main():
         if event is None:
             # ничего логировать не надо
             return 0
+
+        api_event_type = map_event_type_for_api(event.get("event_type", ""))
+        if api_event_type == "connect":
+            geo_ip = (event.get("session") or {}).get("trusted_ip")
+            geo_info = fetch_geo_info(geo_ip)
+            if geo_info:
+                event["geo"] = geo_info
 
         write_event(event, ts)
         # Мягкая попытка отправить в API (если включено)
