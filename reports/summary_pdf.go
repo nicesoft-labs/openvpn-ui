@@ -156,6 +156,13 @@ func newReport() *gofpdf.Fpdf {
 	return pdf
 }
 
+func newWideReport() *gofpdf.Fpdf {
+	pdf := gofpdf.New("L", "mm", "A4", "")
+	pdf.SetMargins(15, 18, 15)
+	pdf.SetAutoPageBreak(true, 20)
+	return pdf
+}
+
 func registerFonts(pdf *gofpdf.Fpdf) error {
 	regular := filepath.Join("assets", "fonts", "DejaVuSans.ttf")
 	bold := filepath.Join("assets", "fonts", "DejaVuSans-Bold.ttf")

@@ -85,7 +85,7 @@
           <div class="btn-group btn-group-sm mt-3 mt-md-0" role="group">
             <button type="submit" class="btn btn-primary">Применить</button>
             <a class="btn btn-light" href="/analytics/access-log">Сбросить</a>
-            <a class="btn btn-outline-secondary" href="/analytics/access-log/export{{ if .vm.FiltersQuery }}?{{ .vm.FiltersQuery }}{{ end }}">Экспорт в PDF</a>
+            <a class="btn btn-outline-secondary" href="/analytics/access-log/export?page={{ .vm.Page }}&page_size={{ .vm.PageSize }}{{ if .vm.FiltersQuery }}&{{ .vm.FiltersQuery }}{{ end }}">Экспорт в PDF</a>
           </div>
         </div>
       </form>

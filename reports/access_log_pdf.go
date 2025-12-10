@@ -22,7 +22,7 @@ type AccessLogFilters struct {
 
 // GenerateAccessLogPDF renders filtered access log as PDF table.
 func GenerateAccessLogPDF(events []metrics.AnalyticsEventRow, filters AccessLogFilters, w io.Writer) error {
-	pdf := newReport()
+	pdf := newWideReport()
 	if err := registerFonts(pdf); err != nil {
 		return err
 	}
