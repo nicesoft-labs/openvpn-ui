@@ -223,6 +223,10 @@ func (c *AnalyticsController) parseAccessLogFilters() (metrics.EventFilter, Acce
 	return filter, filters
 }
 
+func hasAccessLogFilters(filters AccessLogFilters) bool {
+	return filters.FromStr != "" || filters.ToStr != "" || filters.EventType != "" || filters.CommonName != "" || filters.TrustedIP != "" || filters.VPNIP != ""
+}
+
 func buildAccessLogFiltersQuery(filters AccessLogFilters) string {
 	values := url.Values{}
 	if filters.FromStr != "" {
@@ -1088,13 +1092,54 @@ func (c *AnalyticsController) AccessLogExport() {
 
 	filter, filtersView := c.parseAccessLogFilters()
 
+	page, err := c.GetInt("page", 1)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := c.GetInt("page_size", 50)
+	if err != nil || pageSize <= 0 {
+		pageSize = 50
+	}
+
+	allowedPageSizes := map[int]bool{25: true, 50: true, 100: true}
+	if !allowedPageSizes[pageSize] {
+		pageSize = 50
+	}
+
 	ctx := context.Background()
-	events, err := metrics.GetEventsFiltered(ctx, store, filter)
-	if err != nil {
-		logs.Warn("metrics: export events: %v", err)
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte("failed to export events"))
-		return
+
+	var events []metrics.AnalyticsEventRow
+	if hasAccessLogFilters(filtersView) {
+		events, err = metrics.GetEventsFiltered(ctx, store, filter)
+		if err != nil {
+			logs.Warn("metrics: export events: %v", err)
+			c.Ctx.Output.SetStatus(500)
+			c.Ctx.Output.Body([]byte("failed to export events"))
+			return
+		}
+	} else {
+		total, err := metrics.CountEvents(ctx, store)
+		if err != nil {
+			logs.Warn("metrics: count events for export: %v", err)
+			total = 0
+		}
+
+		totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+		if totalPages == 0 {
+			totalPages = 1
+		}
+		if page > totalPages {
+			page = totalPages
+		}
+
+		offset := (page - 1) * pageSize
+		events, err = metrics.GetEventsPageFiltered(ctx, store, filter, pageSize, offset)
+		if err != nil {
+			logs.Warn("metrics: export events page: %v", err)
+			c.Ctx.Output.SetStatus(500)
+			c.Ctx.Output.Body([]byte("failed to export events"))
+			return
+		}
 	}
 
 	buf := &bytes.Buffer{}
