@@ -1,14 +1,17 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/d3vilh/openvpn-ui/metrics"
+	"github.com/d3vilh/openvpn-ui/reports"
 )
 
 // AnalyticsController renders aggregated VPN metrics.
@@ -159,6 +162,89 @@ type AccessLogViewModel struct {
 	NextPage   int
 	HasPrev    bool
 	HasNext    bool
+
+	Filters      AccessLogFilters
+	FiltersQuery string
+	PageSizes    []int
+}
+
+// AccessLogFilters represents user-provided filters for access log.
+type AccessLogFilters struct {
+	FromStr    string
+	ToStr      string
+	EventType  string
+	CommonName string
+	TrustedIP  string
+	VPNIP      string
+}
+
+func (c *AnalyticsController) parseAccessLogFilters() (metrics.EventFilter, AccessLogFilters) {
+	filters := AccessLogFilters{
+		FromStr:    strings.TrimSpace(c.GetString("from")),
+		ToStr:      strings.TrimSpace(c.GetString("to")),
+		EventType:  strings.TrimSpace(c.GetString("event")),
+		CommonName: strings.TrimSpace(c.GetString("cn")),
+		TrustedIP:  strings.TrimSpace(c.GetString("trusted_ip")),
+		VPNIP:      strings.TrimSpace(c.GetString("vpn_ip")),
+	}
+
+	layout := "2006-01-02T15:04"
+	var fromPtr, toPtr *time.Time
+
+	if filters.FromStr != "" {
+		if t, err := time.ParseInLocation(layout, filters.FromStr, time.Local); err == nil {
+			normalized := t.UTC()
+			filters.FromStr = t.Format(layout)
+			fromPtr = &normalized
+		} else {
+			filters.FromStr = ""
+		}
+	}
+
+	if filters.ToStr != "" {
+		if t, err := time.ParseInLocation(layout, filters.ToStr, time.Local); err == nil {
+			normalized := t.UTC()
+			filters.ToStr = t.Format(layout)
+			toPtr = &normalized
+		} else {
+			filters.ToStr = ""
+		}
+	}
+
+	filter := metrics.EventFilter{
+		From:       fromPtr,
+		To:         toPtr,
+		EventType:  filters.EventType,
+		CommonName: filters.CommonName,
+		TrustedIP:  filters.TrustedIP,
+		VPNIP:      filters.VPNIP,
+	}
+
+	return filter, filters
+}
+
+func buildAccessLogFiltersQuery(filters AccessLogFilters) string {
+	values := url.Values{}
+	if filters.FromStr != "" {
+		values.Set("from", filters.FromStr)
+	}
+	if filters.ToStr != "" {
+		values.Set("to", filters.ToStr)
+	}
+	if filters.EventType != "" {
+		values.Set("event", filters.EventType)
+	}
+	if filters.CommonName != "" {
+		values.Set("cn", filters.CommonName)
+	}
+	if filters.TrustedIP != "" {
+		values.Set("trusted_ip", filters.TrustedIP)
+	}
+	if filters.VPNIP != "" {
+		values.Set("vpn_ip", filters.VPNIP)
+	}
+
+	return values.Encode()
 }
 
 // TLSCertsViewModel represents data for paginated TLS certificate analytics.
@@ -912,11 +998,13 @@ func (c *AnalyticsController) AccessLog() {
 	store := metrics.GetGlobalStore()
 	if store == nil {
 		// When metrics are disabled, reuse analytics page state.
-		c.Data["vm"] = AccessLogViewModel{Page: 1, PageSize: 50, TotalPages: 1}
+		c.Data["vm"] = AccessLogViewModel{Page: 1, PageSize: 50, TotalPages: 1, PageSizes: []int{25, 50, 100}}
 		c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics"}
 		c.TplName = "analytics/access-log.html"
 		return
 	}
+
+	filter, filtersView := c.parseAccessLogFilters()
 
 	page, err := c.GetInt("page", 1)
 	if err != nil || page < 1 {
@@ -927,8 +1015,13 @@ func (c *AnalyticsController) AccessLog() {
 		pageSize = 50
 	}
 
+	allowedPageSizes := map[int]bool{25: true, 50: true, 100: true}
+	if !allowedPageSizes[pageSize] {
+		pageSize = 50
+	}
+
 	ctx := context.Background()
-	total, err := metrics.CountEvents(ctx, store)
+	total, err := metrics.CountEventsFiltered(ctx, store, filter)
 	if err != nil {
 		logs.Warn("metrics: count events: %v", err)
 	}
@@ -942,7 +1035,7 @@ func (c *AnalyticsController) AccessLog() {
 	}
 
 	offset := (page - 1) * pageSize
-	events, err := metrics.GetEventsPage(ctx, store, pageSize, offset)
+	events, err := metrics.GetEventsPageFiltered(ctx, store, filter, pageSize, offset)
 	if err != nil {
 		logs.Warn("metrics: list events: %v", err)
 	}
@@ -968,11 +1061,63 @@ func (c *AnalyticsController) AccessLog() {
 		NextPage:   page + 1,
 		HasPrev:    page > 1,
 		HasNext:    page < totalPages,
+
+		Filters:      filtersView,
+		FiltersQuery: buildAccessLogFiltersQuery(filtersView),
+		PageSizes:    []int{25, 50, 100},
 	}
 
 	c.Data["vm"] = vm
 	c.Data["breadcrumbs"] = &BreadCrumbs{Title: "Analytics", Subtitle: "Журнал доступа"}
 	c.TplName = "analytics/access-log.html"
+}
+
+// AccessLogExport generates PDF export for filtered events.
+func (c *AnalyticsController) AccessLogExport() {
+	if !c.IsLogin {
+		c.Redirect(c.LoginPath(), 302)
+		return
+	}
+
+	store := metrics.GetGlobalStore()
+	if store == nil {
+		c.Ctx.Output.SetStatus(503)
+		c.Ctx.Output.Body([]byte("metrics store unavailable"))
+		return
+	}
+
+	filter, filtersView := c.parseAccessLogFilters()
+
+	ctx := context.Background()
+	events, err := metrics.GetEventsFiltered(ctx, store, filter)
+	if err != nil {
+		logs.Warn("metrics: export events: %v", err)
+		c.Ctx.Output.SetStatus(500)
+		c.Ctx.Output.Body([]byte("failed to export events"))
+		return
+	}
+
+	buf := &bytes.Buffer{}
+	reportFilters := reports.AccessLogFilters{
+		From:       filtersView.FromStr,
+		To:         filtersView.ToStr,
+		EventType:  filtersView.EventType,
+		CommonName: filtersView.CommonName,
+		TrustedIP:  filtersView.TrustedIP,
+		VPNIP:      filtersView.VPNIP,
+	}
+
+	if err := reports.GenerateAccessLogPDF(events, reportFilters, buf); err != nil {
+		logs.Warn("reports: access log pdf: %v", err)
+		c.Ctx.Output.SetStatus(500)
+		c.Ctx.Output.Body([]byte("failed to generate pdf"))
+		return
+	}
+
+	c.Ctx.Output.Header("Content-Type", "application/pdf")
+	filename := fmt.Sprintf("vpn-access-log-%s.pdf", time.Now().Format("20060102-150405"))
+	c.Ctx.Output.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	c.Ctx.Output.Body(buf.Bytes())
 }
 
 // Certs renders a paginated list of TLS client certificates with analytics.

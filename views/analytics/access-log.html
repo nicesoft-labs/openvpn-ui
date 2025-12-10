@@ -47,6 +47,49 @@
       </div>
       <span class="badge badge-light">Страница {{ .vm.Page }} из {{ .vm.TotalPages }}</span>
     </div>
+    <div class="card-body border-bottom">
+      <form id="accessLogFilterForm" class="form-row align-items-end" method="get" action="/analytics/access-log">
+        <div class="form-group col-md-3">
+          <label class="small text-muted mb-1">Время с</label>
+          <input type="datetime-local" class="form-control form-control-sm" name="from" value="{{ .vm.Filters.FromStr }}" />
+        </div>
+        <div class="form-group col-md-3">
+          <label class="small text-muted mb-1">Время до</label>
+          <input type="datetime-local" class="form-control form-control-sm" name="to" value="{{ .vm.Filters.ToStr }}" />
+        </div>
+        <div class="form-group col-md-2">
+          <label class="small text-muted mb-1">Событие</label>
+          <input type="text" class="form-control form-control-sm" name="event" placeholder="connect" value="{{ .vm.Filters.EventType }}" />
+        </div>
+        <div class="form-group col-md-2">
+          <label class="small text-muted mb-1">CN</label>
+          <input type="text" class="form-control form-control-sm" name="cn" placeholder="client" value="{{ .vm.Filters.CommonName }}" />
+        </div>
+        <div class="form-group col-md-2">
+          <label class="small text-muted mb-1">Внешний IP</label>
+          <input type="text" class="form-control form-control-sm" name="trusted_ip" placeholder="1.2.3.4" value="{{ .vm.Filters.TrustedIP }}" />
+        </div>
+        <div class="form-group col-md-2">
+          <label class="small text-muted mb-1">VPN IP</label>
+          <input type="text" class="form-control form-control-sm" name="vpn_ip" placeholder="10.8.0.5" value="{{ .vm.Filters.VPNIP }}" />
+        </div>
+        <div class="form-group col-md-2">
+          <label class="small text-muted mb-1">Строк на странице</label>
+          <select class="form-control form-control-sm" name="page_size">
+            {{ range .vm.PageSizes }}
+              <option value="{{ . }}" {{ if eq $.vm.PageSize . }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
+          </select>
+        </div>
+        <div class="form-group col-md-3 d-flex align-items-center">
+          <div class="btn-group btn-group-sm mt-3 mt-md-0" role="group">
+            <button type="submit" class="btn btn-primary">Применить</button>
+            <a class="btn btn-light" href="/analytics/access-log">Сбросить</a>
+            <a class="btn btn-outline-secondary" href="/analytics/access-log/export{{ if .vm.FiltersQuery }}?{{ .vm.FiltersQuery }}{{ end }}">Экспорт в PDF</a>
+          </div>
+        </div>
+      </form>
+    </div>
     <div class="card-body table-responsive">
       <table class="table table-sm table-hover log-table">
         <thead>
@@ -71,16 +114,17 @@
 
       <div class="d-flex justify-content-between align-items-center mt-3">
         <div class="text-muted small">
-	  Показаны записи {{ if .vm.Total }}{{ .vm.ShownFrom }}–{{ .vm.ShownTo }}{{ else }}0{{ end }} из {{ .vm.Total }}
+          Показаны записи {{ if .vm.Total }}{{ .vm.ShownFrom }}–{{ .vm.ShownTo }}{{ else }}0{{ end }} из {{ .vm.Total }}
         </div>
         <nav>
           <ul class="pagination pagination-sm mb-0">
-            <li class="page-item {{ if not .HasPrev }}disabled{{ end }}">
-		<a class="page-link" href="?page={{ .vm.PrevPage }}&page_size={{ .vm.PageSize }}" aria-label="Предыдущая">&laquo;</a>
+            <li class="page-item {{ if not .vm.HasPrev }}disabled{{ end }}">
+                <a class="page-link" href="?page={{ .vm.PrevPage }}&page_size={{ .vm.PageSize }}{{ if .vm.FiltersQuery }}&{{ .vm.FiltersQuery }}{{ end }}" aria-label="Предыдущая">&laquo;</a>
             </li>
-	    <li class="page-item disabled"><span class="page-link">{{ .vm.Page }} / {{ .vm.TotalPages }}</span></li>
+            <li class="page-item disabled"><span class="page-link">{{ .vm.Page }} / {{ .vm.TotalPages }}</span></li>
             <li class="page-item {{ if not .vm.HasNext }}disabled{{ end }}">
-              <a class="page-link" href="?page={{ .vm.NextPage }}&page_size={{ .vm.PageSize }}" aria-label="Следующая">&raquo;</a>
+              <a class="page-link" href="?page={{ .vm.NextPage }}&page_size={{ .vm.PageSize }}{{ if .vm.FiltersQuery }}&{{ .vm.FiltersQuery }}{{ end }}" aria-label="Следующая">&raquo;</a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -139,6 +183,35 @@
     return { typeLabel, typeBadgeClass };
   }
 
+  function buildEventTooltip(e) {
+    if (!e) return '';
+    const parts = [];
+    if (e.EventType) parts.push(`Событие: ${e.EventType}`);
+    if (e.Username) parts.push(`Пользователь: ${e.Username}`);
+    if (e.CommonName) parts.push(`CN: ${e.CommonName}`);
+    if (e.TrustedIP) parts.push(`Внешний IP: ${e.TrustedIP}`);
+    if (e.VPNIP) parts.push(`VPN IP: ${e.VPNIP}`);
+    if (e.DeviceOS) parts.push(`ОС/клиент: ${e.DeviceOS}`);
+    const geo = buildGeoTooltip(e);
+    if (geo) parts.push(`Гео: ${geo.replace(/\n/g, ', ')}`);
+    const totalBytes = Number(e.BytesIn || 0) + Number(e.BytesOut || 0);
+    if (totalBytes) parts.push(`Трафик: ${bytesToMB(totalBytes).toFixed(1)} MB`);
+    if (e.DurationSec) parts.push(`Длительность: ${(e.DurationSec / 60).toFixed(1)} мин`);
+    return parts.join('\n');
+  }
+
+  function renderDeviceOS(e) {
+    const os = e.DeviceOS || 'Unknown';
+    const lower = os.toLowerCase();
+    let icon = '';
+    if (lower.includes('android')) {
+      icon = '<i class="fa fa-android text-success mr-1" aria-hidden="true"></i>';
+    } else if (lower.includes('linux')) {
+      icon = '<i class="fa fa-linux mr-1" aria-hidden="true"></i>';
+    }
+    return `${icon}<span class="align-middle">${os}</span>`;
+  }
+
   function renderAccessLog() {
     const tbody = document.getElementById('accessLogBody');
     const emptyRow = document.getElementById('accessLogEmptyRow');
@@ -159,16 +232,17 @@
       const bytesMB = bytesToMB(totalBytes);
       const durSec = Number(e.DurationSec || 0);
       const { typeLabel, typeBadgeClass } = resolveEventTypeLabel(e.EventType);
+      const badgeTitle = buildEventTooltip(e).replace(/"/g, '&quot;');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${formatEventTime(e)}</td>
-        <td><span class="${typeBadgeClass}">${typeLabel}</span></td>
+        <td><span class="${typeBadgeClass}" title="${badgeTitle}">${typeLabel}</span></td>
         <td>${e.Username || '—'}</td>
         <td>${e.CommonName || '—'}</td>
         <td>${renderTrustedIP(e)}</td>
         <td>${e.VPNIP || '—'}</td>
-        <td>${e.DeviceOS || 'Unknown'}</td>
+        <td>${renderDeviceOS(e)}</td>
         <td>${bytesMB.toFixed(1)} MB</td>
         <td>${durSec ? (durSec / 60).toFixed(1) + ' мин' : '—'}</td>
       `;
