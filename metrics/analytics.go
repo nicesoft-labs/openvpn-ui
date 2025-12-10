@@ -97,6 +97,16 @@ type AnalyticsEventRow struct {
 	DurationSec int64
 }
 
+// EventFilter allows filtering access log events.
+type EventFilter struct {
+	From       *time.Time
+	To         *time.Time
+	EventType  string
+	CommonName string
+	TrustedIP  string
+	VPNIP      string
+}
+
 // TimePoint represents a single numeric value at timestamp.
 type TimePoint struct {
 	Ts  int64
@@ -619,13 +629,21 @@ LIMIT ?;
 
 // CountEvents returns total number of client events.
 func CountEvents(ctx context.Context, s Store) (int64, error) {
+	return CountEventsFiltered(ctx, s, EventFilter{})
+}
+
+// CountEventsFiltered returns total number of client events matching filters.
+func CountEventsFiltered(ctx context.Context, s Store, filter EventFilter) (int64, error) {
 	db, err := getSQLDB(s)
 	if err != nil {
 		return 0, err
 	}
 
+	baseQuery := "SELECT COUNT(*) FROM client_events"
+	query, args := buildEventFilterQuery(baseQuery, filter)
+
 	var total int64
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM client_events;`).Scan(&total); err != nil {
+	if err := db.QueryRowContext(ctx, query, args...).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil
@@ -633,12 +651,62 @@ func CountEvents(ctx context.Context, s Store) (int64, error) {
 
 // GetEventsPage fetches events page ordered by time descending.
 func GetEventsPage(ctx context.Context, s Store, limit, offset int) ([]AnalyticsEventRow, error) {
+	return GetEventsPageFiltered(ctx, s, EventFilter{}, limit, offset)
+}
+
+// GetEventsPageFiltered fetches events page ordered by time descending with filters applied.
+func GetEventsPageFiltered(ctx context.Context, s Store, filter EventFilter, limit, offset int) ([]AnalyticsEventRow, error) {
+	return queryEvents(ctx, s, filter, &limit, &offset)
+}
+
+// GetEventsFiltered returns all events matching the filters ordered by time descending.
+func GetEventsFiltered(ctx context.Context, s Store, filter EventFilter) ([]AnalyticsEventRow, error) {
+	return queryEvents(ctx, s, filter, nil, nil)
+}
+
+func buildEventFilterQuery(base string, filter EventFilter) (string, []any) {
+	clauses := make([]string, 0, 6)
+	args := make([]any, 0, 6)
+
+	if filter.From != nil && !filter.From.IsZero() {
+		clauses = append(clauses, "event_time >= ?")
+		args = append(args, filter.From.Unix())
+	}
+	if filter.To != nil && !filter.To.IsZero() {
+		clauses = append(clauses, "event_time <= ?")
+		args = append(args, filter.To.Unix())
+	}
+	if filter.EventType != "" {
+		clauses = append(clauses, "LOWER(event_type) LIKE ?")
+		args = append(args, "%"+strings.ToLower(filter.EventType)+"%")
+	}
+	if filter.CommonName != "" {
+		clauses = append(clauses, "common_name LIKE ?")
+		args = append(args, "%"+filter.CommonName+"%")
+	}
+	if filter.TrustedIP != "" {
+		clauses = append(clauses, "trusted_ip LIKE ?")
+		args = append(args, "%"+filter.TrustedIP+"%")
+	}
+	if filter.VPNIP != "" {
+		clauses = append(clauses, "vpn_ip LIKE ?")
+		args = append(args, "%"+filter.VPNIP+"%")
+	}
+
+	query := base
+	if len(clauses) > 0 {
+		query += " WHERE " + strings.Join(clauses, " AND ")
+	}
+	return query, args
+}
+
+func queryEvents(ctx context.Context, s Store, filter EventFilter, limit, offset *int) ([]AnalyticsEventRow, error) {
 	db, err := getSQLDB(s)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := db.QueryContext(ctx, `
+	baseQuery := `
 SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
        COALESCE(NULLIF(device_os, ''), 'Unknown') as device_os,
        COALESCE(NULLIF(geo_country_name, ''), COALESCE(NULLIF(geo_country_code, ''), '')) as country,
@@ -648,10 +716,21 @@ SELECT event_type, event_time, common_name, username, trusted_ip, vpn_ip,
        COALESCE(NULLIF(geo_network, ''), '') as network,
        COALESCE(NULLIF(geo_flag, ''), '') as flag,
        bytes_received, bytes_sent, duration_sec
-FROM client_events
-ORDER BY event_time DESC
-LIMIT ? OFFSET ?;
-`, limit, offset)
+FROM client_events`
+
+	query, args := buildEventFilterQuery(baseQuery, filter)
+	query += " ORDER BY event_time DESC"
+
+	if limit != nil {
+		query += " LIMIT ?"
+		args = append(args, *limit)
+	}
+	if offset != nil {
+		query += " OFFSET ?"
+		args = append(args, *offset)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
